@@ -1,0 +1,24 @@
+RM=rm -f
+RMFORCE=rm -rf
+GENERATED_IPC=$(SR_CODE_BASE)/generated/src
+IPC_GEN_CMD=thrift 
+SRCS=porthandler.go portmain.go
+IPC_SRCS=portd.thrift
+IPC_SVC_NAME=portdServices
+OBJS=$(subst .cpp,.o,$(SRCS))
+COMP_NAME=portd
+all:ipc $(COMP_NAME)
+ipc:
+	 $(IPC_GEN_CMD) --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
+
+portd: $(OBJS)
+	 go build -o $@ $(SRCS)
+
+guard:
+ifndef SR_CODE_BASE
+	 $(error SR_CODE_BASE is not set)
+endif
+
+clean:guard
+	 $(RM) $(COMP_NAME) 
+	 $(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)
