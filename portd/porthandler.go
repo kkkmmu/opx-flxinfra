@@ -38,17 +38,41 @@ type ClientJson struct {
 var asicdclnt AsicdClient
 var ribdclnt RibClient
 
-func (m PortServiceHandler) CreateV4Intf(   ipAddr          portdServices.Int, 
-                                            intf            portdServices.Int) (rc portdServices.Int, err error) {
+func (m PortServiceHandler) CreateV4Intf(   ipAddr          string, 
+                                            intf            int32) (rc portdServices.Int, err error) {
     logger.Println("Received create intf request")
-	if(ribdclnt.IsConnected == true) {
-		ribdclnt.ClientHdl.CreateV4Route(10,20,1,2,2,2)
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf)
 	}
     return 0, err
 }
 
-func (m PortServiceHandler) DeleteV4Intf( ipAddr         portdServices.Int) (rc portdServices.Int, err error) {
+func (m PortServiceHandler) DeleteV4Intf( ipAddr         string,
+                                          intf           int32) (rc portdServices.Int, err error) {
     logger.Println("Received Intf Delete request")
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf)
+   }
+    return 0, err
+}
+
+func (m PortServiceHandler) CreateV4Neighbor( 
+										    ipAddr string, 
+                                              macAddr string, 
+                                              vlanId int32, 
+											routerIntf int32) (rc portdServices.Int, err error) {
+    logger.Println("Received create neighbor intf request")
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.CreateIPv4Neighbor(ipAddr, macAddr, vlanId, routerIntf)
+	}
+    return 0, err
+}
+
+func (m PortServiceHandler) DeleteV4Neighbor(ipAddr string, macAddr string, vlanId int32, routerIntf int32) (rc portdServices.Int, err error) {
+    logger.Println("Received delete neighbor intf request")
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.DeleteIPv4Neighbor(ipAddr, macAddr, vlanId, routerIntf)
+	}
     return 0, err
 }
 
@@ -111,7 +135,7 @@ func ConnectToClients(paramsFile string){
 
 
 func NewPortServiceHandler () *PortServiceHandler {
-	configFile := "../config/params/clients.json"
+	configFile := "../../config/params/clients.json"
 	ConnectToClients(configFile)
     return &PortServiceHandler{}
 }
