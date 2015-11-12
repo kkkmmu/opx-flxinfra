@@ -5,13 +5,12 @@ IPC_GEN_CMD=thrift
 SRCS=porthandler.go portmain.go
 IPC_SRCS=portd.thrift
 IPC_SVC_NAME=portdServices
-OBJS=$(subst .cpp,.o,$(SRCS))
 COMP_NAME=portd
-all:ipc $(COMP_NAME)
+all:ipc exe
 ipc:
 	 $(IPC_GEN_CMD) --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
-portd: $(OBJS)
+exe: $(SRCS)
 	 go build -o $@ $(SRCS)
 
 guard:
