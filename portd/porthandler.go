@@ -7,7 +7,7 @@ import ("git.apache.org/thrift.git/lib/go/thrift"
         _"errors"
 		"portdServices"
 		"ribd"
-        _ "net")
+        "net")
 
 type PortServiceHandler struct {
 }
@@ -43,6 +43,15 @@ func (m PortServiceHandler) CreateV4Intf(   ipAddr          string,
     logger.Println("Received create intf request")
 	if(asicdclnt.IsConnected == true) {
 		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf)
+	}
+	if(ribdclnt.IsConnected == true) {
+       ip, ipNet, err := net.ParseCIDR(ipAddr)
+       if err != nil {
+          return -1, err
+       }
+	   ipAddrStr := ip.String()
+	   ipMaskStr := ipNet.String()
+	   ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0", ribd.Int(intf), 0)
 	}
     return 0, err
 }
