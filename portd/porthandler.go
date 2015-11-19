@@ -7,6 +7,7 @@ import ("git.apache.org/thrift.git/lib/go/thrift"
         _"errors"
 		"portdServices"
 		"ribd"
+        "l3/rib/ribdCommonDefs"
         "net")
 
 type PortServiceHandler struct {
@@ -41,6 +42,7 @@ var ribdclnt RibClient
 func (m PortServiceHandler) CreateV4Intf(   ipAddr          string, 
                                             intf            int32) (rc portdServices.Int, err error) {
     logger.Println("Received create intf request")
+    var ipMask net.IP 
 	if(asicdclnt.IsConnected == true) {
 		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf)
 	}
@@ -49,9 +51,11 @@ func (m PortServiceHandler) CreateV4Intf(   ipAddr          string,
        if err != nil {
           return -1, err
        }
+       ipMask = make(net.IP, 4)
+       copy(ipMask, ipNet.Mask)
 	   ipAddrStr := ip.String()
-	   ipMaskStr := ipNet.String()
-	   ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0", ribd.Int(intf), 0)
+	   ipMaskStr := net.IP(ipMask).String()
+	   ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0", ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
     return 0, err
 }
@@ -59,9 +63,21 @@ func (m PortServiceHandler) CreateV4Intf(   ipAddr          string,
 func (m PortServiceHandler) DeleteV4Intf( ipAddr         string,
                                           intf           int32) (rc portdServices.Int, err error) {
     logger.Println("Received Intf Delete request")
+    var ipMask net.IP 
 	if(asicdclnt.IsConnected == true) {
 		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf)
    }
+	if(ribdclnt.IsConnected == true) {
+       ip, ipNet, err := net.ParseCIDR(ipAddr)
+       if err != nil {
+          return -1, err
+       }
+       ipMask = make(net.IP, 4)
+       copy(ipMask, ipNet.Mask)
+	   ipAddrStr := ip.String()
+	   ipMaskStr := net.IP(ipMask).String()
+	   ribdclnt.ClientHdl.DeleteV4Route(ipAddrStr, ipMaskStr, ribdCommonDefs.CONNECTED)
+	}
     return 0, err
 }
 
