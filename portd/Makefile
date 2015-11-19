@@ -1,5 +1,6 @@
 RM=rm -f
 RMFORCE=rm -rf
+DESTDIR=$(SR_CODE_BASE)/snaproute/src/bin
 GENERATED_IPC=$(SR_CODE_BASE)/generated/src
 IPC_GEN_CMD=thrift 
 SRCS=porthandler.go portmain.go
@@ -11,7 +12,7 @@ ipc:
 	 $(IPC_GEN_CMD) --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
-	 go build -o $@ $(SRCS)
+	 go build -o $(DESTDIR)/$(COMP_NAME) $(SRCS)
 
 guard:
 ifndef SR_CODE_BASE
@@ -19,5 +20,5 @@ ifndef SR_CODE_BASE
 endif
 
 clean:guard
-	 $(RM) $(COMP_NAME) 
+	 $(RM) $(DESTDIR)/$(COMP_NAME) 
 	 $(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)
