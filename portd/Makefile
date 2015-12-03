@@ -2,17 +2,23 @@ RM=rm -f
 RMFORCE=rm -rf
 DESTDIR=$(SR_CODE_BASE)/snaproute/src/bin
 GENERATED_IPC=$(SR_CODE_BASE)/generated/src
+PARAMSDIR=$(DESTDIR)/params
+MKDIR=mkdir -p
 IPC_GEN_CMD=thrift 
 SRCS=porthandler.go portmain.go
 IPC_SRCS=portd.thrift
 IPC_SVC_NAME=portdServices
 COMP_NAME=portd
-all:ipc exe
+all:ipc exe install
 ipc:
 	 $(IPC_GEN_CMD) --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
 	 go build -o $(DESTDIR)/$(COMP_NAME) $(SRCS)
+
+install:
+	 @$(MKDIR) $(PARAMSDIR)
+	 @install params/portd.json $(PARAMSDIR)/
 
 guard:
 ifndef SR_CODE_BASE

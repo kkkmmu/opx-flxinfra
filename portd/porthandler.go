@@ -8,11 +8,17 @@ import ("git.apache.org/thrift.git/lib/go/thrift"
 		"portdServices"
 		"ribd"
         "l3/rib/ribdCommonDefs"
+		"infra/portd/portdCommonDefs"
+		"github.com/vishvananda/netlink"
         "net")
 
 type PortServiceHandler struct {
 }
-
+type IntfId struct {
+	ifType int
+	ifIndex int
+}
+var AsicLinuxIfMapTable map[IntfId]string
 
 type PortClientBase struct {
 	Address            string
@@ -36,15 +42,58 @@ type ClientJson struct {
 	Port int    `json:Port`
 }
 
+type PortConfigJson struct {
+	Port     int    `json:Port`
+	Ifname   string `json:Ifname`
+}
+
 var asicdclnt AsicdClient
 var ribdclnt RibClient
+var sviBase = "SVI"
+var linkAttrs netlink.LinkAttrs
+var dummyLinkAttrs netlink.LinkAttrs
+
+func vlanLinkCreate(ifName string , vlanId int32) (link netlink.Link, err error){
+	linkAttrs.Name = ifName + "." + strconv.Itoa(int(vlanId))
+	//get the parent link's index
+	parentIfLink, err := netlink.LinkByName(ifName)
+	if(err != nil){
+		logger.Println("Error getting link info for ", ifName)
+		return link, err
+	}
+	ParentlinkAttrs := parentIfLink.Attrs()
+	linkAttrs.ParentIndex = ParentlinkAttrs.Index
+	logger.Printf("parentIndex %d for ifName %s", linkAttrs.ParentIndex, ifName)
+	vlanlink := &netlink.Vlan{linkAttrs, int(vlanId)}
+	err = netlink.LinkAdd(vlanlink)
+	linkAttrs = dummyLinkAttrs
+	return vlanlink, err
+}
+func bridgeLinkCreate(brname string) (link netlink.Link,err error){
+	logger.Println("in brdge create for brname ", brname)
+	linkAttrs.Name = brname
+	logger.Println("linkAttrs.Name=", linkAttrs.Name)
+	mybridge := &netlink.Bridge{linkAttrs}
+	err = netlink.LinkAdd(mybridge)
+	logger.Println("error = ", err)
+	linkAttrs = dummyLinkAttrs
+	return mybridge, err
+}
+
+func addVlanLinkToBridge(vlanLink netlink.Link , bridgeLink *netlink.Bridge ) (err error) {
+	logger.Println("Add vlan link to bridge link")
+	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
+	return err
+}
 
 func (m PortServiceHandler) CreateV4Intf(   ipAddr          string, 
-                                            intf            int32) (rc portdServices.Int, err error) {
+                                            intf            int32,
+											 vlanEnabled     int32) (rc portdServices.Int, err error) {
     logger.Println("Received create intf request")
     var ipMask net.IP 
+	var link netlink.Link
 	if(asicdclnt.IsConnected == true) {
-		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf)
+		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf)//need to pass vlanEnabled here to asic
 	}
 	if(ribdclnt.IsConnected == true) {
        ip, ipNet, err := net.ParseCIDR(ipAddr)
@@ -55,9 +104,43 @@ func (m PortServiceHandler) CreateV4Intf(   ipAddr          string,
        copy(ipMask, ipNet.Mask)
 	   ipAddrStr := ip.String()
 	   ipMaskStr := net.IP(ipMask).String()
-	   ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0", ribd.Int(intf), ribdCommonDefs.CONNECTED)
+	   ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
-    return 0, err
+	if(vlanEnabled == 1) {
+		//set the ip interface on bridge<vlan>
+	    brname := sviBase + strconv.Itoa(int(intf))
+	    logger.Println("looking for bridge ", brname)
+	    link, err = netlink.LinkByName(brname)
+	    if(link == nil) {
+		   logger.Println("Could not find bridge err=", brname, err)
+		   return 0, err
+		}
+	} else {
+		//set ip interface on the actual interface derived from looking up the asictolinuxmap
+		intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex : int(intf)}
+		ifName, ok := AsicLinuxIfMapTable[intfId]
+		if(!ok) {
+			logger.Println(" could not find SVI mapping for port")
+			return 0, err
+		}
+		link, err = netlink.LinkByName(ifName)
+		if(link == nil) {
+			logger.Println("Could not find interface ", ifName)
+			return 0, err
+		}
+	}
+
+	addr, err := netlink.ParseAddr(ipAddr)
+	if err != nil {
+	   logger.Println("error while parsing ip address ", err, ipAddr)
+	   return 0, err
+	} 
+	err = netlink.AddrAdd(link, addr)
+    if(err != nil) {
+	   logger.Println("error while assigning ip address to SVI ", err)
+	   return 0, err
+	}
+	return 0, err
 }
 
 func (m PortServiceHandler) DeleteV4Intf( ipAddr         string,
@@ -101,6 +184,78 @@ func (m PortServiceHandler) DeleteV4Neighbor(ipAddr string, macAddr string, vlan
     return 0, err
 }
 
+func (m PortServiceHandler) CreateVlan(vlanId int32,
+                                                   ports string,
+                                                   portTagType string) (rc portdServices.Int, err error) {
+    logger.Println("create vlan")
+	//call asicd to create vlan and add members in the switch
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, portTagType)
+	}
+    //create bridgelink - SVI<vlan>
+	brname := sviBase + strconv.Itoa(int(vlanId))
+	logger.Println("looking for bridge ", brname)
+	bridgeLink, err := netlink.LinkByName(brname)
+	if(bridgeLink == nil) {
+		bridgeLink, err = bridgeLinkCreate(brname)
+    	if(bridgeLink == nil) {
+		logger.Println("Could not create bridge err=", brname, err)
+        return 0, err
+	   }
+		intfId := IntfId{ifType:portdCommonDefs.VLAN, ifIndex : int(vlanId)}
+	   AsicLinuxIfMapTable[intfId] = brname
+	}
+	//go over the ports in the portlist
+	for i:=0; i<len(ports) ; i++ {
+		if(ports[i] == '1') {
+			//get the linux names from the map
+		    intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex : i}
+			ifName, ok := AsicLinuxIfMapTable[intfId]
+			if(!ok) {
+				logger.Println("No linux mapping found for the front panel port err ", i, err)
+                return 0, err
+			}
+			//create virtual vlan interface
+			vlanLink, err := vlanLinkCreate(ifName, vlanId)
+			if(err != nil) {
+				logger.Println("Could not create vlan interface for port err ", i, err)
+                return 0, err
+			}
+	        //add the vlan interface to the bridge
+			err = addVlanLinkToBridge(vlanLink, bridgeLink.(*netlink.Bridge))
+			if(err != nil) {
+				logger.Println("Could not add vlan interface ifName to bridge  err ", ifName,brname,err)
+                return 0, err
+			}
+		}
+	}
+    return 0, nil
+}
+
+func (m PortServiceHandler) DeleteVlan(vlanId int32,
+                                                   ports string,
+                                                   portTagType string) (rc portdServices.Int, err error) {
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.DeleteVlan(vlanId, ports, portTagType)
+	}
+    return 0, nil
+}
+
+func (m PortServiceHandler) UpdateVlan(vlanId int32,
+                                                   ports string,
+                                                   portTagType string) (rc portdServices.Int, err error) {
+	if(asicdclnt.IsConnected == true) {
+		asicdclnt.ClientHdl.UpdateVlan(vlanId, ports, portTagType)
+	}
+    return 0, nil
+}
+
+func (m PortServiceHandler) GetLinuxIfc(ifType int32, ifIndex int32) (ifName string, err error) {
+    intfId := IntfId{ifType:int(ifType), ifIndex : int(ifIndex)}
+	ifName, _ = AsicLinuxIfMapTable[intfId]
+	return ifName, nil
+}
+
 func CreateIPCHandles(address string) (thrift.TTransport, *thrift.TBinaryProtocolFactory) {
 	var transportFactory thrift.TTransportFactory
 	var transport thrift.TTransport
@@ -118,12 +273,13 @@ func CreateIPCHandles(address string) (thrift.TTransport, *thrift.TBinaryProtoco
 	return transport, protocolFactory
 }
 
+
 func ConnectToClients(paramsFile string){
 	var clientsList []ClientJson
 
 	bytes, err := ioutil.ReadFile(paramsFile)
 	if err != nil {
-		logger.Println("Error in reading configuration file")
+		logger.Println("Error in reading client configuration file")
 		return
 	}
 
@@ -158,9 +314,30 @@ func ConnectToClients(paramsFile string){
    }	
 }
 
-
+func BuildAsicToLinuxMap(cfgFile string) {
+    var portCfgList []PortConfigJson
+	bytes, err := ioutil.ReadFile(cfgFile)
+	if err != nil {
+		logger.Println("Error in reading port configuration file")
+		return
+	}
+	err = json.Unmarshal(bytes, &portCfgList)
+	if err != nil {
+		logger.Println("Error in Unmarshalling Json, err=", err)
+		return
+	}
+	AsicLinuxIfMapTable = make(map[IntfId]string)
+	for _, v := range portCfgList {
+	   intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex : v.Port}
+       AsicLinuxIfMapTable[intfId] = v.Ifname
+	}
+	
+}
 func NewPortServiceHandler () *PortServiceHandler {
-	configFile := "../../config/params/clients.json"
+	configFile := "params/clients.json"
 	ConnectToClients(configFile)
+    portCfgFile := "params/portd.json"
+	BuildAsicToLinuxMap(portCfgFile)
+	linkAttrs = netlink.NewLinkAttrs()
     return &PortServiceHandler{}
 }

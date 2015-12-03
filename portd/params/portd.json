@@ -1,0 +1,7 @@
+[
+	{"Port"  : 1,
+	 "Ifname": "fpPort1"},
+
+	{"Port"  : 2,
+	 "Ifname": "fpPort2"}
+]
