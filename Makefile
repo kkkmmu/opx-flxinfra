@@ -12,3 +12,6 @@ ipc: $(IPCS)
 
 clean: $(COMPS)
          $(foreach f,$^, make -C $(f) clean;)
+
+install: $(COMPS)
+	 $(foreach f,$^, make -C $(f) install;)
