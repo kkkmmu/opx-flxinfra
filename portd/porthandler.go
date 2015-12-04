@@ -5,6 +5,7 @@ import ("git.apache.org/thrift.git/lib/go/thrift"
 	    "io/ioutil"
 		"strconv"
         _"errors"
+		"time"
 		"portdServices"
 		"ribd"
         "l3/rib/ribdCommonDefs"
@@ -273,6 +274,38 @@ func CreateIPCHandles(address string) (thrift.TTransport, *thrift.TBinaryProtoco
 	return transport, protocolFactory
 }
 
+func connectToClient(client ClientJson) () {
+	var timer *time.Timer
+	logger.Printf("in go routine ConnectToClient for connecting to %s\n", client.Name)
+	for ;; {
+		timer = time.NewTimer(time.Second * 10)
+		<-timer.C
+		if client.Name == "asicd" {
+			logger.Printf("found asicd at port %d", client.Port)
+			asicdclnt.Address = "localhost:" + strconv.Itoa(client.Port)
+			asicdclnt.Transport, asicdclnt.PtrProtocolFactory = CreateIPCHandles(asicdclnt.Address)
+			if asicdclnt.Transport != nil && asicdclnt.PtrProtocolFactory != nil {
+				logger.Println("connecting to asicd")
+				asicdclnt.ClientHdl = asicdServices.NewAsicdServiceClientFactory(asicdclnt.Transport, asicdclnt.PtrProtocolFactory)
+				asicdclnt.IsConnected = true
+			    timer.Stop()
+			    return
+			} 
+		}
+        if(client.Name == "ribd") {
+			logger.Printf("found ribd at port %d", client.Port)
+	        ribdclnt.Address = "localhost:"+strconv.Itoa(client.Port)
+	        ribdclnt.Transport, ribdclnt.PtrProtocolFactory = CreateIPCHandles(ribdclnt.Address)
+	        if ribdclnt.Transport != nil && ribdclnt.PtrProtocolFactory != nil {
+		       logger.Println("connecting to ribd")
+		       ribdclnt.ClientHdl = ribd.NewRouteServiceClientFactory(ribdclnt.Transport, ribdclnt.PtrProtocolFactory)
+               ribdclnt.IsConnected = true
+			   timer.Stop()
+			   return
+	        }
+		}
+	}
+}
 
 func ConnectToClients(paramsFile string){
 	var clientsList []ClientJson
@@ -299,7 +332,9 @@ func ConnectToClients(paramsFile string){
 		       logger.Println("connecting to asicd")
 		       asicdclnt.ClientHdl = asicdServices.NewAsicdServiceClientFactory(asicdclnt.Transport, asicdclnt.PtrProtocolFactory)
                asicdclnt.IsConnected = true
-	        }
+	        } else {
+				go connectToClient(client)
+			}
 		}
         if(client.Name == "ribd") {
 			logger.Printf("found ribd at port %d", client.Port)
@@ -309,7 +344,9 @@ func ConnectToClients(paramsFile string){
 		       logger.Println("connecting to ribd")
 		       ribdclnt.ClientHdl = ribd.NewRouteServiceClientFactory(ribdclnt.Transport, ribdclnt.PtrProtocolFactory)
                ribdclnt.IsConnected = true
-	        }
+	        } else {
+				go connectToClient(client)
+			}
 		}
    }	
 }
