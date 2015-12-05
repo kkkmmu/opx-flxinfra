@@ -71,6 +71,15 @@ func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) 
 	logger.Printf("parentIndex %d for ifName %s", linkAttrs.ParentIndex, ifName)
 	vlanlink := &netlink.Vlan{linkAttrs, int(vlanId)}
 	err = netlink.LinkAdd(vlanlink)
+	if err != nil {
+		logger.Println("err from linkAdd = ", err)
+		return vlanlink, err
+	}
+	err = netlink.LinkSetUp(vlanlink)
+	if err != nil {
+		logger.Println("err from linkSetup = ", err)
+		return vlanlink, err
+	}
 	linkAttrs = dummyLinkAttrs
 	return vlanlink, err
 }
@@ -80,7 +89,15 @@ func bridgeLinkCreate(brname string) (link netlink.Link, err error) {
 	logger.Println("linkAttrs.Name=", linkAttrs.Name)
 	mybridge := &netlink.Bridge{linkAttrs}
 	err = netlink.LinkAdd(mybridge)
-	logger.Println("error = ", err)
+	if err != nil {
+		logger.Println("err from linkAdd = ", err)
+		return mybridge, err
+	}
+	err = netlink.LinkSetUp(mybridge)
+	if err != nil {
+		logger.Println("err from linkSetup = ", err)
+		return mybridge, err
+	}
 	linkAttrs = dummyLinkAttrs
 	return mybridge, err
 }
