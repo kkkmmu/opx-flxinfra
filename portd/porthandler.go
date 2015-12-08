@@ -71,14 +71,14 @@ func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) 
 	logger.Printf("parentIndex %d for ifName %s", linkAttrs.ParentIndex, ifName)
 	vlanlink := &netlink.Vlan{linkAttrs, int(vlanId)}
 	err = netlink.LinkAdd(vlanlink)
-	if err != nil {
+	if(err != nil) {
 		logger.Println("err from linkAdd = ", err)
-		return vlanlink, err
+	   return vlanlink, err
 	}
 	err = netlink.LinkSetUp(vlanlink)
-	if err != nil {
+	if(err != nil) {
 		logger.Println("err from linkSetup = ", err)
-		return vlanlink, err
+	   return vlanlink, err
 	}
 	linkAttrs = dummyLinkAttrs
 	return vlanlink, err
@@ -89,14 +89,14 @@ func bridgeLinkCreate(brname string) (link netlink.Link, err error) {
 	logger.Println("linkAttrs.Name=", linkAttrs.Name)
 	mybridge := &netlink.Bridge{linkAttrs}
 	err = netlink.LinkAdd(mybridge)
-	if err != nil {
+	if(err != nil) {
 		logger.Println("err from linkAdd = ", err)
-		return mybridge, err
+	   return mybridge, err
 	}
 	err = netlink.LinkSetUp(mybridge)
-	if err != nil {
+	if(err != nil) {
 		logger.Println("err from linkSetup = ", err)
-		return mybridge, err
+	   return mybridge, err
 	}
 	linkAttrs = dummyLinkAttrs
 	return mybridge, err
@@ -118,6 +118,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf) //need to pass vlanEnabled here to asic
 	}
 	if ribdclnt.IsConnected == true {
+		var nextHopIfType int
 		ip, ipNet, err := net.ParseCIDR(ipAddr)
 		if err != nil {
 			return -1, err
@@ -126,7 +127,12 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		copy(ipMask, ipNet.Mask)
 		ipAddrStr := ip.String()
 		ipMaskStr := net.IP(ipMask).String()
-		ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(intf), ribdCommonDefs.CONNECTED)
+		if vlanEnabled == 1 {
+			nextHopIfType = portdCommonDefs.VLAN
+		} else {
+			nextHopIfType = portdCommonDefs.PHY
+		}
+		ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(nextHopIfType), ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
 	if vlanEnabled == 1 {
 		//set the ip interface on bridge<vlan>
