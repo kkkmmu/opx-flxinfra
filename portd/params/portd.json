@@ -1,6 +1,6 @@
 [
 	{"Port"  : 1,
-	 "Ifname": "eth0"},
+	 "Ifname": "fpPort1"},
 
 	{"Port"  : 2,
 	 "Ifname": "fpPort2"}
