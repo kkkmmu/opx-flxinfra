@@ -13,7 +13,7 @@ var logger *log.Logger
 func main() {
 	var transport thrift.TServerTransport
 	var err error
-	var addr = "localhost:5050"
+	var addr = "localhost:9090"
 
 	logger = log.New(os.Stdout, "PORTD :", log.Ldate|log.Ltime|log.Lshortfile)
 
