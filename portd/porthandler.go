@@ -160,13 +160,29 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 	logger.Println("Finished calling ribd")
 	if vlanEnabled == 1 {
 		//set the ip interface on bridge<vlan>
+		/*
 		brname := sviBase + strconv.Itoa(int(intf))
 		logger.Println("looking for bridge ", brname)
 		link, err = netlink.LinkByName(brname)
 		if link == nil {
 			logger.Println("Could not find bridge err=", brname, err)
 			return 0, err
+		}*/
+		//For now, assign ip on the first mmber interface of the vlan
+		vlanintfId := IntfId{ifType: portdCommonDefs.VLAN, ifIndex: int(intf)}
+		vlanintfRecord, ok := AsicLinuxIfMapTable[vlanintfId]
+		if !ok {
+			logger.Println(" could not find SVI mapping for vlan ", intf)
+			return 0, err
 		}
+		intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:int(vlanintfRecord.memberIfList[0])}
+		linkName := AsicLinuxIfMapTable[intfId].ifName
+		link, err = netlink.LinkByName(linkName)
+		if link == nil {
+			logger.Println("Could not find interface ", linkName)
+			return 0, err
+		}
+		
 	} else {
 		//set ip interface on the actual interface derived from looking up the asictolinuxmap
 		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(intf)}
@@ -279,22 +295,23 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	if asicdclnt.IsConnected == true {
 		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, portTagType)
 	}
+	
 	//create bridgelink - SVI<vlan>
 	brname := sviBase + strconv.Itoa(int(vlanId))
-	logger.Println("looking for bridge ", brname)
+	/*logger.Println("looking for bridge ", brname)
 	bridgeLink, err := netlink.LinkByName(brname)
 	if bridgeLink == nil {
 		bridgeLink, err = bridgeLinkCreate(brname)
 		if bridgeLink == nil {
 			logger.Println("Could not create bridge err=", brname, err)
 			return 0, err
-		}
+		}*/
 		brintfId.ifType = portdCommonDefs.VLAN
 		brintfId.ifIndex = int(vlanId)
 		intfRecord := IntfRecord{ifName:brname, state:portdCommonDefs.LINK_STATE_UP}
 		AsicLinuxIfMapTable[brintfId] = intfRecord
 		logger.Println("Added entry type:index", brintfId.ifType, ":", brintfId.ifIndex, ":", brname)
-	}
+	//}
 	//go over the ports in the portlist
 	for i := 0; i < len(ports); i++ {
 		if ports[i] == '1' {
@@ -304,7 +321,7 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			if !ok {
 				logger.Println("No linux mapping found for the front panel port err ", i, err)
 				return 0, err
-			}
+			}/*
 			//create virtual vlan interface
 			vlanLink, err := vlanLinkCreate(intfRecord.ifName, vlanId)
 			if err != nil {
@@ -316,7 +333,7 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			if err != nil {
 				logger.Println("Could not add vlan interface ifName to bridge  err ", intfRecord.ifName, brname, err)
 				return 0, err
-			}
+			}*/
 			brIntfRecord, ok := AsicLinuxIfMapTable[brintfId]
 			if(!ok){
 				return 0, nil
@@ -327,9 +344,11 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			logger.Printf("Adding member port %d to vlan %d\n", i,  vlanId)
 			brIntfRecord.memberIfList = append(brIntfRecord.memberIfList, i)
 			if(intfRecord.state == portdCommonDefs.LINK_STATE_UP) {
+				logger.Println("adding a link up member")
 				brIntfRecord.activeIfCount++
 			}
 			AsicLinuxIfMapTable[brintfId] = brIntfRecord
+			logger.Printf("activeIfCount for intfId %d:%d is %d\n", brintfId.ifType,brintfId.ifIndex, brIntfRecord.activeIfCount)
 			
 			intfRecord.parentId = int(vlanId)
 			AsicLinuxIfMapTable[intfId] = intfRecord
@@ -365,6 +384,7 @@ func (m PortServiceHandler) GetLinuxIfc(ifType int32, ifIndex int32) (ifName str
 	return intfRecord.ifName, nil
 }
 func processLinkDown(intfId int) {
+	logger.Println("processLinkDown for port ", intfId)
 	intfIndex := IntfId{ifType:portdCommonDefs.PHY, ifIndex: intfId}
 	intfRecord, ok := AsicLinuxIfMapTable[intfIndex]
 	if(!ok) {
@@ -372,6 +392,7 @@ func processLinkDown(intfId int) {
 		return
 	}
 	intfRecord.state = portdCommonDefs.LINK_STATE_DOWN
+	logger.Println("set state for intf record")
 	AsicLinuxIfMapTable[intfIndex] = intfRecord
 	parentIntfId := IntfId {ifType:portdCommonDefs.VLAN, ifIndex:intfRecord.parentId}
 	parentIntfRecord, ok := AsicLinuxIfMapTable[parentIntfId]
@@ -384,6 +405,7 @@ func processLinkDown(intfId int) {
 		parentIntfRecord.state = portdCommonDefs.LINK_STATE_DOWN
 	}
 	AsicLinuxIfMapTable[parentIntfId] = parentIntfRecord
+	logger.Printf("Set parent link %d:%d state activeIfCount = \n", parentIntfId.ifType, parentIntfId.ifIndex, parentIntfRecord.activeIfCount)
 	if(parentIntfRecord.activeIfCount == 0) {
 		//publish link down event for the vlan
 	
@@ -401,6 +423,7 @@ func processLinkDown(intfId int) {
 }
 func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	logger.Println("Disable port ", ifIndex)
+	processLinkDown(int(ifIndex))
 	//intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(ifIndex)}
 	//ifName_, _ := AsicLinuxIfMapTable[intfId]
 	//netlink call to disable link
@@ -419,7 +442,7 @@ func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	logger.Println("buf", buf)
    	PORT_PUB.Send(buf, nanomsg.DontWait)*/
 
-	msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.PHY,LinkId:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
+/*	msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.PHY,LinkId:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
 	msgbufbytes, err := json.Marshal( msgBuf)
     msg := portdCommonDefs.PortdNotifyMsg {MsgType:portdCommonDefs.NOTIFY_LINK_STATE_CHANGE, MsgBuf: msgbufbytes}
 	buf, err := json.Marshal( msg)
@@ -429,7 +452,7 @@ func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	}
 	logger.Println("buf", buf)
    	PORT_PUB.Send(buf, nanomsg.DontWait)
-
+*/
 	return err
 }
 
@@ -551,6 +574,11 @@ func BuildAsicToLinuxMap(cfgFile string) {
 		intfRecord := IntfRecord{ifName:ifName, state:portdCommonDefs.LINK_STATE_UP}
 		AsicLinuxIfMapTable[intfId] = intfRecord
    }
+   logger.Println("Now install a dummy entry for eth0")
+		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: 0}
+		ifName := "eth0"
+		intfRecord := IntfRecord{ifName:ifName, state:portdCommonDefs.LINK_STATE_UP}
+		AsicLinuxIfMapTable[intfId] = intfRecord
 }
 func InitPublisher()(pub *nanomsg.PubSocket) {
 	pub, err := nanomsg.NewPubSocket()
