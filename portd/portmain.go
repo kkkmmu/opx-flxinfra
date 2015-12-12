@@ -4,6 +4,7 @@ import (
 	"flag"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"log"
+	"log/syslog"
 	"os"
 	"portdServices"
 )
@@ -16,6 +17,12 @@ func main() {
 	var addr = "localhost:5050"
 
 	logger = log.New(os.Stdout, "PORTD :", log.Ldate|log.Ltime|log.Lshortfile)
+
+	syslogger, err := syslog.New(syslog.LOG_NOTICE|syslog.LOG_INFO|syslog.LOG_DAEMON, "PORTD")
+	if err == nil {
+		syslogger.Info("### PORT Daemon started")
+		logger.SetOutput(syslogger)
+	}
 
 	transport, err = thrift.NewTServerSocket(addr)
 	if err != nil {

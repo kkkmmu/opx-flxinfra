@@ -14,14 +14,20 @@ import (
 	"ribd"
 	"strconv"
 	"time"
+	"asicd/asicdConstDefs"
 //	"unsafe"
 	"github.com/op/go-nanomsg"
-	//"encoding/binary"
-//	"bytes"
+	"encoding/binary"
+	"bytes"
 )
 
 type PortServiceHandler struct {
 }
+
+const (
+	SUB_ASICD = 0
+)
+
 type IntfId struct {
 	ifType  int
 	ifIndex int
@@ -29,6 +35,9 @@ type IntfId struct {
 type IntfRecord struct {
 	ifName string
 	state  int  
+	memberIfList []int
+	activeIfCount int8
+	parentId int
 }
 
 var AsicLinuxIfMapTable map[IntfId]IntfRecord
@@ -66,6 +75,7 @@ var sviBase = "SVI"
 var linkAttrs netlink.LinkAttrs
 var dummyLinkAttrs netlink.LinkAttrs
 var PORT_PUB  *nanomsg.PubSocket
+var AsicdSub *nanomsg.SubSocket
 
 func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) {
 	linkAttrs.Name = ifName + "." + strconv.Itoa(int(vlanId))
@@ -124,8 +134,12 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 	var ipMask net.IP
 	var link netlink.Link
 	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf) //need to pass vlanEnabled here to asic
+		_,err = asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf) //need to pass vlanEnabled here to asic
+		if(err != nil) {
+			logger.Println("asicd returned error ", err)
+		}
 	}
+	logger.Println("Finished calling asicd")
 	if ribdclnt.IsConnected == true {
 		var nextHopIfType int
 		ip, ipNet, err := net.ParseCIDR(ipAddr)
@@ -143,6 +157,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		}
 		ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(nextHopIfType), ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
+	logger.Println("Finished calling ribd")
 	if vlanEnabled == 1 {
 		//set the ip interface on bridge<vlan>
 		brname := sviBase + strconv.Itoa(int(intf))
@@ -229,8 +244,8 @@ func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err er
 		logger.Printf("vlan %d not in the map", int(vlanId))
 		return ports, err
 	}
-	logger.Println("iftype", portdCommonDefs.VLAN, "idindex", vlanId, "ifname", intfRecord.ifName)
-	bridgeLink, err := netlink.LinkByName(intfRecord.ifName)
+	logger.Println("iftype", portdCommonDefs.VLAN, "ifindex", vlanId, "ifname", intfRecord.ifName)
+/*	bridgeLink, err := netlink.LinkByName(intfRecord.ifName)
 	return ports, nil
 	if(err != nil) {
 		logger.Printf("bridge %s not configured\n", intfRecord.ifName)
@@ -243,6 +258,14 @@ func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err er
 				ports = append(ports, v.ifName)
 			}
 		}
+	}*/
+	for i:=0;i<len(intfRecord.memberIfList);i++ {
+		getIntfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:intfRecord.memberIfList[i]}
+		getIfRecord, ok := AsicLinuxIfMapTable[getIntfId]
+		if(!ok){
+			continue
+		}
+		ports = append(ports, getIfRecord.ifName)
 	}
 	return ports, nil
 }
@@ -251,6 +274,7 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	ports string,
 	portTagType string) (rc portdServices.Int, err error) {
 	logger.Println("create vlan")
+	var brintfId IntfId
 	//call asicd to create vlan and add members in the switch
 	if asicdclnt.IsConnected == true {
 		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, portTagType)
@@ -265,10 +289,11 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			logger.Println("Could not create bridge err=", brname, err)
 			return 0, err
 		}
-		intfId := IntfId{ifType: portdCommonDefs.VLAN, ifIndex: int(vlanId)}
+		brintfId.ifType = portdCommonDefs.VLAN
+		brintfId.ifIndex = int(vlanId)
 		intfRecord := IntfRecord{ifName:brname, state:portdCommonDefs.LINK_STATE_UP}
-		AsicLinuxIfMapTable[intfId] = intfRecord
-		logger.Println("Added entry type:index", intfId.ifType, ":", intfId.ifIndex, ":", brname)
+		AsicLinuxIfMapTable[brintfId] = intfRecord
+		logger.Println("Added entry type:index", brintfId.ifType, ":", brintfId.ifIndex, ":", brname)
 	}
 	//go over the ports in the portlist
 	for i := 0; i < len(ports); i++ {
@@ -292,6 +317,22 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 				logger.Println("Could not add vlan interface ifName to bridge  err ", intfRecord.ifName, brname, err)
 				return 0, err
 			}
+			brIntfRecord, ok := AsicLinuxIfMapTable[brintfId]
+			if(!ok){
+				return 0, nil
+			} 
+			if(len(brIntfRecord.memberIfList) == 0) {
+				brIntfRecord.memberIfList = make([]int, 0)
+			}
+			logger.Printf("Adding member port %d to vlan %d\n", i,  vlanId)
+			brIntfRecord.memberIfList = append(brIntfRecord.memberIfList, i)
+			if(intfRecord.state == portdCommonDefs.LINK_STATE_UP) {
+				brIntfRecord.activeIfCount++
+			}
+			AsicLinuxIfMapTable[brintfId] = brIntfRecord
+			
+			intfRecord.parentId = int(vlanId)
+			AsicLinuxIfMapTable[intfId] = intfRecord
 		}
 	}
 	return 0, nil
@@ -323,7 +364,41 @@ func (m PortServiceHandler) GetLinuxIfc(ifType int32, ifIndex int32) (ifName str
 	logger.Println("iftype", ifType, "idindex", ifIndex, "ifname", intfRecord.ifName)
 	return intfRecord.ifName, nil
 }
-
+func processLinkDown(intfId int) {
+	intfIndex := IntfId{ifType:portdCommonDefs.PHY, ifIndex: intfId}
+	intfRecord, ok := AsicLinuxIfMapTable[intfIndex]
+	if(!ok) {
+		logger.Println("Could not find port", intfId)
+		return
+	}
+	intfRecord.state = portdCommonDefs.LINK_STATE_DOWN
+	AsicLinuxIfMapTable[intfIndex] = intfRecord
+	parentIntfId := IntfId {ifType:portdCommonDefs.VLAN, ifIndex:intfRecord.parentId}
+	parentIntfRecord, ok := AsicLinuxIfMapTable[parentIntfId]
+	if(!ok) {
+		logger.Println("Vlan ",intfRecord.parentId, "not found")
+		return
+	}
+	parentIntfRecord.activeIfCount--
+	if(parentIntfRecord.activeIfCount == 0) {
+		parentIntfRecord.state = portdCommonDefs.LINK_STATE_DOWN
+	}
+	AsicLinuxIfMapTable[parentIntfId] = parentIntfRecord
+	if(parentIntfRecord.activeIfCount == 0) {
+		//publish link down event for the vlan
+	
+	   msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.VLAN, LinkId:uint8(parentIntfId.ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
+	   msgbufbytes, err := json.Marshal( msgBuf)
+       msg := portdCommonDefs.PortdNotifyMsg {MsgType:portdCommonDefs.NOTIFY_LINK_STATE_CHANGE, MsgBuf: msgbufbytes}
+	   buf, err := json.Marshal( msg)
+	   if err != nil {
+		 logger.Println("Error in marshalling Json")
+		 return
+	   }
+	   logger.Println("buf", buf)
+   	   PORT_PUB.Send(buf, nanomsg.DontWait)
+	}
+}
 func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	logger.Println("Disable port ", ifIndex)
 	//intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(ifIndex)}
@@ -344,7 +419,7 @@ func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	logger.Println("buf", buf)
    	PORT_PUB.Send(buf, nanomsg.DontWait)*/
 
-	msgBuf := portdCommonDefs.LinkStateInfo{Port:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
+	msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.PHY,LinkId:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
 	msgbufbytes, err := json.Marshal( msgBuf)
     msg := portdCommonDefs.PortdNotifyMsg {MsgType:portdCommonDefs.NOTIFY_LINK_STATE_CHANGE, MsgBuf: msgbufbytes}
 	buf, err := json.Marshal( msg)
@@ -453,7 +528,7 @@ func ConnectToClients(paramsFile string) {
 }
 
 func BuildAsicToLinuxMap(cfgFile string) {
-	var portCfgList []PortConfigJson
+/*	var portCfgList []PortConfigJson
 	bytes, err := ioutil.ReadFile(cfgFile)
 	if err != nil {
 		logger.Println("Error in reading port configuration file")
@@ -469,7 +544,13 @@ func BuildAsicToLinuxMap(cfgFile string) {
 		intfRecord := IntfRecord{ifName:v.Ifname, state:portdCommonDefs.LINK_STATE_UP}
 		AsicLinuxIfMapTable[intfId] = intfRecord
 	}
-
+*/
+	for i:=1;i<73;i++ {
+		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: i}
+		ifName := "fpPort-"+strconv.Itoa(i)
+		intfRecord := IntfRecord{ifName:ifName, state:portdCommonDefs.LINK_STATE_UP}
+		AsicLinuxIfMapTable[intfId] = intfRecord
+   }
 }
 func InitPublisher()(pub *nanomsg.PubSocket) {
 	pub, err := nanomsg.NewPubSocket()
@@ -489,6 +570,76 @@ func InitPublisher()(pub *nanomsg.PubSocket) {
     }
 	return pub
 }
+func processAsicdEvents(sub *nanomsg.SubSocket) {
+	
+	logger.Println("in process Asicd events")
+    for {
+	  logger.Println("In for loop")
+      rcvdMsg,err := sub.Recv(0)
+	  if(err != nil) {
+	     logger.Println("Error in receiving ", err)
+		 return	
+	  }
+	  logger.Println("After recv rcvdMsg buf", rcvdMsg)
+      buf := bytes.NewReader(rcvdMsg)
+      var MsgType asicdConstDefs.AsicdNotifyMsg
+      err = binary.Read(buf, binary.LittleEndian, &MsgType)
+      if err != nil {
+	     logger.Println("Error in reading msgtype ", err)
+		 return	
+      }
+      switch MsgType {
+        case asicdConstDefs.NOTIFY_LINK_STATE_CHANGE:
+           var msg asicdConstDefs.LinkStateInfo
+           err = binary.Read(buf, binary.LittleEndian, &msg)
+           if err != nil {
+    	     logger.Println("Error in reading msg ", err)
+		     return	
+           }
+		    logger.Printf("Msg linkstatus = %d msg port = %d\n", msg.LinkStatus, msg.Port)
+		    if(msg.LinkStatus == asicdConstDefs.LINK_STATE_DOWN) {
+				processLinkDown(int(msg.Port))
+			}
+       }
+	}
+}
+
+func processEvents(sub *nanomsg.SubSocket, subType ribd.Int) {
+	logger.Println("in process events for sub ", subType)
+	if(subType == SUB_ASICD){
+		logger.Println("process Asicd events")
+		processAsicdEvents(sub)
+	} 
+}
+func setupEventHandler(sub *nanomsg.SubSocket, address string, subtype ribd.Int) {
+	logger.Println("Setting up event handlers for sub type ", subtype)
+	sub, err := nanomsg.NewSubSocket()
+	 if err != nil {
+        logger.Println("Failed to open sub socket")
+        return
+    }
+	logger.Println("opened socket")
+	ep, err := sub.Connect(address)
+	if err != nil {
+        logger.Println("Failed to connect to pub socket - ", ep)
+        return
+    }
+	logger.Println("Connected to ", ep.Address)
+	err = sub.Subscribe("")
+	if(err != nil) {
+		logger.Println("Failed to subscribe to all topics")
+		return 
+	}
+	logger.Println("Subscribed")
+	err = sub.SetRecvBuffer(1024 * 1204)
+    if err != nil {
+        logger.Println("Failed to set recv buffer size")
+        return
+    }
+		//processPortdEvents(sub)
+	processEvents(sub, subtype)
+}
+
 func NewPortServiceHandler(paramsDir string) *PortServiceHandler {
 	AsicLinuxIfMapTable = make(map[IntfId]IntfRecord)
 	configFile := paramsDir + "/clients.json"
@@ -496,6 +647,7 @@ func NewPortServiceHandler(paramsDir string) *PortServiceHandler {
 	portCfgFile := paramsDir + "/portd.json"
 	BuildAsicToLinuxMap(portCfgFile)
 	PORT_PUB = InitPublisher()
+	go setupEventHandler(AsicdSub, asicdConstDefs.PUB_SOCKET_ADDR, SUB_ASICD)
 	linkAttrs = netlink.NewLinkAttrs()
 	return &PortServiceHandler{}
 }

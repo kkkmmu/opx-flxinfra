@@ -15,6 +15,7 @@ type PortdNotifyMsg struct {
 }
 
 type LinkStateInfo struct {
-    Port uint8
+    LinkType uint8
+	LinkId   uint8
     LinkStatus uint8
 }
