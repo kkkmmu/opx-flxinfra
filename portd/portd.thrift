@@ -10,4 +10,6 @@ service PortService
     int deleteVlan(1:i32 vlanId, 2:string ports, 3:string portTagType),
     int updateVlan(1:i32 vlanId, 2:string ports, 3:string portTagType),
 	string getLinuxIfc(1:i32 ifType, 2:i32 ifIndex)
+	void linkDown(1:i32 port)
+	list<string> getVlanMembers(1:i32 vlanId)
 }

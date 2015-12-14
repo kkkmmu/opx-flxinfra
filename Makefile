@@ -15,3 +15,6 @@ clean: $(COMPS)
 
 install: $(COMPS)
 	 $(foreach f,$^, make -C $(f) install;)
+
+clean: $(COMPS)
+	 $(foreach f,$^, make -C $(f) clean;)
