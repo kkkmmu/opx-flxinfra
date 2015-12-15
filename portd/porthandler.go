@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"os/exec"
 	"bytes"
+	"strings"
 )
 
 type PortServiceHandler struct {
@@ -79,6 +80,88 @@ var linkAttrs netlink.LinkAttrs
 var dummyLinkAttrs netlink.LinkAttrs
 var PORT_PUB  *nanomsg.PubSocket
 var AsicdSub *nanomsg.SubSocket
+
+func parsePortRange(portStr string) (int, int, error) {
+	portNums := strings.Split(portStr, "-")
+	startPort, err := strconv.Atoi(portNums[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	endPort, err := strconv.Atoi(portNums[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return startPort, endPort, nil
+}
+
+/*
+ * Utility function to parse from a user specified port string to a port bitmap.
+ * Supported formats for port string shown below:
+ * - 1,2,3,10 (comma separate list of ports)
+ * - 1-10,24,30-31 (hypen separated port ranges)
+ * - 00011 (direct port bitmap)
+ */
+func parseUsrPortStrToPbm(usrPortStr string) (string, error) {
+	//FIXME: Assuming max of 256 ports, create common def (another instance in main.go)
+	var portList [256]int
+	var pbmStr string = ""
+	//Handle ',' separated strings
+	if strings.Contains(usrPortStr, ",") {
+		commaSepList := strings.Split(usrPortStr, ",")
+		for _, subStr := range commaSepList {
+			//Substr contains '-' separated range
+			if strings.Contains(subStr, "-") {
+				startPort, endPort, err := parsePortRange(subStr)
+				if err != nil {
+					return pbmStr, err
+				}
+				for port := startPort; port <= endPort; port++ {
+					portList[port] = 1
+				}
+			} else {
+				//Substr is a port number
+				port, err := strconv.Atoi(subStr)
+				if err != nil {
+					return pbmStr, err
+				}
+				portList[port] = 1
+			}
+		}
+	} else if strings.Contains(usrPortStr, "-") {
+		//Handle '-' separated range
+		startPort, endPort, err := parsePortRange(usrPortStr)
+		if err != nil {
+			return pbmStr, err
+		}
+		for port := startPort; port <= endPort; port++ {
+			portList[port] = 1
+		}
+	} else {
+        if len(usrPortStr) > 1 {
+            //Port bitmap directly specified
+            return usrPortStr, nil
+        } else {
+            //Handle single port number
+            port, err := strconv.Atoi(usrPortStr)
+            if err != nil {
+                return pbmStr, err
+            }
+            portList[port] = 1
+        }
+	}
+	//Convert portList to port bitmap string
+	var zeroStr string = ""
+	for _, port := range portList {
+		if port == 1 {
+			pbmStr += zeroStr
+			pbmStr += "1"
+			zeroStr = ""
+		} else {
+			zeroStr += "0"
+		}
+	}
+	return pbmStr, nil
+}
 
 func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) {
 	linkAttrs.Name = ifName + "." + strconv.Itoa(int(vlanId))
@@ -369,12 +452,16 @@ func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err er
 
 func (m PortServiceHandler) CreateVlan(vlanId int32,
 	ports string,
-	portTagType string) (rc portdServices.Int, err error) {
+	untaggedPorts string) (rc portdServices.Int, err error) {
 	logger.Println("create vlan")
+    portPbmStr, err := parseUsrPortStrToPbm(ports)
+    if err != nil {
+        return 0, err
+    }
 	var brintfId IntfId
 	//call asicd to create vlan and add members in the switch
 	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, portTagType)
+		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, untaggedPorts)
 	}
 	
 	//create bridgelink - SVI<vlan>
@@ -394,8 +481,8 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 		logger.Println("Added entry type:index", brintfId.ifType, ":", brintfId.ifIndex, ":", brname)
 	}
 	//go over the ports in the portlist
-	for i := 0; i < len(ports); i++ {
-		if ports[i] == '1' {
+	for i := 0; i < len(portPbmStr); i++ {
+		if portPbmStr[i] == '1' {
 			//get the linux names from the map
 			intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: i}
 			intfRecord, ok := AsicLinuxIfMapTable[intfId]
