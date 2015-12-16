@@ -9,6 +9,7 @@ import (
 	"infra/portd/portdCommonDefs"
 	"io/ioutil"
 	"l3/rib/ribdCommonDefs"
+    "utils/commonDefs"
 	"net"
 	"portdServices"
 	"ribd"
@@ -316,13 +317,12 @@ func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlan
 }
 
 func (m PortServiceHandler) CreateV4Intf(ipAddr string,
-	intf int32,
-	vlanEnabled int32) (rc portdServices.Int, err error) {
+	intf, intfType int32) (rc portdServices.Int, err error) {
 	logger.Println("Received create intf request")
 	var ipMask net.IP
 	var link netlink.Link
 	if asicdclnt.IsConnected == true {
-		_,err = asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf) //need to pass vlanEnabled here to asic
+		_,err = asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf, intfType)
 		if(err != nil) {
 			logger.Println("asicd returned error ", err)
 		}
@@ -338,7 +338,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		copy(ipMask, ipNet.Mask)
 		ipAddrStr := ip.String()
 		ipMaskStr := net.IP(ipMask).String()
-		if vlanEnabled == 1 {
+		if intfType == commonDefs.L2RefTypeVlan {
 			nextHopIfType = portdCommonDefs.VLAN
 		} else {
 			nextHopIfType = portdCommonDefs.PHY
@@ -346,7 +346,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(nextHopIfType), ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
 	logger.Println("Finished calling ribd")
-	if vlanEnabled == 1 {
+	if intfType == commonDefs.L2RefTypeVlan {
 		//set the ip interface on bridge<vlan>
 		
 		brname := sviBase + strconv.Itoa(int(intf))
@@ -400,11 +400,11 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 }
 
 func (m PortServiceHandler) DeleteV4Intf(ipAddr string,
-	intf int32) (rc portdServices.Int, err error) {
+	intf, intfType int32) (rc portdServices.Int, err error) {
 	logger.Println("Received Intf Delete request")
 	var ipMask net.IP
 	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf)
+		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf, intfType)
 	}
 	if ribdclnt.IsConnected == true {
 		ip, ipNet, err := net.ParseCIDR(ipAddr)
