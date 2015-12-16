@@ -217,7 +217,20 @@ func OsCommand(binary string, args []string, env []string) {
 }
 func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlanId int32) (err error) {
 	logger.Println("Add vlan link to bridge link")
-	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
+/*	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
+	if(err != nil) {
+		logger.Println("Err ", err, "when setting master index for vlanlink")
+	}
+*/	
+	parentIfLink, err := netlink.LinkByIndex(vlanLink.Attrs().ParentIndex)
+	if err != nil {
+		logger.Println("Error getting parent link info " )
+		return err
+	}
+    err = netlink.LinkSetMaster(parentIfLink, bridgeLink)
+	if(err != nil) {
+		logger.Println("Err ", err, "when setting master index for parentlink")
+	}
 
     brname := bridgeLink.Attrs().Name
 
@@ -280,14 +293,25 @@ func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlan
     cmd := exec.Command(binary, "vlan", "add", "dev", brname, "vid", strconv.Itoa(int(vlanId)), "self", "pvid", "untagged")
 	err = cmd.Run()
 	if(err != nil) {
-		logger.Println("Error executing command ")
+		logger.Println("Error executing bridge vlan command for bridge")
 	}
+/*
 	vlanName := vlanLink.Attrs().Name
     cmd = exec.Command(binary, "vlan", "add", "dev", vlanName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
 	err = cmd.Run()
 	if(err != nil) {
 		logger.Println("Error executing command ")
 	}
+*/
+	parentIfName := parentIfLink.Attrs().Name
+    logger.Printf("Found the parent interface as %s, now add this as untagged member\n", parentIfName)
+
+    cmd = exec.Command(binary, "vlan", "add", "dev", parentIfName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
+	err = cmd.Run()
+	if(err != nil) {
+		logger.Println("Error executing bridge vlan command for parentiflink")
+	}
+
 	return err
 }
 
