@@ -9,6 +9,7 @@ import (
 	"infra/portd/portdCommonDefs"
 	"io/ioutil"
 	"l3/rib/ribdCommonDefs"
+    "utils/commonDefs"
 	"net"
 	"portdServices"
 	"ribd"
@@ -18,7 +19,11 @@ import (
 //	"unsafe"
 	"github.com/op/go-nanomsg"
 	"encoding/binary"
+//	"os"
+	"syscall"
+	"os/exec"
 	"bytes"
+	"strings"
 )
 
 type PortServiceHandler struct {
@@ -77,6 +82,88 @@ var dummyLinkAttrs netlink.LinkAttrs
 var PORT_PUB  *nanomsg.PubSocket
 var AsicdSub *nanomsg.SubSocket
 
+func parsePortRange(portStr string) (int, int, error) {
+	portNums := strings.Split(portStr, "-")
+	startPort, err := strconv.Atoi(portNums[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	endPort, err := strconv.Atoi(portNums[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return startPort, endPort, nil
+}
+
+/*
+ * Utility function to parse from a user specified port string to a port bitmap.
+ * Supported formats for port string shown below:
+ * - 1,2,3,10 (comma separate list of ports)
+ * - 1-10,24,30-31 (hypen separated port ranges)
+ * - 00011 (direct port bitmap)
+ */
+func parseUsrPortStrToPbm(usrPortStr string) (string, error) {
+	//FIXME: Assuming max of 256 ports, create common def (another instance in main.go)
+	var portList [256]int
+	var pbmStr string = ""
+	//Handle ',' separated strings
+	if strings.Contains(usrPortStr, ",") {
+		commaSepList := strings.Split(usrPortStr, ",")
+		for _, subStr := range commaSepList {
+			//Substr contains '-' separated range
+			if strings.Contains(subStr, "-") {
+				startPort, endPort, err := parsePortRange(subStr)
+				if err != nil {
+					return pbmStr, err
+				}
+				for port := startPort; port <= endPort; port++ {
+					portList[port] = 1
+				}
+			} else {
+				//Substr is a port number
+				port, err := strconv.Atoi(subStr)
+				if err != nil {
+					return pbmStr, err
+				}
+				portList[port] = 1
+			}
+		}
+	} else if strings.Contains(usrPortStr, "-") {
+		//Handle '-' separated range
+		startPort, endPort, err := parsePortRange(usrPortStr)
+		if err != nil {
+			return pbmStr, err
+		}
+		for port := startPort; port <= endPort; port++ {
+			portList[port] = 1
+		}
+	} else {
+        if len(usrPortStr) > 1 {
+            //Port bitmap directly specified
+            return usrPortStr, nil
+        } else {
+            //Handle single port number
+            port, err := strconv.Atoi(usrPortStr)
+            if err != nil {
+                return pbmStr, err
+            }
+            portList[port] = 1
+        }
+	}
+	//Convert portList to port bitmap string
+	var zeroStr string = ""
+	for _, port := range portList {
+		if port == 1 {
+			pbmStr += zeroStr
+			pbmStr += "1"
+			zeroStr = ""
+		} else {
+			zeroStr += "0"
+		}
+	}
+	return pbmStr, nil
+}
+
 func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) {
 	linkAttrs.Name = ifName + "." + strconv.Itoa(int(vlanId))
 	//get the parent link's index
@@ -103,7 +190,7 @@ func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) 
 	return vlanlink, err
 }
 func bridgeLinkCreate(brname string) (link netlink.Link, err error) {
-	logger.Println("in brdge create for brname ", brname)
+	logger.Println("in bridge create for brname ", brname)
 	linkAttrs.Name = brname
 	logger.Println("linkAttrs.Name=", linkAttrs.Name)
 	mybridge := &netlink.Bridge{linkAttrs}
@@ -121,20 +208,121 @@ func bridgeLinkCreate(brname string) (link netlink.Link, err error) {
 	return mybridge, err
 }
 
-func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge) (err error) {
+func OsCommand(binary string, args []string, env []string) {
+	err := syscall.Exec(binary, args, env)
+	//err = exec.Command(binary, command).Run()
+	if(err != nil) {
+		logger.Println("command for bridge link returned err", err, "when running args", args)
+	}
+	logger.Println("Completed OSCommand")
+}
+func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlanId int32) (err error) {
 	logger.Println("Add vlan link to bridge link")
-	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
+/*	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
+	if(err != nil) {
+		logger.Println("Err ", err, "when setting master index for vlanlink")
+	}
+*/	
+	parentIfLink, err := netlink.LinkByIndex(vlanLink.Attrs().ParentIndex)
+	if err != nil {
+		logger.Println("Error getting parent link info " )
+		return err
+	}
+    err = netlink.LinkSetMaster(parentIfLink, bridgeLink)
+	if(err != nil) {
+		logger.Println("Err ", err, "when setting master index for parentlink")
+	}
+
+    brname := bridgeLink.Attrs().Name
+
+	//echo 1 > /sys/class/net/<brname>/bridge/vlan_filtering 
+	fileName := "/sys/class/net/"+brname+"/bridge/vlan_filtering"
+	logger.Println("Reading file ", fileName)
+    _, err = ioutil.ReadFile(fileName)
+    if(err != nil) {
+		logger.Println("Error ", err, "reading from file ", fileName)
+		return  err
+	}	
+	data := "1"
+
+	if err = ioutil.WriteFile(fileName, []byte(data), 0644); err != nil {
+		logger.Println("Error ", err, "writing to file ", fileName)
+	}
+
+   /*** Using the netlink way ******/
+    //bridge vlan add dev <vlanlink> vid <vid> pvid untagged
+    /*err = netlink.LinkSetPvid(vlanLink, int(vlanId))
+	if(err != nil) {
+		logger.Println("linksetpvid for vlan link returned err=", err)
+		return err
+	}
+	err = netlink.LinkSetUntagged(vlanLink)
+	if(err != nil) {
+		logger.Println("LinkSetUntagged for vlan link returned err=", err)
+	}
+    //bridge vlan add dev <bridgelink> vid <vid> self pvid untagged
+    err = netlink.LinkSetPvid(bridgeLink, int(vlanId))
+	if(err != nil) {
+		logger.Println("linksetpvid for vlan link returned err=", err)
+	}
+	err = netlink.LinkSetUntagged(bridgeLink)
+	if(err != nil) {
+		logger.Println("LinkSetUntagged for bridge link returned err=", err)
+	}
+	err = netlink.LinkSetSelf(bridgeLink)
+	if(err != nil) {
+		logger.Println("LinkSelf for bridge link returned err=", err)
+	}*/
+	
+	/*** temporary hack to call exec command****/
+	binary, lookErr := exec.LookPath("bridge")
+	if lookErr != nil {
+		logger.Println("bridge not found lookerr = ", lookErr)
+		return lookErr
+	}
+	logger.Println("path search for bridge found as ", binary)
+	/*args1 := []string{"bridge", "vlan", "add", "dev", brname, "vid", strconv.Itoa(int(vlanId)), "self", "pvid", "untagged"}
+	env := os.Environ()
+	go OsCommand (binary, args1, env)
+	logger.Println("configured bridge successfully")
+//	vlanName := vlanLink.Attrs().Name
+//	args2 := []string{"bridge", "vlan", "add", "dev", vlanName, "vid", strconv.Itoa(int(vlanId)),  "pvid", "untagged"}
+	//err = exec.Command(binary, command).Run()
+//	env = os.Environ()
+//	go OsCommand (binary, args2, env)
+//	logger.Println("configured vlanLink successfully")*/
+    cmd := exec.Command(binary, "vlan", "add", "dev", brname, "vid", strconv.Itoa(int(vlanId)), "self", "pvid", "untagged")
+	err = cmd.Run()
+	if(err != nil) {
+		logger.Println("Error executing bridge vlan command for bridge")
+	}
+/*
+	vlanName := vlanLink.Attrs().Name
+    cmd = exec.Command(binary, "vlan", "add", "dev", vlanName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
+	err = cmd.Run()
+	if(err != nil) {
+		logger.Println("Error executing command ")
+	}
+*/
+	parentIfName := parentIfLink.Attrs().Name
+    logger.Printf("Found the parent interface as %s, now add this as untagged member\n", parentIfName)
+
+    cmd = exec.Command(binary, "vlan", "add", "dev", parentIfName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
+	err = cmd.Run()
+	if(err != nil) {
+		logger.Println("Error executing bridge vlan command for parentiflink")
+	}
+
 	return err
 }
 
 func (m PortServiceHandler) CreateV4Intf(ipAddr string,
-	intf int32,
-	vlanEnabled int32) (rc portdServices.Int, err error) {
+	intf, intfType int32) (rc portdServices.Int, err error) {
 	logger.Println("Received create intf request")
 	var ipMask net.IP
 	var link netlink.Link
 	if asicdclnt.IsConnected == true {
-		_,err = asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf) //need to pass vlanEnabled here to asic
+		_,err = asicdclnt.ClientHdl.CreateIPv4Intf(ipAddr, intf, intfType)
 		if(err != nil) {
 			logger.Println("asicd returned error ", err)
 		}
@@ -150,7 +338,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		copy(ipMask, ipNet.Mask)
 		ipAddrStr := ip.String()
 		ipMaskStr := net.IP(ipMask).String()
-		if vlanEnabled == 1 {
+		if intfType == commonDefs.L2RefTypeVlan {
 			nextHopIfType = portdCommonDefs.VLAN
 		} else {
 			nextHopIfType = portdCommonDefs.PHY
@@ -158,17 +346,17 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 		ribdclnt.ClientHdl.CreateV4Route(ipAddrStr, ipMaskStr, 0, "0.0.0.0", ribd.Int(nextHopIfType), ribd.Int(intf), ribdCommonDefs.CONNECTED)
 	}
 	logger.Println("Finished calling ribd")
-	if vlanEnabled == 1 {
+	if intfType == commonDefs.L2RefTypeVlan {
 		//set the ip interface on bridge<vlan>
-		/*
+		
 		brname := sviBase + strconv.Itoa(int(intf))
 		logger.Println("looking for bridge ", brname)
 		link, err = netlink.LinkByName(brname)
 		if link == nil {
 			logger.Println("Could not find bridge err=", brname, err)
 			return 0, err
-		}*/
-		//For now, assign ip on the first mmber interface of the vlan
+		}
+/*		//For now, assign ip on the first mmber interface of the vlan
 		vlanintfId := IntfId{ifType: portdCommonDefs.VLAN, ifIndex: int(intf)}
 		vlanintfRecord, ok := AsicLinuxIfMapTable[vlanintfId]
 		if !ok {
@@ -182,7 +370,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 			logger.Println("Could not find interface ", linkName)
 			return 0, err
 		}
-		
+	*/	
 	} else {
 		//set ip interface on the actual interface derived from looking up the asictolinuxmap
 		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(intf)}
@@ -212,11 +400,11 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 }
 
 func (m PortServiceHandler) DeleteV4Intf(ipAddr string,
-	intf int32) (rc portdServices.Int, err error) {
+	intf, intfType int32) (rc portdServices.Int, err error) {
 	logger.Println("Received Intf Delete request")
 	var ipMask net.IP
 	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf)
+		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf, intfType)
 	}
 	if ribdclnt.IsConnected == true {
 		ip, ipNet, err := net.ParseCIDR(ipAddr)
@@ -288,40 +476,44 @@ func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err er
 
 func (m PortServiceHandler) CreateVlan(vlanId int32,
 	ports string,
-	portTagType string) (rc portdServices.Int, err error) {
+	untaggedPorts string) (rc portdServices.Int, err error) {
 	logger.Println("create vlan")
+    portPbmStr, err := parseUsrPortStrToPbm(ports)
+    if err != nil {
+        return 0, err
+    }
 	var brintfId IntfId
 	//call asicd to create vlan and add members in the switch
 	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, portTagType)
+		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, untaggedPorts)
 	}
 	
 	//create bridgelink - SVI<vlan>
 	brname := sviBase + strconv.Itoa(int(vlanId))
-	/*logger.Println("looking for bridge ", brname)
+	logger.Println("looking for bridge ", brname)
 	bridgeLink, err := netlink.LinkByName(brname)
 	if bridgeLink == nil {
 		bridgeLink, err = bridgeLinkCreate(brname)
 		if bridgeLink == nil {
 			logger.Println("Could not create bridge err=", brname, err)
 			return 0, err
-		}*/
+		}
 		brintfId.ifType = portdCommonDefs.VLAN
 		brintfId.ifIndex = int(vlanId)
 		intfRecord := IntfRecord{ifName:brname, state:portdCommonDefs.LINK_STATE_UP}
 		AsicLinuxIfMapTable[brintfId] = intfRecord
 		logger.Println("Added entry type:index", brintfId.ifType, ":", brintfId.ifIndex, ":", brname)
-	//}
+	}
 	//go over the ports in the portlist
-	for i := 0; i < len(ports); i++ {
-		if ports[i] == '1' {
+	for i := 0; i < len(portPbmStr); i++ {
+		if portPbmStr[i] == '1' {
 			//get the linux names from the map
 			intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: i}
 			intfRecord, ok := AsicLinuxIfMapTable[intfId]
 			if !ok {
 				logger.Println("No linux mapping found for the front panel port err ", i, err)
 				return 0, err
-			}/*
+			}
 			//create virtual vlan interface
 			vlanLink, err := vlanLinkCreate(intfRecord.ifName, vlanId)
 			if err != nil {
@@ -329,16 +521,18 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 				return 0, err
 			}
 			//add the vlan interface to the bridge
-			err = addVlanLinkToBridge(vlanLink, bridgeLink.(*netlink.Bridge))
+			err = addVlanLinkToBridge(vlanLink, bridgeLink.(*netlink.Bridge), vlanId)
 			if err != nil {
 				logger.Println("Could not add vlan interface ifName to bridge  err ", intfRecord.ifName, brname, err)
 				return 0, err
-			}*/
+			}
+			logger.Println("Added vlanlink to bridge")
 			brIntfRecord, ok := AsicLinuxIfMapTable[brintfId]
 			if(!ok){
 				return 0, nil
 			} 
 			if(len(brIntfRecord.memberIfList) == 0) {
+				logger.Println("Making the memberlist because this is the first member")
 				brIntfRecord.memberIfList = make([]int, 0)
 			}
 			logger.Printf("Adding member port %d to vlan %d\n", i,  vlanId)
@@ -421,38 +615,49 @@ func processLinkDown(intfId int) {
    	   PORT_PUB.Send(buf, nanomsg.DontWait)
 	}
 }
+func processLinkUp(intfId int) {
+	logger.Println("processLinkUp for port ", intfId)
+	intfIndex := IntfId{ifType:portdCommonDefs.PHY, ifIndex: intfId}
+	intfRecord, ok := AsicLinuxIfMapTable[intfIndex]
+	if(!ok) {
+		logger.Println("Could not find port", intfId)
+		return
+	}
+	intfRecord.state = portdCommonDefs.LINK_STATE_UP
+	logger.Println("set state for intf record")
+	AsicLinuxIfMapTable[intfIndex] = intfRecord
+
+	parentIntfId := IntfId {ifType:portdCommonDefs.VLAN, ifIndex:intfRecord.parentId}
+	parentIntfRecord, ok := AsicLinuxIfMapTable[parentIntfId]
+	if(!ok) {
+		logger.Println("Vlan ",intfRecord.parentId, "not found")
+		return
+	}
+	if(parentIntfRecord.activeIfCount == 0) {
+		parentIntfRecord.state = portdCommonDefs.LINK_STATE_UP
+	}
+	parentIntfRecord.activeIfCount++
+	AsicLinuxIfMapTable[parentIntfId] = parentIntfRecord
+	logger.Printf("Set parent link %d:%d state activeIfCount = \n", parentIntfId.ifType, parentIntfId.ifIndex, parentIntfRecord.activeIfCount)
+	if(parentIntfRecord.activeIfCount == 1) {
+		//publish link up event for the vlan
+	
+	   msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.VLAN, LinkId:uint8(parentIntfId.ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_UP}
+	   msgbufbytes, err := json.Marshal( msgBuf)
+       msg := portdCommonDefs.PortdNotifyMsg {MsgType:portdCommonDefs.NOTIFY_LINK_STATE_CHANGE, MsgBuf: msgbufbytes}
+	   buf, err := json.Marshal( msg)
+	   if err != nil {
+		 logger.Println("Error in marshalling Json")
+		 return
+	   }
+	   logger.Println("buf", buf)
+   	   PORT_PUB.Send(buf, nanomsg.DontWait)
+	}
+}
+
 func (m PortServiceHandler) LinkDown(ifIndex int32) (err error){
 	logger.Println("Disable port ", ifIndex)
 	processLinkDown(int(ifIndex))
-	//intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(ifIndex)}
-	//ifName_, _ := AsicLinuxIfMapTable[intfId]
-	//netlink call to disable link
-	
-/*	msgBuf := portdCommonDefs.LinkStateInfo{Port:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
-    var msgBufPtr = unsafe.Pointer(&msgBuf)
-	msgBufSlice := *((*[2]uint8)(msgBufPtr))
-    var msg portdCommonDefs.PortdNotifyMsg
-	msg.MsgType = portdCommonDefs.NOTIFY_LINK_STATE_CHANGE
-	copy(msg.MsgBuf[:], msgBufSlice[:])
-	var msgPtr = unsafe.Pointer(&msg)
-	msgSlice := *((*[4]uint8)(msgPtr))
-	var buf []byte
-	buf = make([]byte, len(msgSlice))
-    copy(buf[:], msgSlice[:])
-	logger.Println("buf", buf)
-   	PORT_PUB.Send(buf, nanomsg.DontWait)*/
-
-/*	msgBuf := portdCommonDefs.LinkStateInfo{LinkType:portdCommonDefs.PHY,LinkId:uint8(ifIndex), LinkStatus:portdCommonDefs.LINK_STATE_DOWN}
-	msgbufbytes, err := json.Marshal( msgBuf)
-    msg := portdCommonDefs.PortdNotifyMsg {MsgType:portdCommonDefs.NOTIFY_LINK_STATE_CHANGE, MsgBuf: msgbufbytes}
-	buf, err := json.Marshal( msg)
-	if err != nil {
-		logger.Println("Error in marshalling Json")
-		return err
-	}
-	logger.Println("buf", buf)
-   	PORT_PUB.Send(buf, nanomsg.DontWait)
-*/
 	return err
 }
 
@@ -574,11 +779,11 @@ func BuildAsicToLinuxMap(cfgFile string) {
 		intfRecord := IntfRecord{ifName:ifName, state:portdCommonDefs.LINK_STATE_UP}
 		AsicLinuxIfMapTable[intfId] = intfRecord
    }
-   logger.Println("Now install a dummy entry for eth0")
+/*   logger.Println("Now install a dummy entry for eth0")
 		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: 0}
 		ifName := "eth0"
 		intfRecord := IntfRecord{ifName:ifName, state:portdCommonDefs.LINK_STATE_UP}
-		AsicLinuxIfMapTable[intfId] = intfRecord
+		AsicLinuxIfMapTable[intfId] = intfRecord*/
 }
 func InitPublisher()(pub *nanomsg.PubSocket) {
 	pub, err := nanomsg.NewPubSocket()
@@ -627,6 +832,8 @@ func processAsicdEvents(sub *nanomsg.SubSocket) {
 		    logger.Printf("Msg linkstatus = %d msg port = %d\n", msg.LinkStatus, msg.Port)
 		    if(msg.LinkStatus == asicdConstDefs.LINK_STATE_DOWN) {
 				processLinkDown(int(msg.Port))
+			} else {
+				processLinkUp(int(msg.Port))
 			}
        }
 	}
