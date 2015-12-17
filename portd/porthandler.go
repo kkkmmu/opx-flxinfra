@@ -216,21 +216,24 @@ func OsCommand(binary string, args []string, env []string) {
 	}
 	logger.Println("Completed OSCommand")
 }
-func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlanId int32) (err error) {
-	logger.Println("Add vlan link to bridge link")
-/*	err = netlink.LinkSetMaster(vlanLink, bridgeLink)
-	if(err != nil) {
-		logger.Println("Err ", err, "when setting master index for vlanlink")
-	}
-*/	
-	parentIfLink, err := netlink.LinkByIndex(vlanLink.Attrs().ParentIndex)
-	if err != nil {
-		logger.Println("Error getting parent link info " )
-		return err
-	}
-    err = netlink.LinkSetMaster(parentIfLink, bridgeLink)
+func addLinkToBridge(link netlink.Link, bridgeLink *netlink.Bridge, vlanId int32) (err error) {
+	logger.Println("Add link ", link.Attrs().Name, "to bridge link", bridgeLink.Attrs().Name)
+	if(link.Type() == "vlan") {
+	   logger.Println("Add vlan link to bridge link")
+	   err = netlink.LinkSetMaster(link, bridgeLink)
+	   if(err != nil) {
+		  logger.Println("Err ", err, "when setting master index for vlanlink")
+		  return err
+	   }
+	   logger.Println("Finished adding vlan link to bridge")
+	   return err
+    }
+	
+	logger.Println("This is an untagged member, so add the phy link to bridge")
+    err = netlink.LinkSetMaster(link, bridgeLink)
 	if(err != nil) {
 		logger.Println("Err ", err, "when setting master index for parentlink")
+		return err
 	}
 
     brname := bridgeLink.Attrs().Name
@@ -281,33 +284,15 @@ func addVlanLinkToBridge(vlanLink netlink.Link, bridgeLink *netlink.Bridge, vlan
 		return lookErr
 	}
 	logger.Println("path search for bridge found as ", binary)
-	/*args1 := []string{"bridge", "vlan", "add", "dev", brname, "vid", strconv.Itoa(int(vlanId)), "self", "pvid", "untagged"}
-	env := os.Environ()
-	go OsCommand (binary, args1, env)
-	logger.Println("configured bridge successfully")
-//	vlanName := vlanLink.Attrs().Name
-//	args2 := []string{"bridge", "vlan", "add", "dev", vlanName, "vid", strconv.Itoa(int(vlanId)),  "pvid", "untagged"}
-	//err = exec.Command(binary, command).Run()
-//	env = os.Environ()
-//	go OsCommand (binary, args2, env)
-//	logger.Println("configured vlanLink successfully")*/
     cmd := exec.Command(binary, "vlan", "add", "dev", brname, "vid", strconv.Itoa(int(vlanId)), "self", "pvid", "untagged")
 	err = cmd.Run()
 	if(err != nil) {
 		logger.Println("Error executing bridge vlan command for bridge")
 	}
-/*
-	vlanName := vlanLink.Attrs().Name
-    cmd = exec.Command(binary, "vlan", "add", "dev", vlanName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
-	err = cmd.Run()
-	if(err != nil) {
-		logger.Println("Error executing command ")
-	}
-*/
-	parentIfName := parentIfLink.Attrs().Name
-    logger.Printf("Found the parent interface as %s, now add this as untagged member\n", parentIfName)
+	ifName := link.Attrs().Name
+    logger.Printf("Found the parent interface as %s, now add this as untagged member\n", ifName)
 
-    cmd = exec.Command(binary, "vlan", "add", "dev", parentIfName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
+    cmd = exec.Command(binary, "vlan", "add", "dev", ifName, "vid", strconv.Itoa(int(vlanId)), "pvid", "untagged")
 	err = cmd.Run()
 	if(err != nil) {
 		logger.Println("Error executing bridge vlan command for parentiflink")
@@ -480,8 +465,27 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	logger.Println("create vlan")
     portPbmStr, err := parseUsrPortStrToPbm(ports)
     if err != nil {
+        logger.Println("Error while parsing ports")
         return 0, err
     }
+	portUPbmStr, err := parseUsrPortStrToPbm(untaggedPorts)
+    if err != nil {
+        logger.Println("Error while parsing untaggedports")
+        return 0, err
+    }
+	logger.Printf("pbmstr=%s upbmstr=%s\n", portPbmStr, portUPbmStr)
+	var tagList []bool
+	tagList = make([]bool, len(portPbmStr))
+	for iter :=0; iter < len(portPbmStr);iter++ {
+		if(iter < len(portUPbmStr)) {
+			if(portUPbmStr[iter] == '0') {//this is a tagged member
+			   tagList[iter] = true
+			}
+		} else {
+			tagList[iter] = true
+		}
+	}
+	logger.Printf("pbmstr=%s upbmstr=%s tagList = %v\n", portPbmStr, portUPbmStr, tagList)
 	var brintfId IntfId
 	//call asicd to create vlan and add members in the switch
 	if asicdclnt.IsConnected == true {
@@ -492,9 +496,9 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	brname := sviBase + strconv.Itoa(int(vlanId))
 	logger.Println("looking for bridge ", brname)
 	bridgeLink, err := netlink.LinkByName(brname)
-	if bridgeLink == nil {
+	if err != nil {
 		bridgeLink, err = bridgeLinkCreate(brname)
-		if bridgeLink == nil {
+		if err != nil {
 			logger.Println("Could not create bridge err=", brname, err)
 			return 0, err
 		}
@@ -514,19 +518,6 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 				logger.Println("No linux mapping found for the front panel port err ", i, err)
 				return 0, err
 			}
-			//create virtual vlan interface
-			vlanLink, err := vlanLinkCreate(intfRecord.ifName, vlanId)
-			if err != nil {
-				logger.Println("Could not create vlan interface for port err ", i, err)
-				return 0, err
-			}
-			//add the vlan interface to the bridge
-			err = addVlanLinkToBridge(vlanLink, bridgeLink.(*netlink.Bridge), vlanId)
-			if err != nil {
-				logger.Println("Could not add vlan interface ifName to bridge  err ", intfRecord.ifName, brname, err)
-				return 0, err
-			}
-			logger.Println("Added vlanlink to bridge")
 			brIntfRecord, ok := AsicLinuxIfMapTable[brintfId]
 			if(!ok){
 				return 0, nil
@@ -546,6 +537,30 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			
 			intfRecord.parentId = int(vlanId)
 			AsicLinuxIfMapTable[intfId] = intfRecord
+			var newLink netlink.Link
+            if(tagList[i] == true) {
+			   //create virtual vlan interface
+			   logger.Println("Adding port ", i, "as a tagged member" )
+			   newLink, err = vlanLinkCreate(intfRecord.ifName, vlanId)
+			   if err != nil {
+				  logger.Println("Could not create vlan interface for port err ", i, err)
+				  return 0, err
+			   }
+			} else {
+				logger.Printf("Adding port %d name %s as a untagged member\n", i, intfRecord.ifName )
+				newLink, err = netlink.LinkByName(intfRecord.ifName)
+				if(err != nil) {
+					logger.Println("Could not get link with index ", i)
+					return 0, err
+				}
+			}
+			   //add the interface to the bridge
+			   err = addLinkToBridge(newLink, bridgeLink.(*netlink.Bridge), vlanId)
+			   if err != nil {
+				  logger.Println("Could not add vlan interface ifName to bridge  err ", intfRecord.ifName, brname, err)
+				  return 0, err
+			   }
+			   logger.Println("Added link to bridge")
 		}
 	}
 	return 0, nil
