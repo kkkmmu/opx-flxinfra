@@ -37,10 +37,14 @@ type IntfId struct {
 	ifType  int
 	ifIndex int
 }
+type MemberInfo struct {
+	ifIndex int
+	tagged  bool
+}
 type IntfRecord struct {
 	ifName string
 	state  int  
-	memberIfList []int
+	memberIfList []MemberInfo
 	activeIfCount int8
 	parentId int
 }
@@ -164,6 +168,23 @@ func parseUsrPortStrToPbm(usrPortStr string) (string, error) {
 	return pbmStr, nil
 }
 
+func linkDelete(link netlink.Link) (err error) {
+    logger.Println("In link delete")
+	err = netlink.LinkDel(link)
+	return err
+}
+
+func vlanLinkDelete(ifName string, vlanId int32) (err error) {
+    logger.Println("In vlan link delete")
+	linkName := ifName + "." + strconv.Itoa(int(vlanId))
+	link, err := netlink.LinkByName(linkName)
+	if err != nil {
+		logger.Println("Error getting link info for ", linkName)
+		return  err
+	}
+	err = netlink.LinkDel(link)
+	return err
+}
 func vlanLinkCreate(ifName string, vlanId int32) (link netlink.Link, err error) {
 	linkAttrs.Name = ifName + "." + strconv.Itoa(int(vlanId))
 	//get the parent link's index
@@ -215,6 +236,15 @@ func OsCommand(binary string, args []string, env []string) {
 		logger.Println("command for bridge link returned err", err, "when running args", args)
 	}
 	logger.Println("Completed OSCommand")
+}
+func delLinkFromBridge(link netlink.Link) (err error) {
+	
+	   err = netlink.LinkSetMasterByIndex(link, 0)
+	   if(err != nil) {
+		  logger.Println("Err ", err, "when setting master index")
+		  return err
+	   }
+	return err
 }
 func addLinkToBridge(link netlink.Link, bridgeLink *netlink.Bridge, vlanId int32) (err error) {
 	logger.Println("Add link ", link.Attrs().Name, "to bridge link", bridgeLink.Attrs().Name)
@@ -348,7 +378,7 @@ func (m PortServiceHandler) CreateV4Intf(ipAddr string,
 			logger.Println(" could not find SVI mapping for vlan ", intf)
 			return 0, err
 		}
-		intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:int(vlanintfRecord.memberIfList[0])}
+		intfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:int(vlanintfRecord.memberIfList[0].ifIndex)}
 		linkName := AsicLinuxIfMapTable[intfId].ifName
 		link, err = netlink.LinkByName(linkName)
 		if link == nil {
@@ -388,6 +418,7 @@ func (m PortServiceHandler) DeleteV4Intf(ipAddr string,
 	intf, intfType int32) (rc portdServices.Int, err error) {
 	logger.Println("Received Intf Delete request")
 	var ipMask net.IP
+	var link netlink.Link
 	if asicdclnt.IsConnected == true {
 		asicdclnt.ClientHdl.DeleteIPv4Intf(ipAddr, intf, intfType)
 	}
@@ -401,6 +432,42 @@ func (m PortServiceHandler) DeleteV4Intf(ipAddr string,
 		ipAddrStr := ip.String()
 		ipMaskStr := net.IP(ipMask).String()
 		ribdclnt.ClientHdl.DeleteV4Route(ipAddrStr, ipMaskStr, ribdCommonDefs.CONNECTED)
+	}
+	logger.Println("Finished calling ribd")
+	if intfType == commonDefs.L2RefTypeVlan {
+		//set the ip interface on bridge<vlan>
+		
+		brname := sviBase + strconv.Itoa(int(intf))
+		logger.Println("looking for bridge ", brname)
+		link, err = netlink.LinkByName(brname)
+		if link == nil {
+			logger.Println("Could not find bridge err=", brname, err)
+			return 0, err
+		}
+	} else {
+		//set ip interface on the actual interface derived from looking up the asictolinuxmap
+		intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: int(intf)}
+		intfRecord, ok := AsicLinuxIfMapTable[intfId]
+		if !ok {
+			logger.Println(" could not find SVI mapping for port")
+			return 0, err
+		}
+		link, err = netlink.LinkByName(intfRecord.ifName)
+		if link == nil {
+			logger.Println("Could not find interface ", intfRecord.ifName)
+			return 0, err
+		}
+	}
+
+	addr, err := netlink.ParseAddr(ipAddr)
+	if err != nil {
+		logger.Println("error while parsing ip address ", err, ipAddr)
+		return 0, err
+	}
+	err = netlink.AddrDel(link, addr)
+	if err != nil {
+		logger.Println("error while assigning ip address to SVI ", err)
+		return 0, err
 	}
 	return 0, err
 }
@@ -424,8 +491,8 @@ func (m PortServiceHandler) DeleteV4Neighbor(ipAddr string, macAddr string, vlan
 	}
 	return 0, err
 }
-func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err error) {
-	
+
+func (m PortServiceHandler) GetVlanMembers(vlanId int32)(ports []string, err error) {
 	ports = make([]string,0)
 	intfId := IntfId{ifType: portdCommonDefs.VLAN, ifIndex: int(vlanId)}
 	intfRecord, ok := AsicLinuxIfMapTable[intfId]
@@ -449,7 +516,7 @@ func (m PortServiceHandler) GetVlanMembers(vlanId int32) (ports []string, err er
 		}
 	}*/
 	for i:=0;i<len(intfRecord.memberIfList);i++ {
-		getIntfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:intfRecord.memberIfList[i]}
+		getIntfId := IntfId{ifType:portdCommonDefs.PHY, ifIndex:intfRecord.memberIfList[i].ifIndex}
 		getIfRecord, ok := AsicLinuxIfMapTable[getIntfId]
 		if(!ok){
 			continue
@@ -463,6 +530,12 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	ports string,
 	untaggedPorts string) (rc portdServices.Int, err error) {
 	logger.Println("create vlan")
+
+	//call asicd to create vlan and add members in the switch
+	if asicdclnt.IsConnected == true {
+		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, untaggedPorts)
+	}
+
     portPbmStr, err := parseUsrPortStrToPbm(ports)
     if err != nil {
         logger.Println("Error while parsing ports")
@@ -486,11 +559,8 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 		}
 	}
 	logger.Printf("pbmstr=%s upbmstr=%s tagList = %v\n", portPbmStr, portUPbmStr, tagList)
+
 	var brintfId IntfId
-	//call asicd to create vlan and add members in the switch
-	if asicdclnt.IsConnected == true {
-		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, untaggedPorts)
-	}
 	
 	//create bridgelink - SVI<vlan>
 	brname := sviBase + strconv.Itoa(int(vlanId))
@@ -524,10 +594,8 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			} 
 			if(len(brIntfRecord.memberIfList) == 0) {
 				logger.Println("Making the memberlist because this is the first member")
-				brIntfRecord.memberIfList = make([]int, 0)
+				brIntfRecord.memberIfList = make([]MemberInfo, 0)
 			}
-			logger.Printf("Adding member port %d to vlan %d\n", i,  vlanId)
-			brIntfRecord.memberIfList = append(brIntfRecord.memberIfList, i)
 			if(intfRecord.state == portdCommonDefs.LINK_STATE_UP) {
 				logger.Println("adding a link up member")
 				brIntfRecord.activeIfCount++
@@ -540,14 +608,18 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 			var newLink netlink.Link
             if(tagList[i] == true) {
 			   //create virtual vlan interface
-			   logger.Println("Adding port ", i, "as a tagged member" )
+			   logger.Println("Adding port %d as a tagged member to vlan %d\n", i, vlanId)
+			   memInfo := MemberInfo {ifIndex:i, tagged:true}
+			   brIntfRecord.memberIfList = append(brIntfRecord.memberIfList, memInfo)
 			   newLink, err = vlanLinkCreate(intfRecord.ifName, vlanId)
 			   if err != nil {
 				  logger.Println("Could not create vlan interface for port err ", i, err)
 				  return 0, err
 			   }
 			} else {
-				logger.Printf("Adding port %d name %s as a untagged member\n", i, intfRecord.ifName )
+				logger.Printf("Adding port %d name %s as a untagged member to vlan %d\n", i, intfRecord.ifName, vlanId )
+			    memInfo := MemberInfo {ifIndex:i, tagged:false}
+			    brIntfRecord.memberIfList = append(brIntfRecord.memberIfList, memInfo)
 				newLink, err = netlink.LinkByName(intfRecord.ifName)
 				if(err != nil) {
 					logger.Println("Could not get link with index ", i)
@@ -566,15 +638,87 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 	return 0, nil
 }
 
+func deleteVlan(vlanId int32) (rc portdServices.Int, err error) {
+    logger.Println("delete vlan for vlan ", vlanId)
+	var brintfId IntfId
+	var newLink netlink.Link
+	brintfId.ifType = portdCommonDefs.VLAN
+	brintfId.ifIndex = int(vlanId)
+	brIntfRecord, ok := AsicLinuxIfMapTable[brintfId]
+	if(!ok){
+		logger.Println("bridge for vlan ", vlanId, "not found")
+		return 0, nil
+	} 
+
+	brname := sviBase + strconv.Itoa(int(vlanId))
+	logger.Println("looking for bridge ", brname)
+	bridgeLink, err := netlink.LinkByName(brname)
+	if err != nil {
+			logger.Println("Could not locate bridge err=", brname, err)
+			return 0, err
+	}
+
+	if(len(brIntfRecord.memberIfList) == 0) {
+	   logger.Println("No members for this vlan")
+		return 0, nil
+	}
+
+	//go over the ports in the portlist
+	for i := 0; i < len(brIntfRecord.memberIfList); i++ {
+	    //get the linux names from the map
+	    intfId := IntfId{ifType: portdCommonDefs.PHY, ifIndex: brIntfRecord.memberIfList[i].ifIndex}
+	    intfRecord, ok := AsicLinuxIfMapTable[intfId]
+	    if !ok {
+		   logger.Println("No linux mapping found for the front panel port err ", brIntfRecord.memberIfList[i].ifIndex, err)
+		   return 0, err
+	    }
+		if brIntfRecord.memberIfList[i].tagged == true {
+			   //delete virtual vlan interface
+			   logger.Println("Removing port ", brIntfRecord.memberIfList[i].ifIndex, " a tagged member" )
+			   err = vlanLinkDelete(intfRecord.ifName, vlanId)
+			   if err != nil {
+				  logger.Println("Could not delete vlan link for port err ", intfRecord.ifName, err)
+				  return 0, err
+			   }
+		} else {
+				logger.Printf("Removing port %d name %s as a untagged member\n", brIntfRecord.memberIfList[i].ifIndex, intfRecord.ifName )
+				newLink, err = netlink.LinkByName(intfRecord.ifName)
+				if(err != nil) {
+					logger.Println("Could not get link with index ", i)
+					return 0, err
+				}
+		       //remove the interface from the bridge
+		       err = delLinkFromBridge(newLink)
+		       if err != nil {
+		          logger.Println("Could not remove  interface ifName from bridge  err ", intfRecord.ifName, brname, err)
+		          return 0, err
+	           }
+		       logger.Println("Removed link from bridge")
+		}
+		intfRecord.parentId = 0
+		AsicLinuxIfMapTable[intfId] = intfRecord
+	}
+	     if(brIntfRecord.activeIfCount > 0) {
+		 //publish link down event
+	   }
+	   brIntfRecord.memberIfList = brIntfRecord.memberIfList[:0]
+	   brIntfRecord.activeIfCount = 0
+	   AsicLinuxIfMapTable[brintfId] = brIntfRecord
+	   err = linkDelete(bridgeLink)
+	   return 0, err
+}
+
 func (m PortServiceHandler) DeleteVlan(vlanId int32,
 	ports string,
 	portTagType string) (rc portdServices.Int, err error) {
 	logger.Println("Delete vlan")
+
 	if asicdclnt.IsConnected == true {
 		logger.Println("call deletevlan from asicd")
 		asicdclnt.ClientHdl.DeleteVlan(vlanId, ports, portTagType)
 	}
-	return 0, nil
+    _, err = deleteVlan(vlanId)
+	return 0, err
 }
 
 func (m PortServiceHandler) UpdateVlan(vlanId int32,
