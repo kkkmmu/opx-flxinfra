@@ -10,6 +10,9 @@ exe: $(COMPS)
 ipc: $(IPCS)
 	 $(foreach f,$^, make -C $(f) ipc;)
 
+clean: $(COMPS)
+         $(foreach f,$^, make -C $(f) clean;)
+
 install: $(COMPS)
 	 $(foreach f,$^, make -C $(f) install;)
 
