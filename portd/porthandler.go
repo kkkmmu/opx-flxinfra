@@ -15,12 +15,15 @@ import (
 	"ribd"
 	"strconv"
 	"time"
+	"arpd"
 	"asicd/asicdConstDefs"
 //	"unsafe"
 	"github.com/op/go-nanomsg"
 	"encoding/binary"
 //	"os"
 	"syscall"
+	"os"
+	"os/signal"
 	"os/exec"
 	"bytes"
 	"strings"
@@ -68,6 +71,11 @@ type RibClient struct {
 	ClientHdl *ribd.RouteServiceClient
 }
 
+type ArpdClient struct {
+	PortClientBase
+	ClientHdl *arpd.ARPServiceClient
+}
+
 type ClientJson struct {
 	Name string `json:Name`
 	Port int    `json:Port`
@@ -80,6 +88,7 @@ type PortConfigJson struct {
 
 var asicdclnt AsicdClient
 var ribdclnt RibClient
+var arpdclnt ArpdClient
 var sviBase = "SVI"
 var linkAttrs netlink.LinkAttrs
 var dummyLinkAttrs netlink.LinkAttrs
@@ -536,6 +545,10 @@ func (m PortServiceHandler) CreateVlan(vlanId int32,
 		asicdclnt.ClientHdl.CreateVlan(vlanId, ports, untaggedPorts)
 	}
 
+	if arpdclnt.IsConnected == true {
+		arpdclnt.ClientHdl.UpdateUntaggedPortToVlanMap(arpd.Int(vlanId), untaggedPorts)
+	}
+
     portPbmStr, err := parseUsrPortStrToPbm(ports)
     if err != nil {
         logger.Println("Error while parsing ports")
@@ -880,6 +893,19 @@ func connectToClient(client ClientJson) {
 				return
 			}
 		}
+
+		if client.Name == "arpd" {
+			logger.Printf("found arpd at port %d", client.Port)
+			arpdclnt.Address = "localhost:" + strconv.Itoa(client.Port)
+			arpdclnt.Transport, arpdclnt.PtrProtocolFactory = CreateIPCHandles(arpdclnt.Address)
+			if arpdclnt.Transport != nil && arpdclnt.PtrProtocolFactory != nil {
+				logger.Println("connecting to arpd")
+				arpdclnt.ClientHdl = arpd.NewARPServiceClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
+				arpdclnt.IsConnected = true
+				timer.Stop()
+				return
+			}
+		}
 	}
 }
 
@@ -920,6 +946,18 @@ func ConnectToClients(paramsFile string) {
 				logger.Println("connecting to ribd")
 				ribdclnt.ClientHdl = ribd.NewRouteServiceClientFactory(ribdclnt.Transport, ribdclnt.PtrProtocolFactory)
 				ribdclnt.IsConnected = true
+			} else {
+				go connectToClient(client)
+			}
+		}
+		if client.Name == "arpd" {
+			logger.Printf("found arpd at port %d", client.Port)
+			arpdclnt.Address = "localhost:" + strconv.Itoa(client.Port)
+			arpdclnt.Transport, arpdclnt.PtrProtocolFactory = CreateIPCHandles(arpdclnt.Address)
+			if arpdclnt.Transport != nil && arpdclnt.PtrProtocolFactory != nil {
+				logger.Println("connecting to arpd")
+				arpdclnt.ClientHdl = arpd.NewARPServiceClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
+				arpdclnt.IsConnected = true
 			} else {
 				go connectToClient(client)
 			}
@@ -1056,6 +1094,23 @@ func CleanupSys() {
 	   }		
 	}
 }
+
+func sigHandler(sigChan <-chan os.Signal) {
+    signal := <-sigChan
+    switch signal {
+    case syscall.SIGHUP:
+        logger.Println("Received SIGHUP signal")
+		CleanupSys()
+/*        logger.Println("Closing DB handler")
+        if dbHdl != nil {
+            dbHdl.Close()
+        }*/
+        os.Exit(0)
+    default:
+        logger.Println("Unhandled signal : ", signal)
+    }
+}
+
 func NewPortServiceHandler(paramsDir string) *PortServiceHandler {
 	AsicLinuxIfMapTable = make(map[IntfId]IntfRecord)
 	configFile := paramsDir + "/clients.json"
@@ -1064,6 +1119,11 @@ func NewPortServiceHandler(paramsDir string) *PortServiceHandler {
 	BuildAsicToLinuxMap(portCfgFile)
 	PORT_PUB = InitPublisher()
     go SetupEventHandler(AsicdSub, asicdConstDefs.PUB_SOCKET_ADDR, SUB_ASICD)
+    //List of signals to handle
+    sigChan := make(chan os.Signal, 1)
+    signalList := []os.Signal{syscall.SIGHUP}
+    signal.Notify(sigChan, signalList...)
+    go sigHandler(sigChan)
 	linkAttrs = netlink.NewLinkAttrs()
 	return &PortServiceHandler{}
 }
