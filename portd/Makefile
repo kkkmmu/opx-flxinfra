@@ -1,6 +1,6 @@
 RM=rm -f
 RMFORCE=rm -rf
-DESTDIR=$(SR_CODE_BASE)/snaproute/src/bin
+DESTDIR=$(SR_CODE_BASE)/snaproute/src/out/bin
 GENERATED_IPC=$(SR_CODE_BASE)/generated/src
 PARAMSDIR=$(DESTDIR)/params
 MKDIR=mkdir -p
