@@ -73,7 +73,7 @@ type RibClient struct {
 
 type ArpdClient struct {
 	PortClientBase
-	ClientHdl *arpd.ARPServiceClient
+	ClientHdl *arpd.ARPDServicesClient
 }
 
 type ClientJson struct {
@@ -900,7 +900,7 @@ func connectToClient(client ClientJson) {
 			arpdclnt.Transport, arpdclnt.PtrProtocolFactory = CreateIPCHandles(arpdclnt.Address)
 			if arpdclnt.Transport != nil && arpdclnt.PtrProtocolFactory != nil {
 				logger.Println("connecting to arpd")
-				arpdclnt.ClientHdl = arpd.NewARPServiceClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
+				arpdclnt.ClientHdl = arpd.NewARPDServicesClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
 				arpdclnt.IsConnected = true
 				timer.Stop()
 				return
@@ -956,7 +956,7 @@ func ConnectToClients(paramsFile string) {
 			arpdclnt.Transport, arpdclnt.PtrProtocolFactory = CreateIPCHandles(arpdclnt.Address)
 			if arpdclnt.Transport != nil && arpdclnt.PtrProtocolFactory != nil {
 				logger.Println("connecting to arpd")
-				arpdclnt.ClientHdl = arpd.NewARPServiceClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
+				arpdclnt.ClientHdl = arpd.NewARPDServicesClientFactory(arpdclnt.Transport, arpdclnt.PtrProtocolFactory)
 				arpdclnt.IsConnected = true
 			} else {
 				go connectToClient(client)
