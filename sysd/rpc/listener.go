@@ -1,0 +1,84 @@
+package rpc
+
+import (
+	"errors"
+	"fmt"
+	"infra/sysd/server"
+	"sysd"
+	"utils/logging"
+)
+
+type SYSDHandler struct {
+	server *server.SYSDServer
+	logger *logging.Writer
+}
+
+func NewSYSDHandler(logger *logging.Writer, server *server.SYSDServer) *SYSDHandler {
+	h := new(SYSDHandler)
+	h.server = server
+	h.logger = logger
+	return h
+}
+
+func (h *SYSDHandler) SendGlobalLoggingConfig(gLoggingConfig *sysd.SystemLoggingConfig) bool {
+	var Logging bool
+	if gLoggingConfig.Logging == "on" {
+		Logging = true
+	} else {
+		Logging = false
+	}
+	gConf := server.GlobalLoggingConfig{
+		Enable: Logging,
+	}
+	h.server.GlobalLoggingConfigCh <- gConf
+	return true
+}
+
+func (h *SYSDHandler) SendComponentLoggingConfig(cLoggingConfig *sysd.ComponentLoggingConfig) bool {
+	cConf := server.ComponentLoggingConfig{
+		Component: cLoggingConfig.Name,
+		Level:     logging.ConvertLevelStrToVal(cLoggingConfig.Level),
+	}
+	h.server.ComponentLoggingConfigCh <- cConf
+	return true
+}
+
+func (h *SYSDHandler) UpdateSystemLoggingConfig(origConf *sysd.SystemLoggingConfig, newConf *sysd.SystemLoggingConfig, attrset []bool) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Original global config attrs:", origConf))
+	if newConf == nil {
+		err := errors.New("Invalid Session Configuration")
+		return false, err
+	}
+	h.logger.Info(fmt.Sprintln("Update session config attrs:", newConf))
+	return h.SendGlobalLoggingConfig(newConf), nil
+}
+
+func (h *SYSDHandler) UpdateComponentLoggingConfig(origConf *sysd.ComponentLoggingConfig, newConf *sysd.ComponentLoggingConfig, attrset []bool) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Original global config attrs:", origConf))
+	if newConf == nil {
+		err := errors.New("Invalid Session Configuration")
+		return false, err
+	}
+	h.logger.Info(fmt.Sprintln("Update session config attrs:", newConf))
+	return h.SendComponentLoggingConfig(newConf), nil
+}
+
+func (h *SYSDHandler) CreateSystemLoggingConfig(gLoggingConf *sysd.SystemLoggingConfig) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Create global config attrs:", gLoggingConf))
+	return true, nil
+}
+
+func (h *SYSDHandler) CreateComponentLoggingConfig(cLoggingConf *sysd.ComponentLoggingConfig) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Create interface config attrs:", cLoggingConf))
+	return true, nil
+}
+
+func (h *SYSDHandler) DeleteSystemLoggingConfig(gLoggingConf *sysd.SystemLoggingConfig) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Delete global config attrs:", gLoggingConf))
+	return true, nil
+}
+
+func (h *SYSDHandler) DeleteComponentLoggingConfig(cLoggingConf *sysd.ComponentLoggingConfig) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Delete interface config attrs:", cLoggingConf))
+	return true, nil
+}
