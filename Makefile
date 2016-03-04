@@ -1,6 +1,6 @@
-COMPS=portd
+COMPS=sysd
 
-IPCS=portd
+IPCS=sysd
 
 all: ipc exe 
 
