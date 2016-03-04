@@ -18,7 +18,7 @@ type GlobalLoggingConfig struct {
 
 type ComponentLoggingConfig struct {
 	Component string
-	Level     logging.SRDebugLevel
+	Level     sysdCommonDefs.SRDebugLevel
 }
 
 type SYSDServer struct {
@@ -87,7 +87,7 @@ func (server *SYSDServer) PublishSysdNotifications() {
 	for {
 		select {
 		case event := <-server.notificationCh:
-			server.logger.Info(fmt.Sprintln("Received call to notify session state", event))
+			server.logger.Info(fmt.Sprintln("Received call to notify ", event))
 			_, err := server.sysdPubSocket.Send(event, nanomsg.DontWait)
 			if err == syscall.EAGAIN {
 				server.logger.Err(fmt.Sprintln("Failed to publish event"))
@@ -121,6 +121,7 @@ func (server *SYSDServer) ReadConfigFromDB(dbHdl *sql.DB) error {
 }
 
 func (server *SYSDServer) ProcessGlobalLoggingConfig(gLogConf GlobalLoggingConfig) error {
+	server.logger.SetGlobal(gLogConf.Enable)
 	msg := sysdCommonDefs.GlobalLogging{
 		Enable: gLogConf.Enable,
 	}
@@ -143,25 +144,29 @@ func (server *SYSDServer) ProcessGlobalLoggingConfig(gLogConf GlobalLoggingConfi
 }
 
 func (server *SYSDServer) ProcessComponentLoggingConfig(cLogConf ComponentLoggingConfig) error {
-	msg := sysdCommonDefs.ComponentLogging{
-		Name:  cLogConf.Component,
-		Level: cLogConf.Level,
+	if cLogConf.Component == server.logger.MyComponentName {
+		server.logger.SetLevel(cLogConf.Level)
+	} else {
+		msg := sysdCommonDefs.ComponentLogging{
+			Name:  cLogConf.Component,
+			Level: cLogConf.Level,
+		}
+		msgBuf, err := json.Marshal(msg)
+		if err != nil {
+			server.logger.Err("Failed to marshal Global logging message")
+			return err
+		}
+		notification := sysdCommonDefs.Notification{
+			Type:    uint8(sysdCommonDefs.C_LOG),
+			Payload: msgBuf,
+		}
+		notificationBuf, err := json.Marshal(notification)
+		if err != nil {
+			server.logger.Err("Failed to marshal Global logging message")
+			return err
+		}
+		server.notificationCh <- notificationBuf
 	}
-	msgBuf, err := json.Marshal(msg)
-	if err != nil {
-		server.logger.Err("Failed to marshal Global logging message")
-		return err
-	}
-	notification := sysdCommonDefs.Notification{
-		Type:    uint8(sysdCommonDefs.C_LOG),
-		Payload: msgBuf,
-	}
-	notificationBuf, err := json.Marshal(notification)
-	if err != nil {
-		server.logger.Err("Failed to marshal Global logging message")
-		return err
-	}
-	server.notificationCh <- notificationBuf
 	return nil
 }
 

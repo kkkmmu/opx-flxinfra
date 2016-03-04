@@ -2,11 +2,12 @@ namespace go sysd
 typedef i32 int
 typedef i16 uint16
 struct ComponentLoggingConfig {
-	1 : string Name
+	1 : string Module
 	2 : string Level
 }
 struct SystemLoggingConfig {
-	1 : string Logging
+	1 : string SRLogger
+	2 : string SystemLogging
 }
 service SYSDServices {
 	bool CreateComponentLoggingConfig(1: ComponentLoggingConfig config);

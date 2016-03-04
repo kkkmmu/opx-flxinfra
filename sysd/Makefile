@@ -5,7 +5,7 @@ GENERATED_IPC=$(SR_CODE_BASE)/generated/src
 IPC_GEN_CMD=thrift
 SRCS=main.go
 IPC_SRCS=rpc/sysd.thrift
-COMP_NAME=bfdd
+COMP_NAME=sysd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
 all:ipc exe
 ipc:

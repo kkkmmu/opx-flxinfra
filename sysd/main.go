@@ -12,7 +12,10 @@ import (
 
 func main() {
 	fmt.Println("Starting system daemon")
-	logger, err := logging.NewLogger("sysd", "SYSTEM")
+	paramsDir := flag.String("params", "./params", "Params directory")
+	flag.Parse()
+
+	logger, err := logging.NewLogger(*paramsDir, "sysd", "SYSTEM")
 	if err != nil {
 		fmt.Println("Failed to start the logger. Exiting!!")
 		return
@@ -20,8 +23,6 @@ func main() {
 
 	logger.Info("Started the logger successfully.")
 
-	paramsDir := flag.String("params", "./params", "Params directory")
-	flag.Parse()
 	fileName := *paramsDir
 	if fileName[len(fileName)-1] != '/' {
 		fileName = fileName + "/"
