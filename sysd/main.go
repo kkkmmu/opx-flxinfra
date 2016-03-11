@@ -14,31 +14,30 @@ func main() {
 	fmt.Println("Starting system daemon")
 	paramsDir := flag.String("params", "./params", "Params directory")
 	flag.Parse()
-
-	dbName := *paramsDir + "/UsrConfDb.db"
-	fmt.Println("Opening Config DB: ", dbName)
-	dbHdl, err := sql.Open("sqlite3", dbName)
-	if err != nil {
-		fmt.Println("Failed to open connection to DB. ", err, " Exiting!!")
-		return
+	fileName := *paramsDir
+	if fileName[len(fileName)-1] != '/' {
+		fileName = fileName + "/"
 	}
 
-	logger, err := logging.NewLogger(*paramsDir, "sysd", "SYSTEM", dbHdl)
+	logger, err := logging.NewLogger(fileName, "sysd", "SYSTEM")
 	if err != nil {
 		fmt.Println("Failed to start the logger. Exiting!!")
 		return
 	}
 	logger.Info("Started the logger successfully.")
 
-	fileName := *paramsDir
-	if fileName[len(fileName)-1] != '/' {
-		fileName = fileName + "/"
+	dbName := fileName + "/UsrConfDb.db"
+	fmt.Println("Opening Config DB: ", dbName)
+	dbHdl, err := sql.Open("sqlite3", dbName)
+	if err != nil {
+		fmt.Println("Failed to open connection to DB. ", err, " Exiting!!")
+		return
 	}
-	fileName = fileName + "clients.json"
+	clientsFileName := fileName + "clients.json"
 
 	logger.Info(fmt.Sprintln("Starting Sysd Server..."))
 	sysdServer := server.NewSYSDServer(logger)
-	go sysdServer.StartServer(fileName, dbHdl)
+	go sysdServer.StartServer(clientsFileName, dbHdl)
 
 	logger.Info(fmt.Sprintln("Starting Config listener..."))
 	confIface := rpc.NewSYSDHandler(logger, sysdServer)
