@@ -26,7 +26,7 @@ func main() {
 	}
 	logger.Info("Started the logger successfully.")
 
-	dbName := fileName + "/UsrConfDb.db"
+	dbName := fileName + "UsrConfDb.db"
 	fmt.Println("Opening Config DB: ", dbName)
 	dbHdl, err := sql.Open("sqlite3", dbName)
 	if err != nil {
@@ -41,5 +41,5 @@ func main() {
 
 	logger.Info(fmt.Sprintln("Starting Config listener..."))
 	confIface := rpc.NewSYSDHandler(logger, sysdServer)
-	rpc.StartServer(logger, confIface, fileName)
+	rpc.StartServer(logger, confIface, clientsFileName)
 }
