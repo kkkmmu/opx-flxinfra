@@ -8,6 +8,12 @@
 #define INPUT_CHAIN "INPUT"
 #define RULE_NAME_SIZE 64
 
+typedef enum operation_s {
+     UNKNOWN = 0,
+     ADD_RULE = 1,
+     DELETE_RULE = 2,
+}rule_operation_t;
+
 typedef struct rule_entry_s {
     char *Name; 
     char *PhysicalPort; 

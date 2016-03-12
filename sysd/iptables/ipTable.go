@@ -37,7 +37,6 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig) {
 	var iptEntry C.ipt_config_t
 	rv := -1
 	if err != nil {
-		hdl.logger.Info("check for string")
 		if strings.Compare(config.Port, ALL_RULE_STR) == 0 {
 			hdl.logger.Info("Rule to be applied on all ports")
 			port = 0
