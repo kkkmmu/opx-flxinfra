@@ -82,3 +82,20 @@ func (h *SYSDHandler) DeleteComponentLoggingConfig(cLoggingConf *sysd.ComponentL
 	h.logger.Info(fmt.Sprintln("Delete component config attrs:", cLoggingConf))
 	return true, nil
 }
+
+func (h *SYSDHandler) CreateIpTableAclConfig(ipaclConfig *sysd.IpTableAclConfig) (bool, error) {
+	h.logger.Info("Create Ip Table rule " + ipaclConfig.Name)
+	h.server.IptableAddCh <- ipaclConfig
+	return true, nil
+}
+
+func (h *SYSDHandler) UpdateIpTableAclConfig(origConf *sysd.IpTableAclConfig,
+	newConf *sysd.IpTableAclConfig, attrset []bool) (bool, error) {
+	return true, nil
+}
+
+func (h *SYSDHandler) DeleteIpTableAclConfig(ipaclConfig *sysd.IpTableAclConfig) (bool, error) {
+	h.logger.Info("Delete Ip Table rule " + ipaclConfig.Name)
+	h.server.IptableDelCh <- ipaclConfig
+	return true, nil
+}

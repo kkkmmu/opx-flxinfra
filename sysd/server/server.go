@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	nanomsg "github.com/op/go-nanomsg"
+	"infra/sysd/iptables"
 	"infra/sysd/sysdCommonDefs"
 	"os"
 	"os/signal"
 	"syscall"
+	"sysd"
 	"utils/logging"
 )
 
@@ -26,15 +28,21 @@ type SYSDServer struct {
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
 	ComponentLoggingConfigCh chan ComponentLoggingConfig
 	sysdPubSocket            *nanomsg.PubSocket
+	sysdIpTableMgr           *ipTable.SysdIpTableHandler
 	notificationCh           chan []byte
+	IptableAddCh             chan *sysd.IpTableAclConfig
+	IptableDelCh             chan *sysd.IpTableAclConfig
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer := &SYSDServer{}
+	sysdServer.sysdIpTableMgr = ipTable.SysdNewSysdIpTableHandler(logger)
 	sysdServer.logger = logger
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
+	sysdServer.IptableAddCh = make(chan *sysd.IpTableAclConfig)
+	sysdServer.IptableDelCh = make(chan *sysd.IpTableAclConfig)
 	return sysdServer
 }
 
@@ -189,6 +197,10 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 		case compLogConf := <-server.ComponentLoggingConfigCh:
 			server.logger.Info(fmt.Sprintln("Received call for performing Component logging Configuration", compLogConf))
 			server.ProcessComponentLoggingConfig(compLogConf)
+		case addConfig := <-server.IptableAddCh:
+			server.sysdIpTableMgr.AddIpRule(addConfig)
+		case delConfig := <-server.IptableDelCh:
+			server.sysdIpTableMgr.DelIpRule(delConfig)
 		}
 	}
 }
