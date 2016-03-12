@@ -271,14 +271,13 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
             sizeof(match_proto_p->u.user.name)-2);
 
 
-    /************************* UDP ENTRY ***************************/
+    /************************* ICMP ENTRY ***************************/
     ipEntry_p->target_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_icmp);
     icmpinfo = (struct ipt_icmp*)match_proto_p->data;
-    // We do not support icmp type... so set it to zero for all icmp type
-    icmpinfo->type = 0;
+    // We do not support icmp type... so set it to 255 for all icmp type
+    icmpinfo->type = ICMP_PORT_MAX;
     // We don't care for code and hence set it to 0 - 255
     icmpinfo->code[0] = 0; icmpinfo->code[1] = ICMP_PORT_MAX;
-
 
     /************************* TARGET ENTRY ***************************/
     // Action Info
