@@ -181,11 +181,11 @@ func (server *SYSDServer) ProcessComponentLoggingConfig(cLogConf ComponentLoggin
 func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 	// Start signal handler first
 	go server.SigHandler()
-	// Initialize BFD server from params file
+	// Initialize sysd server from params file
 	server.InitServer(paramFile)
 	// Start notification publish thread
 	go server.PublishSysdNotifications()
-	// Read BFD configurations already present in DB
+	// Read configurations already present in DB
 	go server.ReadConfigFromDB(dbHdl)
 
 	// Now, wait on below channels to process
