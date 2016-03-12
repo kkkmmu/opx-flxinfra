@@ -1,6 +1,7 @@
 #ifndef IP_TABLES_H
 #define IP_TABLES_H
 #include <stdint.h>
+#include <stdbool.h>
 
 #define IP_ADDR_MIN_LENGTH 8
 #define MAX_PORT_NUM 0xFFFF
@@ -9,9 +10,9 @@
 #define RULE_NAME_SIZE 64
 
 typedef enum operation_s {
-     UNKNOWN = 0,
-     ADD_RULE = 1,
-     DELETE_RULE = 2,
+    UNKNOWN = 0,
+    ADD_RULE = 1,
+    DELETE_RULE = 2,
 }rule_operation_t;
 
 typedef struct rule_entry_s {
@@ -22,6 +23,7 @@ typedef struct rule_entry_s {
     char *Protocol; 
     uint16_t  Port;
     int  PrefixLength;
+    bool Restart;
 }rule_entry_t;
 
 typedef struct ipt_config_s {

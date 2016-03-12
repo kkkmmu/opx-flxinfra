@@ -100,7 +100,7 @@ early_exit:
     return retVal;
 }
 
-static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain)
+static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool restart)
 {
     struct xtc_handle  *handle = NULL;
     int retVal = -1;
@@ -128,19 +128,26 @@ static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain)
     } else  if ((retVal == -2) || (retVal == -3)) {
         // Adding new rule to chain failed
         syslog(LOG_ERR, "new rule addition failed");
-        retVal = -1;
         goto early_exit;
     } else {
         // Adding new rult to chain is success
         syslog(LOG_INFO, "successful commit check iptables");
     }
-    retVal = 1;
 
 early_exit:
 
-    if (retVal == -1) {
+    if ((retVal == -2) || (retVal == -3)) {
         if (ipEntry_p) {
             free(ipEntry_p);
+        }
+    } else if (retVal == -1) { // duplicate entry
+        // If non restart then inform sysd about this duplicate entry
+        if (ipEntry_p && !restart) {
+            syslog(LOG_WARNING, "duplicate rule create during non-restart");
+            free(ipEntry_p);
+        } else {
+            syslog(LOG_INFO, "new rule create during restart case, return success");
+            retVal = 1;
         }
     }
     if (handle) {
@@ -231,7 +238,7 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
@@ -302,7 +309,7 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
@@ -369,7 +376,7 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
