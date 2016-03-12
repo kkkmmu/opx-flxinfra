@@ -10,6 +10,10 @@ import (
 	"utils/logging"
 )
 
+/*
+#cgo LDFLAGS: -L../../netfilter/libiptables/lib 
+*/
+import "C"
 func main() {
 	fmt.Println("Starting system daemon")
 	paramsDir := flag.String("params", "./params", "Params directory")
