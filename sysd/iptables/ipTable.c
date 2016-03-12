@@ -24,7 +24,83 @@ static in_addr_t netmask( int prefix )
         return( ~((1 << (32 - prefix)) - 1) );
 } /* netmask() */
 
-static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain)
+/*
+Operation: ADD
+retVal:
+case -1: rule already exists
+case -2: append failed
+case -3: commit failed
+case 1: new rule append and commit success
+
+Operation: DELETE
+retVal:
+case -1: rule doesn't exists
+case -2: append failed
+case -3: commit failed
+case 1: rule delete and commit success
+*/
+
+static int check_rule_and_operate(struct ipt_entry *ipEntry_p,
+        struct xtc_handle *handle,
+        const char* chain, 
+        rule_operation_t operation)
+{
+    unsigned char *matchmask = NULL;
+    int retVal = -1; 
+
+    matchmask = malloc(ipEntry_p->next_offset);
+    if (matchmask == NULL) {
+        syslog(LOG_ERR, "failed to create match mask for delete");
+        goto early_exit;
+    }
+    if (!iptc_check_entry(chain, ipEntry_p, matchmask, handle)) {
+        switch (operation) {
+            case ADD_RULE:
+                if (!iptc_append_entry(chain, ipEntry_p, handle)) {
+                    syslog(LOG_ERR, "append entry failed: %s", iptc_strerror(errno));
+                    retVal = -2;
+                    goto early_exit;
+                }
+                retVal = 1;
+                break;
+            case DELETE_RULE:
+                syslog(LOG_INFO, "entry doesn't exist, delete cannot proceed"
+                        "but still sysd need to delete the entry from its database");
+                retVal = -1; // No need for commit
+                break;
+            default:
+                break;
+        }
+    } else { // Entry does exists
+        switch (operation) {
+            case ADD_RULE:
+                syslog(LOG_INFO, "entry exist no need to append or commit");
+                retVal = -1; // no need for commit
+                break;
+            case DELETE_RULE:
+                if (!iptc_delete_entry(chain, ipEntry_p, matchmask, handle)) {
+                    syslog(LOG_ERR, "delete entry failed, %s", iptc_strerror(errno));
+                    retVal = -2;
+                    goto early_exit;
+                }
+                retVal = 1;
+                break;
+            default:
+                break;
+        }
+    }
+early_exit:
+    if (retVal && !iptc_commit(handle)) {
+        syslog(LOG_ERR, "commit failed, %s", iptc_strerror(errno));
+        retVal = -3;
+    }
+    if (matchmask) {
+        free(matchmask);
+    }
+    return retVal;
+}
+
+static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool restart)
 {
     struct xtc_handle  *handle = NULL;
     int retVal = -1;
@@ -41,30 +117,43 @@ static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain)
         goto early_exit;
     }
 
-    if (!iptc_append_entry(chain, ipEntry_p, handle)) {
-        syslog(LOG_ERR, "append entry failed: %s", iptc_strerror(errno));
+    // Before Appending rule... check whether the entry already exists or not
+    retVal = check_rule_and_operate(ipEntry_p, handle, chain, ADD_RULE);
+    if (retVal == -1) {
+        // suggests that linux has the entry but sysd restarted or system was
+        // with saved iptables
+        // As a result retVal should be updated informing sysd what to do with
+        // the request
+        syslog(LOG_INFO, "Rule already existis");
+    } else  if ((retVal == -2) || (retVal == -3)) {
+        // Adding new rule to chain failed
+        syslog(LOG_ERR, "new rule addition failed");
         goto early_exit;
+    } else {
+        // Adding new rule to chain is success
+        syslog(LOG_INFO, "successful commit check iptables");
     }
-
-    if (!iptc_commit (handle)) {
-        syslog(LOG_ERR, "iptc commit error: %s", iptc_strerror(errno));
-        goto early_exit;
-    }
-    syslog(LOG_INFO, "successful commit check iptables");
-    retVal = 1;
 
 early_exit:
 
-    if (retVal == -1) {
+    if ((retVal == -2) || (retVal == -3)) {
         if (ipEntry_p) {
             free(ipEntry_p);
+        }
+    } else if (retVal == -1) { // duplicate entry
+        // If non restart then inform sysd about this duplicate entry
+        if (ipEntry_p && !restart) {
+            syslog(LOG_WARNING, "duplicate rule create during non-restart");
+            free(ipEntry_p);
+        } else {
+            syslog(LOG_INFO, "new rule create during restart case, return success");
+            retVal = 1;
         }
     }
     if (handle) {
         iptc_free(handle);
     }
     return retVal;
-    //free(ipEntry_p); //@ALERT DO NOT FREE THE MEMORY HERE IT WILL BE FREED IN DELETE
 }
 
 static void fill_ip_entry(struct ipt_entry *ipEntry_p, const rule_entry_t *config,
@@ -149,7 +238,7 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
@@ -220,7 +309,7 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
@@ -287,7 +376,7 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN) <= 0) {
+    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
         return_config_p = NULL;
         return -1;
     } else {
@@ -302,7 +391,6 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
 int del_iptable_rule(ipt_config_t *cfg_entry_p)
 {
     struct xtc_handle  *handle = NULL;
-    unsigned char *matchmask = NULL;
     int retVal = -1;
 
     handle = iptc_init("filter");
@@ -312,29 +400,21 @@ int del_iptable_rule(ipt_config_t *cfg_entry_p)
         goto early_exit;
     }
 
-    matchmask = malloc(cfg_entry_p->entry->next_offset);
-    if (matchmask == NULL) {
-        syslog(LOG_ERR, "failed to create match mask for delete");
+    retVal = check_rule_and_operate(cfg_entry_p->entry, handle, INPUT_CHAIN,
+            DELETE_RULE);
+    if (retVal == -1) {
+        syslog(LOG_ERR, "rule doesn't exists, sysd delete your db info");
+    } else if ((retVal == -2) || (retVal == -3)) {
+        syslog(LOG_ERR, "executing delete entry failed");
+        retVal = -1;
         goto early_exit;
+    } else {
+        syslog(LOG_INFO, "rule delete and commit success"); 
     }
-
-    if (!iptc_delete_entry(INPUT_CHAIN, cfg_entry_p->entry, 
-                matchmask, handle)) {
-        syslog(LOG_ERR, "delete entry failed, %s", iptc_strerror(errno));
-        goto early_exit;
-    }
-
-    if (!iptc_commit(handle)) {
-        syslog(LOG_ERR, "commit failed, %s", iptc_strerror(errno));
-        goto early_exit;
-    }
-
     retVal = 1;
+
 early_exit:
 
-    if (matchmask) {
-        free(matchmask);
-    }
     if (handle) {
         iptc_free(handle);
     }
