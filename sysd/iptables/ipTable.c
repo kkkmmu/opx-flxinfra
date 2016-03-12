@@ -122,15 +122,15 @@ static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool rest
     if (retVal == -1) {
         // suggests that linux has the entry but sysd restarted or system was
         // with saved iptables
-        // As a result retVal should be success informing sysd that store this
-        // ipt entry
+        // As a result retVal should be updated informing sysd what to do with
+        // the request
         syslog(LOG_INFO, "Rule already existis");
     } else  if ((retVal == -2) || (retVal == -3)) {
         // Adding new rule to chain failed
         syslog(LOG_ERR, "new rule addition failed");
         goto early_exit;
     } else {
-        // Adding new rult to chain is success
+        // Adding new rule to chain is success
         syslog(LOG_INFO, "successful commit check iptables");
     }
 
