@@ -7,6 +7,8 @@ SRCS=main.go
 IPC_SRCS=rpc/sysd.thrift
 COMP_NAME=sysd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
+PARAMSDIR=$(DESTDIR)/params
+
 all:ipc exe
 ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
@@ -20,7 +22,8 @@ ifndef SR_CODE_BASE
 endif
 
 install:
-	@echo "Sysd has no files to install"
+	install $(SR_CODE_BASE)/snaproute/src/netfilter/libiptables/lib/libip4tc.so.0.1.0 $(DESTDIR)/sharedlib
+
 clean:guard
 	$(RM) $(DESTDIR)/$(COMP_NAME) 
 	$(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)

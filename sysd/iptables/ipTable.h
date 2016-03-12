@@ -4,6 +4,7 @@
 
 #define IP_ADDR_MIN_LENGTH 8
 #define MAX_PORT_NUM 0xFFFF
+#define ICMP_PORT_MAX 0xFF
 #define INPUT_CHAIN "INPUT"
 #define RULE_NAME_SIZE 64
 
@@ -25,6 +26,7 @@ typedef struct ipt_config_s {
 // ADD RULE
 int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *rc);
 int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *rc);
+int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p);
 
 // DELETE RULE
 int del_iptable_rule(ipt_config_t *config);

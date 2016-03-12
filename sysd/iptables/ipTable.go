@@ -23,7 +23,6 @@ const (
 type SysdIpTableHandler struct {
 	logger   *logging.Writer
 	ruleInfo map[string]C.ipt_config_t
-	//iptEntry C.ipt_config_t
 }
 
 func SysdNewSysdIpTableHandler(logger *logging.Writer) *SysdIpTableHandler {
@@ -67,6 +66,8 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig) {
 	case "tcp":
 		rv = int(C.add_iptable_tcp_rule(entry, &iptEntry))
 
+	case "icmp":
+		rv = int(C.add_iptable_icmp_rule(entry, &iptEntry))
 	default:
 		hdl.logger.Err("Rule adding for " + config.Protocol +
 			" is not supported")
