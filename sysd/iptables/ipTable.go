@@ -1,8 +1,8 @@
 package ipTable
 
 import (
+	"errors"
 	_ "fmt"
-	_ "net"
 	"strconv"
 	"strings"
 	"sysd"
@@ -16,15 +16,6 @@ import (
 */
 import "C"
 
-const (
-	ALL_RULE_STR = "all"
-)
-
-type SysdIpTableHandler struct {
-	logger   *logging.Writer
-	ruleInfo map[string]C.ipt_config_t
-}
-
 func SysdNewSysdIpTableHandler(logger *logging.Writer) *SysdIpTableHandler {
 	ipTableHdl := &SysdIpTableHandler{}
 	ipTableHdl.logger = logger
@@ -32,10 +23,10 @@ func SysdNewSysdIpTableHandler(logger *logging.Writer) *SysdIpTableHandler {
 	return ipTableHdl
 }
 
-func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig) {
+func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig,
+	restart bool) (bool, error) {
 	port, err := strconv.Atoi(config.Port)
 	var iptEntry C.ipt_config_t
-	var restart C.bool = false
 	rv := -1
 	if err != nil {
 		if strings.Compare(config.Port, ALL_RULE_STR) == 0 {
@@ -58,7 +49,7 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig) {
 		PrefixLength: C.int(pl),
 		Protocol:     C.CString(config.Protocol),
 		Port:         C.uint16_t(port),
-		Restart:      restart,
+		Restart:      C.bool(restart),
 	}
 	switch config.Protocol {
 	case "udp":
@@ -72,29 +63,38 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig) {
 	default:
 		hdl.logger.Err("Rule adding for " + config.Protocol +
 			" is not supported")
-		return
+		return true, nil
 	}
 	// If rv = -2 or -3 then new entry insert failed....
 	// If rv = -1 then duplicated entry (rule)....do not update this into sysd
 	if rv <= 0 {
-		return
+		var errString C.err_t
+		C.get_iptc_error_string(&errString)
+		return false, errors.New(INSERTING_RULE_ERROR +
+			C.GoString(&errString.err_string[0]))
+	} else {
+		hdl.ruleInfo[config.Name] = iptEntry
+		return true, nil
 	}
-	hdl.ruleInfo[config.Name] = iptEntry
 }
 
-func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAclConfig) {
+func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAclConfig) (bool, error) {
 	entry, entryFound := hdl.ruleInfo[config.Name]
 	if !entryFound {
 		hdl.logger.Err("No rule found for " + config.Name +
 			" in sysd runtime db.. This means that either the rule is " +
 			"not created or it was duplicate rule")
-		return
+		return true, nil
 	}
 
 	rv := int(C.del_iptable_rule(&entry))
 	if rv <= 0 {
 		hdl.logger.Err("Delete rule failed for " + config.Name)
-		return
+		var errString C.err_t
+		C.get_iptc_error_string(&errString)
+		return false, errors.New(DELETING_RULE_ERROR +
+			C.GoString(&errString.err_string[0]))
 	}
 	delete(hdl.ruleInfo, config.Name)
+	return true, nil
 }
