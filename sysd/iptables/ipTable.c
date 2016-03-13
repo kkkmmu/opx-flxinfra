@@ -186,6 +186,7 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_tcp * tcpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_tcp=0, entry_size=0;
+    int retVal = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -238,15 +239,15 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    if (retVal <= 0) {
         return_config_p = NULL;
-        return -1;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
                 sizeof(return_config_p->name));
-        return 1;
     }
+    return retVal;
 }
 
 int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
@@ -257,6 +258,7 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_udp * udpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_udp=0, entry_size=0;
+    int retVal = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -309,15 +311,15 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    if (retVal <= 0) {
         return_config_p = NULL;
-        return -1;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
                 sizeof(return_config_p->name));
-        return 1;
     }
+    return retVal;
 }
 
 int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
@@ -328,6 +330,7 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_icmp *icmpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_icmp=0, entry_size=0;
+    int retVal = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -376,16 +379,15 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    if (insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart) <= 0) {
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    if (retVal <= 0) {
         return_config_p = NULL;
-        return -1;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
                 sizeof(return_config_p->name));
-        return 1;
     }
-
+    return retVal;
 }
 
 int del_iptable_rule(ipt_config_t *cfg_entry_p)
@@ -428,3 +430,8 @@ early_exit:
     return retVal;
 }
 
+void get_iptc_error_string(err_t *err_Info)
+{
+    strncpy(err_Info->err_string, iptc_strerror(errno), 
+            sizeof(err_Info->err_string));
+}
