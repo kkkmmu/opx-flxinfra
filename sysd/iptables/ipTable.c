@@ -43,7 +43,8 @@ case 1: rule delete and commit success
 static int check_rule_and_operate(struct ipt_entry *ipEntry_p,
         struct xtc_handle *handle,
         const char* chain, 
-        rule_operation_t operation)
+        rule_operation_t operation,
+        int *err_num)
 {
     unsigned char *matchmask = NULL;
     int retVal = -1; 
@@ -58,6 +59,7 @@ static int check_rule_and_operate(struct ipt_entry *ipEntry_p,
             case ADD_RULE:
                 if (!iptc_append_entry(chain, ipEntry_p, handle)) {
                     syslog(LOG_ERR, "append entry failed: %s", iptc_strerror(errno));
+                    *err_num = errno;
                     retVal = -2;
                     goto early_exit;
                 }
@@ -81,6 +83,7 @@ static int check_rule_and_operate(struct ipt_entry *ipEntry_p,
                 if (!iptc_delete_entry(chain, ipEntry_p, matchmask, handle)) {
                     syslog(LOG_ERR, "delete entry failed, %s", iptc_strerror(errno));
                     retVal = -2;
+                    *err_num = errno;
                     goto early_exit;
                 }
                 retVal = 1;
@@ -92,6 +95,7 @@ static int check_rule_and_operate(struct ipt_entry *ipEntry_p,
 early_exit:
     if (retVal && !iptc_commit(handle)) {
         syslog(LOG_ERR, "commit failed, %s", iptc_strerror(errno));
+        *err_num = errno;
         retVal = -3;
     }
     if (matchmask) {
@@ -100,7 +104,8 @@ early_exit:
     return retVal;
 }
 
-static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool restart)
+static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool restart,
+        int *err_num)
 {
     struct xtc_handle  *handle = NULL;
     int retVal = -1;
@@ -114,11 +119,12 @@ static int insert_rule(struct ipt_entry *ipEntry_p, const char* chain, bool rest
     }
     if (!iptc_is_chain(chain, handle)) {
         syslog(LOG_ERR,"no such chain %s, error: %s", chain, iptc_strerror(errno));
+        *err_num = errno;
         goto early_exit;
     }
 
     // Before Appending rule... check whether the entry already exists or not
-    retVal = check_rule_and_operate(ipEntry_p, handle, chain, ADD_RULE);
+    retVal = check_rule_and_operate(ipEntry_p, handle, chain, ADD_RULE, err_num);
     if (retVal == -1) {
         // suggests that linux has the entry but sysd restarted or system was
         // with saved iptables
@@ -186,7 +192,7 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_tcp * tcpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_tcp=0, entry_size=0;
-    int retVal = 0;
+    int retVal = 0, err_num = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -200,7 +206,7 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     ipEntry_p = (struct ipt_entry *) malloc(entry_size);
     if (ipEntry_p == NULL) {
         syslog(LOG_ERR, "No Memory for ip entry");
-        return_config_p = NULL;
+        return_config_p->entry = NULL;
         return -1;
     }
     bzero(ipEntry_p, entry_size);
@@ -239,9 +245,11 @@ int add_iptable_tcp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    //retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart, &err_num); 
     if (retVal <= 0) {
-        return_config_p = NULL;
+        return_config_p->err_num = err_num;
+        return_config_p->entry = NULL;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
@@ -258,7 +266,7 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_udp * udpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_udp=0, entry_size=0;
-    int retVal = 0;
+    int retVal = 0, err_num = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -272,7 +280,7 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     ipEntry_p = (struct ipt_entry *) malloc(entry_size);
     if (ipEntry_p == NULL) {
         syslog(LOG_ERR, "No Memory for ip entry");
-        return_config_p = NULL;
+        return_config_p->entry = NULL;
         return -1;
     }
     bzero(ipEntry_p, entry_size);
@@ -311,9 +319,10 @@ int add_iptable_udp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart, &err_num); 
     if (retVal <= 0) {
-        return_config_p = NULL;
+        return_config_p->err_num = err_num;
+        return_config_p->entry = NULL;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
@@ -330,7 +339,7 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     struct ipt_icmp *icmpinfo;
     unsigned int size_ipt_entry =0, size_ipt_entry_match =0, size_ipt_entry_target =0 ;
     unsigned int size_ipt_icmp=0, entry_size=0;
-    int retVal = 0;
+    int retVal = 0, err_num = 0;
 
     // Calculate structure length
     size_ipt_entry = XT_ALIGN(sizeof(struct ipt_entry));
@@ -344,7 +353,7 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     ipEntry_p = (struct ipt_entry *) malloc(entry_size);
     if (ipEntry_p == NULL) {
         syslog(LOG_ERR, "No Memory for ip entry");
-        return_config_p = NULL;
+        return_config_p->entry = NULL;
         return -1;
     }
     bzero(ipEntry_p, entry_size);
@@ -379,9 +388,11 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
     target_p->target.u.user.target_size = size_ipt_entry_target;
     ipEntry_p->next_offset = XT_ALIGN(ipEntry_p->target_offset + size_ipt_entry_target);
 
-    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    //retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart); 
+    retVal = insert_rule(ipEntry_p, INPUT_CHAIN, config->Restart, &err_num); 
     if (retVal <= 0) {
-        return_config_p = NULL;
+        return_config_p->err_num = err_num;
+        return_config_p->entry = NULL;
     } else {
         return_config_p->entry = ipEntry_p;
         strncpy(return_config_p->name, config->Name, 
@@ -393,17 +404,18 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p)
 int del_iptable_rule(ipt_config_t *cfg_entry_p)
 {
     struct xtc_handle  *handle = NULL;
-    int retVal = -1;
+    int retVal = -1, err_num = 0;
 
     handle = iptc_init("filter");
     if (handle == NULL) {
         syslog(LOG_ERR, "cannot allocate memory to for iptc: %s",
                 iptc_strerror(errno));
+        err_num = errno;
         goto early_exit;
     }
 
     retVal = check_rule_and_operate(cfg_entry_p->entry, handle, INPUT_CHAIN,
-            DELETE_RULE);
+            DELETE_RULE, &err_num);
     if (retVal == -1) {
         syslog(LOG_ERR, "rule doesn't exists, sysd delete your db info");
     } else if ((retVal == -2) || (retVal == -3)) {
@@ -426,12 +438,12 @@ early_exit:
             free(cfg_entry_p->entry);
         }
     }
-
+    cfg_entry_p->err_num = errno;
     return retVal;
 }
 
-void get_iptc_error_string(err_t *err_Info)
+void get_iptc_error_string(err_t *err_Info, int err_num)
 {
-    strncpy(err_Info->err_string, iptc_strerror(errno), 
+    strncpy(err_Info->err_string, iptc_strerror(err_num), 
             sizeof(err_Info->err_string));
 }

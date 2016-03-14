@@ -29,6 +29,7 @@ typedef struct rule_entry_s {
 
 typedef struct ipt_config_s {
     char   name[RULE_NAME_SIZE];
+    int    err_num;
     struct ipt_entry *entry;
 }ipt_config_t;
 
@@ -45,6 +46,6 @@ int add_iptable_icmp_rule(rule_entry_t *config, ipt_config_t *return_config_p);
 int del_iptable_rule(ipt_config_t *config);
 
 // Error Info
-void get_iptc_error_string(err_t *err_Info);
+void get_iptc_error_string(err_t *err_Info, int err_num);
 
 #endif

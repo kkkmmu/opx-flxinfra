@@ -69,7 +69,7 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig,
 	// If rv = -1 then duplicated entry (rule)....do not update this into sysd
 	if rv <= 0 {
 		var errString C.err_t
-		C.get_iptc_error_string(&errString)
+		C.get_iptc_error_string(&errString, C.int(iptEntry.err_num))
 		return false, errors.New(INSERTING_RULE_ERROR +
 			C.GoString(&errString.err_string[0]))
 	} else {
@@ -91,9 +91,10 @@ func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAclConfig) (bool, e
 	if rv <= 0 {
 		hdl.logger.Err("Delete rule failed for " + config.Name)
 		var errString C.err_t
-		C.get_iptc_error_string(&errString)
+		C.get_iptc_error_string(&errString, entry.err_num)
 		return false, errors.New(DELETING_RULE_ERROR +
 			C.GoString(&errString.err_string[0]))
+
 	}
 	delete(hdl.ruleInfo, config.Name)
 	return true, nil
