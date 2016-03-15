@@ -10,7 +10,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"sysd"
 	"utils/logging"
+)
+
+const (
+	SYSD_TOTAL_DB_USERS = 2
 )
 
 type GlobalLoggingConfig struct {
@@ -29,6 +34,9 @@ type SYSDServer struct {
 	sysdPubSocket            *nanomsg.PubSocket
 	sysdIpTableMgr           *ipTable.SysdIpTableHandler
 	notificationCh           chan []byte
+	IptableAddCh             chan *sysd.IpTableAclConfig
+	IptableDelCh             chan *sysd.IpTableAclConfig
+	dbUserCh                 chan int
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
@@ -38,6 +46,9 @@ func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
+	sysdServer.IptableAddCh = make(chan *sysd.IpTableAclConfig)
+	sysdServer.IptableDelCh = make(chan *sysd.IpTableAclConfig)
+	sysdServer.dbUserCh = make(chan int, 1)
 	return sysdServer
 }
 
@@ -109,17 +120,19 @@ func (server *SYSDServer) ReadComponentLoggingConfigFromDB(dbHdl *sql.DB) error 
 
 func (server *SYSDServer) ReadConfigFromDB(dbHdl *sql.DB) error {
 	var err error
-	defer dbHdl.Close()
 	// BfdGlobalConfig
 	err = server.ReadGlobalLoggingConfigFromDB(dbHdl)
 	if err != nil {
+		server.dbUserCh <- 1
 		return err
 	}
 	// BfdIntfConfig
 	err = server.ReadComponentLoggingConfigFromDB(dbHdl)
 	if err != nil {
+		server.dbUserCh <- 1
 		return err
 	}
+	server.dbUserCh <- 1
 	return nil
 }
 
@@ -182,7 +195,9 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 	go server.PublishSysdNotifications()
 	// Read configurations already present in DB
 	go server.ReadConfigFromDB(dbHdl)
-
+	// Read IpTableAclConfig during restart case
+	go server.ReadIpAclConfigFromDB(dbHdl)
+	users := 0
 	// Now, wait on below channels to process
 	for {
 		select {
@@ -194,6 +209,16 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 			server.logger.Info(fmt.Sprintln("Received call for performing Component logging Configuration",
 				compLogConf))
 			server.ProcessComponentLoggingConfig(compLogConf)
+		case addConfig := <-server.IptableAddCh:
+			server.sysdIpTableMgr.AddIpRule(addConfig, false /*non-restart*/)
+		case delConfig := <-server.IptableDelCh:
+			server.sysdIpTableMgr.DelIpRule(delConfig)
+		case totalUsers := <-server.dbUserCh:
+			users = totalUsers + users
+			if users == SYSD_TOTAL_DB_USERS {
+				server.logger.Info("Closing DB as all the db users are done")
+				dbHdl.Close()
+			}
 		}
 	}
 }
