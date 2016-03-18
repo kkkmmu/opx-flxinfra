@@ -9,7 +9,7 @@ import (
 
 func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *sql.DB) {
 	server.logger.Info("Reading Ip Acl Config From Db")
-	dbCmd := "select * from IpTableAclConfig"
+	dbCmd := "select * from IpTableAcl"
 	rows, err := dbHdl.Query(dbCmd)
 	if err != nil {
 		server.logger.Err(fmt.Sprintln("query to db failed", err))
@@ -17,7 +17,7 @@ func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *sql.DB) {
 		return
 	}
 	for rows.Next() {
-		var config sysd.IpTableAclConfig
+		var config sysd.IpTableAcl
 		err = rows.Scan(&config.Name, &config.PhysicalPort,
 			&config.Action, &config.IpAddr, &config.Protocol,
 			&config.Port)
@@ -31,11 +31,11 @@ func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *sql.DB) {
 	server.dbUserCh <- 1
 }
 
-func (server *SYSDServer) AddIpTableRule(ipaclConfig *sysd.IpTableAclConfig,
+func (server *SYSDServer) AddIpTableRule(ipaclConfig *sysd.IpTableAcl,
 	restart bool) (bool, error) {
 	return (server.sysdIpTableMgr.AddIpRule(ipaclConfig, restart))
 }
 
-func (server *SYSDServer) DelIpTableRule(ipaclConfig *sysd.IpTableAclConfig) (bool, error) {
+func (server *SYSDServer) DelIpTableRule(ipaclConfig *sysd.IpTableAcl) (bool, error) {
 	return (server.sysdIpTableMgr.DelIpRule(ipaclConfig))
 }

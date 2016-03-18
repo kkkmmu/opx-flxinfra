@@ -34,8 +34,8 @@ type SYSDServer struct {
 	sysdPubSocket            *nanomsg.PubSocket
 	sysdIpTableMgr           *ipTable.SysdIpTableHandler
 	notificationCh           chan []byte
-	IptableAddCh             chan *sysd.IpTableAclConfig
-	IptableDelCh             chan *sysd.IpTableAclConfig
+	IptableAddCh             chan *sysd.IpTableAcl
+	IptableDelCh             chan *sysd.IpTableAcl
 	dbUserCh                 chan int
 }
 
@@ -46,8 +46,8 @@ func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
-	sysdServer.IptableAddCh = make(chan *sysd.IpTableAclConfig)
-	sysdServer.IptableDelCh = make(chan *sysd.IpTableAclConfig)
+	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
+	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
 	sysdServer.dbUserCh = make(chan int, 1)
 	return sysdServer
 }
