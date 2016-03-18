@@ -23,7 +23,7 @@ func SysdNewSysdIpTableHandler(logger *logging.Writer) *SysdIpTableHandler {
 	return ipTableHdl
 }
 
-func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig,
+func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAcl,
 	restart bool) (bool, error) {
 	port, err := strconv.Atoi(config.Port)
 	var iptEntry C.ipt_config_t
@@ -78,7 +78,7 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAclConfig,
 	}
 }
 
-func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAclConfig) (bool, error) {
+func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAcl) (bool, error) {
 	entry, entryFound := hdl.ruleInfo[config.Name]
 	if !entryFound {
 		hdl.logger.Err("No rule found for " + config.Name +
