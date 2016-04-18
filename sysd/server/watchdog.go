@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	KA_TIMEOUT_COUNT = 5 // After 5 KA missed from a daemon, sysd will assume the daemon as non-responsive
+	KA_TIMEOUT_COUNT      = 5 // After 5 KA missed from a daemon, sysd will assume the daemon as non-responsive
+	SYSD_TOTAL_KA_DAEMONS = 32
 )
 
 func (server *SYSDServer) StartWDRoutine() error {
@@ -28,10 +29,8 @@ func (server *SYSDServer) WDTimer() error {
 	for t := range wdTimer.C {
 		_ = t
 		for daemon, kaCount := range server.KaRecvMap {
-			if kaCount > 0 {
-				server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is responsive"))
-			} else {
-				server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive"))
+			if kaCount < KA_TIMEOUT_COUNT {
+				server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Received ", kaCount, " keepalive messages"))
 			}
 			server.KaRecvMap[daemon] = 0
 		}

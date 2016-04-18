@@ -103,7 +103,6 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 }
 
 func (h *SYSDHandler) PeriodicKeepAlive(name string) error {
-	h.logger.Info(fmt.Sprintln("Received KA from ", name))
 	h.server.KaRecvCh <- name
 	return nil
 }

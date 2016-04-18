@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	SYSD_TOTAL_DB_USERS   = 2
-	SYSD_TOTAL_KA_DAEMONS = 32
+	SYSD_TOTAL_DB_USERS = 2
 )
 
 type GlobalLoggingConfig struct {
