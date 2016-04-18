@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	SYSD_TOTAL_DB_USERS   = 2
-	SYSD_TOTAL_KA_DAEMONS = 32
+	SYSD_TOTAL_DB_USERS = 2
 )
 
 type GlobalLoggingConfig struct {
@@ -39,7 +38,7 @@ type SYSDServer struct {
 	IptableDelCh             chan *sysd.IpTableAcl
 	dbUserCh                 chan int
 	KaRecvCh                 chan string
-	KaRecvMap                map[string]int32
+	KaRecvMap                map[string]*WDInfo
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
