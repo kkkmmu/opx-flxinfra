@@ -38,7 +38,7 @@ type SYSDServer struct {
 	IptableDelCh             chan *sysd.IpTableAcl
 	dbUserCh                 chan int
 	KaRecvCh                 chan string
-	KaRecvMap                map[string]int32
+	KaRecvMap                map[string]*WDInfo
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
