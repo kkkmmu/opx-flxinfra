@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	SYSD_TOTAL_DB_USERS = 2
+	SYSD_TOTAL_DB_USERS   = 2
+	SYSD_TOTAL_KA_DAEMONS = 32
 )
 
 type GlobalLoggingConfig struct {
@@ -37,6 +38,8 @@ type SYSDServer struct {
 	IptableAddCh             chan *sysd.IpTableAcl
 	IptableDelCh             chan *sysd.IpTableAcl
 	dbUserCh                 chan int
+	KaRecvCh                 chan string
+	KaRecvMap                map[string]int32
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
@@ -197,6 +200,8 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 	go server.ReadConfigFromDB(dbHdl)
 	// Read IpTableAclConfig during restart case
 	go server.ReadIpAclConfigFromDB(dbHdl)
+	// Start watchdog routine
+	go server.StartWDRoutine()
 	users := 0
 	// Now, wait on below channels to process
 	for {
