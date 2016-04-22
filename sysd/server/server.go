@@ -29,6 +29,7 @@ type ComponentLoggingConfig struct {
 
 type SYSDServer struct {
 	logger                   *logging.Writer
+	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
 	ComponentLoggingConfigCh chan ComponentLoggingConfig
 	sysdPubSocket            *nanomsg.PubSocket
@@ -74,8 +75,9 @@ func (server *SYSDServer) SigHandler() {
 	}
 }
 
-func (server *SYSDServer) InitServer(paramFile string) {
-	server.logger.Info(fmt.Sprintln("Starting Sysd Server"))
+func (server *SYSDServer) InitServer(paramsDir string) {
+	server.logger.Info(fmt.Sprintln("Initializing Sysd Server"))
+	server.paramsDir = paramsDir
 }
 
 func (server *SYSDServer) InitPublisher(pub_str string) (pub *nanomsg.PubSocket) {
@@ -191,8 +193,6 @@ func (server *SYSDServer) ProcessComponentLoggingConfig(cLogConf ComponentLoggin
 func (server *SYSDServer) StartServer(paramFile string, dbHdl *sql.DB) {
 	// Start signal handler first
 	go server.SigHandler()
-	// Initialize sysd server from params file
-	server.InitServer(paramFile)
 	// Start notification publish thread
 	go server.PublishSysdNotifications()
 	// Read configurations already present in DB

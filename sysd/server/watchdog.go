@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"infra/sysd/sysdCommonDefs"
+	"os"
+	"os/exec"
 	"time"
 )
 
@@ -60,6 +62,28 @@ func (server *SYSDServer) StartWDRoutine() error {
 	return nil
 }
 
+func (server *SYSDServer) ToggleFlexswitchDaemon(daemon string, up bool) error {
+	var (
+		cmdOut []byte
+		err    error
+		op     string
+	)
+	cmdName := server.paramsDir + "flexswitch"
+	if up {
+		op = "start"
+	} else {
+		op = "stop"
+	}
+	cmdArgs := []string{"-n", daemon, "-o", op}
+	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
+		server.logger.Info(fmt.Sprintln(os.Stderr, "There was an error to ", op, " flexswitch daemon ", daemon, " : ", err))
+		return err
+	}
+	out := string(cmdOut)
+	server.logger.Info(fmt.Sprintln("Flexswitch daemon ", daemon, op, " returned ", out))
+	return nil
+}
+
 func (server *SYSDServer) WDTimer() error {
 	server.logger.Info("Starting system WD")
 	wdTimer := time.NewTicker(time.Second * KA_TIMEOUT_COUNT)
@@ -72,8 +96,11 @@ func (server *SYSDServer) WDTimer() error {
 			if wd.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 				if wd.Active {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
-					server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_DOWN)
-					wd.Active = false
+					if err := server.ToggleFlexswitchDaemon(daemon, false); err == nil {
+						server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_DOWN)
+						wd.Active = false
+						server.ToggleFlexswitchDaemon(daemon, true)
+					}
 				}
 			} else {
 				if wd.Active == false {
