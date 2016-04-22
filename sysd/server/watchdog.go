@@ -6,6 +6,7 @@ import (
 	"infra/sysd/sysdCommonDefs"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -20,6 +21,26 @@ type WDInfo struct {
 	Active        bool
 	RecvedKACount int32
 	NumRestarts   int32
+}
+
+func (server *SYSDServer) StartWDRoutine() error {
+	server.KaRecvCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
+	server.KaRecvMap = make(map[string]*WDInfo)
+	go server.WDTimer()
+	for {
+		select {
+		case kaDaemon := <-server.KaRecvCh:
+			if server.KaRecvMap[kaDaemon] == nil {
+				wdInfo := &WDInfo{}
+				server.KaRecvMap[kaDaemon] = wdInfo
+			}
+			server.KaRecvMap[kaDaemon].RecvedKACount++
+			if !server.KaRecvMap[kaDaemon].Active {
+				server.KaRecvMap[kaDaemon].Active = true
+			}
+		}
+	}
+	return nil
 }
 
 func (server *SYSDServer) PublishDaemonKANotification(name string, status sysdCommonDefs.SRDaemonStatus) error {
@@ -45,42 +66,38 @@ func (server *SYSDServer) PublishDaemonKANotification(name string, status sysdCo
 	return nil
 }
 
-func (server *SYSDServer) StartWDRoutine() error {
-	server.KaRecvCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
-	server.KaRecvMap = make(map[string]*WDInfo)
-	go server.WDTimer()
-	for {
-		select {
-		case kaDaemon := <-server.KaRecvCh:
-			if server.KaRecvMap[kaDaemon] == nil {
-				wdInfo := &WDInfo{}
-				server.KaRecvMap[kaDaemon] = wdInfo
-			}
-			server.KaRecvMap[kaDaemon].RecvedKACount++
-		}
-	}
-	return nil
-}
-
 func (server *SYSDServer) ToggleFlexswitchDaemon(daemon string, up bool) error {
 	var (
 		cmdOut []byte
 		err    error
 		op     string
 	)
-	cmdName := server.paramsDir + "flexswitch"
+	cmdDir := strings.TrimSuffix(server.paramsDir, "params/")
+	cmdName := cmdDir + "flexswitch"
 	if up {
 		op = "start"
 	} else {
 		op = "stop"
 	}
-	cmdArgs := []string{"-n", daemon, "-o", op}
+	cmdArgs := []string{"-n", daemon, "-o", op, "-d", cmdDir}
 	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
 		server.logger.Info(fmt.Sprintln(os.Stderr, "There was an error to ", op, " flexswitch daemon ", daemon, " : ", err))
 		return err
 	}
 	out := string(cmdOut)
 	server.logger.Info(fmt.Sprintln("Flexswitch daemon ", daemon, op, " returned ", out))
+
+	if up {
+		server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_UP)
+	} else {
+		server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_DOWN)
+	}
+	return nil
+}
+
+func (server *SYSDServer) RestartFlexswitchDaemon(daemon string) error {
+	server.ToggleFlexswitchDaemon(daemon, false)
+	server.ToggleFlexswitchDaemon(daemon, true)
 	return nil
 }
 
@@ -96,17 +113,8 @@ func (server *SYSDServer) WDTimer() error {
 			if wd.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 				if wd.Active {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
-					if err := server.ToggleFlexswitchDaemon(daemon, false); err == nil {
-						server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_DOWN)
-						wd.Active = false
-						server.ToggleFlexswitchDaemon(daemon, true)
-					}
-				}
-			} else {
-				if wd.Active == false {
-					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is now responsive."))
-					wd.Active = true
-					server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_UP)
+					go server.RestartFlexswitchDaemon(daemon)
+					wd.Active = false
 				}
 			}
 			wd.RecvedKACount = 0
