@@ -1,34 +1,29 @@
 package server
 
 import (
-	"database/sql"
-	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/garyburd/redigo/redis"
+	"models"
 	"sysd"
 )
 
-func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *sql.DB) {
+func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl redis.Conn) error {
 	server.logger.Info("Reading Ip Acl Config From Db")
-	dbCmd := "select * from IpTableAcl"
-	rows, err := dbHdl.Query(dbCmd)
-	if err != nil {
-		server.logger.Err(fmt.Sprintln("query to db failed", err))
-		server.dbUserCh <- 1
-		return
-	}
-	for rows.Next() {
-		var config sysd.IpTableAcl
-		err = rows.Scan(&config.Name, &config.PhysicalPort,
-			&config.Action, &config.IpAddr, &config.Protocol,
-			&config.Port)
+	if dbHdl != nil {
+		var dbObj models.IpTableAcl
+		objList, err := dbObj.GetAllObjFromDb(dbHdl)
 		if err != nil {
-			server.logger.Err(fmt.Sprintln("scanning rows failed", err))
-		} else {
-			server.AddIpTableRule(&config, true /*restart*/)
+			server.logger.Err("DB query failed for IpTableAcl config")
+			return err
+		}
+		for idx := 0; idx < len(objList); idx++ {
+			obj := sysd.NewIpTableAcl()
+			dbObject := objList[idx].(models.IpTableAcl)
+			models.ConvertsysdIpTableAclObjToThrift(&dbObject, obj)
+			server.AddIpTableRule(obj, true /*restart*/)
 		}
 	}
 	server.logger.Info("reading ip acl config done")
-	server.dbUserCh <- 1
+	return nil
 }
 
 func (server *SYSDServer) AddIpTableRule(ipaclConfig *sysd.IpTableAcl,
