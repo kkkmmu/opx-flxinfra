@@ -1,10 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"flag"
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/garyburd/redigo/redis"
 	"infra/sysd/rpc"
 	"infra/sysd/server"
 	"utils/logging"
@@ -24,18 +23,16 @@ func main() {
 		fileName = fileName + "/"
 	}
 
-	logger, err := logging.NewLogger(fileName, "sysd", "SYSTEM")
+	logger, err := logging.NewLogger("sysd", "SYSTEM", false)
 	if err != nil {
 		fmt.Println("Failed to start the logger. Exiting!!")
 		return
 	}
 	logger.Info("Started the logger successfully.")
 
-	dbName := fileName + "UsrConfDb.db"
-	fmt.Println("Opening Config DB: ", dbName)
-	dbHdl, err := sql.Open("sqlite3", dbName)
+	dbHdl, err := redis.Dial("tcp", ":6379")
 	if err != nil {
-		fmt.Println("Failed to open connection to DB. ", err, " Exiting!!")
+		logger.Err("Failed to dial out to Redis server")
 		return
 	}
 	clientsFileName := fileName + "clients.json"
@@ -44,8 +41,13 @@ func main() {
 	sysdServer := server.NewSYSDServer(logger)
 	// Initialize sysd server
 	sysdServer.InitServer(fileName)
+	// Start signal handler first
+	go sysdServer.SigHandler(dbHdl)
+	// Start sysd server
 	go sysdServer.StartServer(clientsFileName, dbHdl)
 
+	// Read IpTableAclConfig during restart case
+	sysdServer.ReadIpAclConfigFromDB(dbHdl)
 	logger.Info(fmt.Sprintln("Starting Sysd Config listener..."))
 	confIface := rpc.NewSYSDHandler(logger, sysdServer)
 	rpc.StartServer(logger, confIface, clientsFileName)
