@@ -40,6 +40,7 @@ type DaemonState struct {
 
 type SYSDServer struct {
 	logger                   *logging.Writer
+	ServerStartedCh          chan bool
 	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
 	ComponentLoggingConfigCh chan ComponentLoggingConfig
@@ -57,6 +58,7 @@ func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer := &SYSDServer{}
 	sysdServer.sysdIpTableMgr = ipTable.SysdNewSysdIpTableHandler(logger)
 	sysdServer.logger = logger
+	sysdServer.ServerStartedCh = make(chan bool)
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
@@ -181,6 +183,8 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl redis.Conn) {
 	go server.PublishSysdNotifications()
 	// Start watchdog routine
 	go server.StartWDRoutine()
+
+	server.ServerStartedCh <- true
 	// Now, wait on below channels to process
 	for {
 		select {

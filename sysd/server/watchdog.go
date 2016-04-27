@@ -22,6 +22,7 @@ const (
 	REASON_KA_FAIL        = "Failed to receive keepalive messages"
 	REASON_USER_RESTART   = "Restarted by user"
 	REASON_DAEMON_STOPPED = "Stopped by user"
+	REASON_COMING_UP      = "Started by user"
 )
 
 type DaemonInfo struct {
@@ -46,9 +47,9 @@ func (server *SYSDServer) StartWDRoutine() error {
 				server.DaemonMap[kaDaemon] = daemonInfo
 			}
 			daemonInfo.RecvedKACount++
-			if daemonInfo.State != sysdCommonDefs.KA_UP {
+			if daemonInfo.State == sysdCommonDefs.KA_DOWN {
 				daemonInfo.State = sysdCommonDefs.KA_UP
-				daemonInfo.Reason = sysdCommonDefs.REASON_NONE
+				daemonInfo.Reason = REASON_NONE
 				server.PublishDaemonKANotification(kaDaemon, sysdCommonDefs.KA_UP)
 			}
 		case daemonConfig := <-server.DaemonConfigCh:
@@ -61,12 +62,12 @@ func (server *SYSDServer) StartWDRoutine() error {
 					daemonInfo = &DaemonInfo{}
 					server.DaemonMap[daemon] = daemonInfo
 				}
-				server.ToggleFlexswitchDaemon(daemon, true)
-				daemonInfo.State = sysdCommonDefs.KA_UP
-				daemonInfo.Reason = REASON_NONE
+				go server.ToggleFlexswitchDaemon(daemon, true)
+				daemonInfo.State = sysdCommonDefs.KA_DOWN
+				daemonInfo.Reason = REASON_COMING_UP
 			} else if state == "stop" {
 				if exist {
-					server.ToggleFlexswitchDaemon(daemon, false)
+					go server.ToggleFlexswitchDaemon(daemon, false)
 					daemonInfo.State = sysdCommonDefs.KA_STOPPED
 					daemonInfo.Reason = REASON_DAEMON_STOPPED
 					server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_STOPPED)
@@ -140,11 +141,11 @@ func (server *SYSDServer) WDTimer() error {
 	for t := range wdTimer.C {
 		_ = t
 		for daemon, daemonInfo := range server.DaemonMap {
-			if daemonInfo.RecvedKACount < KA_TIMEOUT_COUNT && daemonInfo.RecvedKACount > KA_TIMEOUT_COUNT_MIN {
-				server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is slowing down. Monitoring it."))
-			}
-			if daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
-				if daemonInfo.State == sysdCommonDefs.KA_UP {
+			if daemonInfo.State == sysdCommonDefs.KA_UP {
+				if daemonInfo.RecvedKACount < KA_TIMEOUT_COUNT && daemonInfo.RecvedKACount > KA_TIMEOUT_COUNT_MIN {
+					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is slowing down. Monitoring it."))
+				}
+				if daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
 					daemonInfo.State = sysdCommonDefs.KA_DOWN
 					go server.RestartFlexswitchDaemon(daemon)

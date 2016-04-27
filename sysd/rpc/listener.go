@@ -106,31 +106,11 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 	return true, nil
 }
 
-func (h *SYSDHandler) CreateDaemon(daemonConfig *sysd.Daemon) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Daemon config attrs: ", daemonConfig))
+func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Daemon action attrs: ", daemonConfig))
 	dConf := server.DaemonConfig{
 		Name:  daemonConfig.Name,
 		State: daemonConfig.State,
-	}
-	h.server.DaemonConfigCh <- dConf
-	return true, nil
-}
-
-func (h *SYSDHandler) DeleteDaemon(daemonConfig *sysd.Daemon) (bool, error) {
-	err := errors.New("Not supported")
-	return false, err
-}
-
-func (h *SYSDHandler) UpdateDaemon(origConf *sysd.Daemon, newConf *sysd.Daemon, attrset []bool) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Original daemon config attrs:", origConf))
-	if newConf == nil {
-		err := errors.New("Invalid daemon Configuration")
-		return false, err
-	}
-	h.logger.Info(fmt.Sprintln("Update daemon config attrs:", newConf))
-	dConf := server.DaemonConfig{
-		Name:  newConf.Name,
-		State: newConf.State,
 	}
 	h.server.DaemonConfigCh <- dConf
 	return true, nil
