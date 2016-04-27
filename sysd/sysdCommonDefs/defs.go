@@ -53,6 +53,21 @@ const (
 	KA_STOPPED SRDaemonStatus = 2
 )
 
+func ConvertDaemonStateCodeToString(status SRDaemonStatus) string {
+	var statusStr string
+	switch status {
+	case KA_UP:
+		statusStr = "up"
+	case KA_DOWN:
+		statusStr = "down"
+	case KA_STOPPED:
+		statusStr = "stopped"
+	default:
+		statusStr = "unknown"
+	}
+	return statusStr
+}
+
 type DaemonStatus struct {
 	Name   string
 	Status SRDaemonStatus

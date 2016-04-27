@@ -28,6 +28,16 @@ type DaemonConfig struct {
 	State string
 }
 
+type DaemonState struct {
+	Name          string
+	State         sysdCommonDefs.SRDaemonStatus
+	Reason        string
+	RecvedKACount int32
+	NumRestarts   int32
+	RestartTime   string
+	RestartReason string
+}
+
 type SYSDServer struct {
 	logger                   *logging.Writer
 	paramsDir                string
@@ -39,7 +49,7 @@ type SYSDServer struct {
 	IptableAddCh             chan *sysd.IpTableAcl
 	IptableDelCh             chan *sysd.IpTableAcl
 	KaRecvCh                 chan string
-	KaRecvMap                map[string]*WDInfo
+	DaemonMap                map[string]*DaemonInfo
 	DaemonConfigCh           chan DaemonConfig
 }
 
