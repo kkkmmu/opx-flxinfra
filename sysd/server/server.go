@@ -23,8 +23,24 @@ type ComponentLoggingConfig struct {
 	Level     sysdCommonDefs.SRDebugLevel
 }
 
+type DaemonConfig struct {
+	Name  string
+	State string
+}
+
+type DaemonState struct {
+	Name          string
+	State         sysdCommonDefs.SRDaemonStatus
+	Reason        string
+	RecvedKACount int32
+	NumRestarts   int32
+	RestartTime   string
+	RestartReason string
+}
+
 type SYSDServer struct {
 	logger                   *logging.Writer
+	ServerStartedCh          chan bool
 	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
 	ComponentLoggingConfigCh chan ComponentLoggingConfig
@@ -34,18 +50,21 @@ type SYSDServer struct {
 	IptableAddCh             chan *sysd.IpTableAcl
 	IptableDelCh             chan *sysd.IpTableAcl
 	KaRecvCh                 chan string
-	KaRecvMap                map[string]*WDInfo
+	DaemonMap                map[string]*DaemonInfo
+	DaemonConfigCh           chan DaemonConfig
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer := &SYSDServer{}
 	sysdServer.sysdIpTableMgr = ipTable.SysdNewSysdIpTableHandler(logger)
 	sysdServer.logger = logger
+	sysdServer.ServerStartedCh = make(chan bool)
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
+	sysdServer.DaemonConfigCh = make(chan DaemonConfig)
 	return sysdServer
 }
 
@@ -164,6 +183,8 @@ func (server *SYSDServer) StartServer(paramFile string, dbHdl redis.Conn) {
 	go server.PublishSysdNotifications()
 	// Start watchdog routine
 	go server.StartWDRoutine()
+
+	server.ServerStartedCh <- true
 	// Now, wait on below channels to process
 	for {
 		select {

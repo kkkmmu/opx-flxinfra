@@ -45,6 +45,7 @@ func main() {
 	go sysdServer.SigHandler(dbHdl)
 	// Start sysd server
 	go sysdServer.StartServer(clientsFileName, dbHdl)
+	<-sysdServer.ServerStartedCh
 
 	// Read IpTableAclConfig during restart case
 	sysdServer.ReadIpAclConfigFromDB(dbHdl)
