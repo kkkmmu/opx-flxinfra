@@ -43,11 +43,12 @@ func (server *SYSDServer) StartWDRoutine() error {
 			daemonInfo, exist := server.DaemonMap[kaDaemon]
 			if !exist {
 				daemonInfo = &DaemonInfo{}
-				//server.KaRecvMap[kaDaemon] = wdInfo
+				server.DaemonMap[kaDaemon] = daemonInfo
 			}
 			daemonInfo.RecvedKACount++
 			if daemonInfo.State != sysdCommonDefs.KA_UP {
 				daemonInfo.State = sysdCommonDefs.KA_UP
+				daemonInfo.Reason = sysdCommonDefs.REASON_NONE
 				server.PublishDaemonKANotification(kaDaemon, sysdCommonDefs.KA_UP)
 			}
 		case daemonConfig := <-server.DaemonConfigCh:
@@ -58,7 +59,7 @@ func (server *SYSDServer) StartWDRoutine() error {
 			if state == "start" {
 				if !exist {
 					daemonInfo = &DaemonInfo{}
-					//server.KaRecvMap[kaDaemon] = wdInfo
+					server.DaemonMap[daemon] = daemonInfo
 				}
 				server.ToggleFlexswitchDaemon(daemon, true)
 				daemonInfo.State = sysdCommonDefs.KA_UP
@@ -159,6 +160,7 @@ func (server *SYSDServer) WDTimer() error {
 }
 
 func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
+	server.logger.Info(fmt.Sprintln("Get DaemonState ", name))
 	daemonState := new(DaemonState)
 	daemonInfo, found := server.DaemonMap[name]
 	if found {
@@ -175,6 +177,7 @@ func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
 func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []DaemonState) {
 	var nextIdx int
 	var count int
+	server.logger.Info(fmt.Sprintln("GetBulk DaemonStates"))
 	result := make([]DaemonState, cnt)
 	i := 0
 	for daemon, daemonInfo := range server.DaemonMap {

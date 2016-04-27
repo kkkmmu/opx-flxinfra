@@ -150,7 +150,7 @@ func (h *SYSDHandler) convertDaemonStateToThrift(ent server.DaemonState) *sysd.D
 }
 
 func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
-	h.logger.Info(fmt.Sprintln("Get Daemon attrs"))
+	h.logger.Info(fmt.Sprintln("Get Daemon state ", name))
 	daemonStateResponse := sysd.NewDaemonState()
 	dState := h.server.GetDaemonState(name)
 	daemonState := h.convertDaemonStateToThrift(*dState)
@@ -159,6 +159,7 @@ func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
 }
 
 func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sysd.DaemonStateGetInfo, error) {
+	h.logger.Info(fmt.Sprintln("Get Daemon states "))
 	nextIdx, currCount, daemonStates := h.server.GetBulkDaemonStates(int(fromIdx), int(count))
 	if daemonStates == nil {
 		err := errors.New("System server is busy")
