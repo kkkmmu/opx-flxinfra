@@ -23,6 +23,11 @@ type ComponentLoggingConfig struct {
 	Level     sysdCommonDefs.SRDebugLevel
 }
 
+type DaemonConfig struct {
+	Name  string
+	State string
+}
+
 type SYSDServer struct {
 	logger                   *logging.Writer
 	paramsDir                string
@@ -35,6 +40,7 @@ type SYSDServer struct {
 	IptableDelCh             chan *sysd.IpTableAcl
 	KaRecvCh                 chan string
 	KaRecvMap                map[string]*WDInfo
+	DaemonConfigCh           chan DaemonConfig
 }
 
 func NewSYSDServer(logger *logging.Writer) *SYSDServer {
@@ -46,6 +52,7 @@ func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
+	sysdServer.DaemonConfigCh = make(chan DaemonConfig)
 	return sysdServer
 }
 

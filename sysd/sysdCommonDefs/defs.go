@@ -48,8 +48,9 @@ const (
 )
 
 const (
-	KA_UP   SRDaemonStatus = 0
-	KA_DOWN SRDaemonStatus = 1
+	KA_UP      SRDaemonStatus = 0
+	KA_DOWN    SRDaemonStatus = 1
+	KA_STOPPED SRDaemonStatus = 2
 )
 
 type DaemonStatus struct {
