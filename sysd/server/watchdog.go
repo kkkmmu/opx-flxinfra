@@ -2,19 +2,21 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"infra/sysd/sysdCommonDefs"
+	"models"
 	"os"
 	"os/exec"
 	"strings"
+	"sysd"
 	"time"
 )
 
 const (
-	KA_TIMEOUT_COUNT_MIN  = 0
-	KA_TIMEOUT_COUNT      = 5 // After 5 KA missed from a daemon, sysd will assume the daemon as non-responsive. Restart it.
-	WD_MAX_NUM_RESTARTS   = 5 // After 5 restarts, if this daemon is still not responsive then stop it.
-	SYSD_TOTAL_KA_DAEMONS = 32
+	KA_TIMEOUT_COUNT_MIN = 0
+	KA_TIMEOUT_COUNT     = 5 // After 5 KA missed from a daemon, sysd will assume the daemon as non-responsive. Restart it.
+	WD_MAX_NUM_RESTARTS  = 5 // After 5 restarts, if this daemon is still not responsive then stop it.
 )
 
 const (
@@ -26,17 +28,34 @@ const (
 )
 
 type DaemonInfo struct {
+	Enable        bool
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
+	Version       string
 	RecvedKACount int32
 	NumRestarts   int32
 	RestartTime   string
 	RestartReason string
 }
 
+func (daemonInfo *DaemonInfo) Initialize() error {
+	daemonInfo.Enable = true
+	daemonInfo.State = sysdCommonDefs.KA_STARTING
+	daemonInfo.Reason = REASON_COMING_UP
+	daemonInfo.Version = ""
+	daemonInfo.RecvedKACount = 0
+	daemonInfo.NumRestarts = 0
+	daemonInfo.RestartTime = ""
+	daemonInfo.RestartReason = ""
+	return nil
+}
+
 func (server *SYSDServer) StartWDRoutine() error {
-	server.KaRecvCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
 	server.DaemonMap = make(map[string]*DaemonInfo)
+	server.KaRecvCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
+	server.DaemonConfigCh = make(chan DaemonConfig, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
+	server.UpdateInfoInDbCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
+	server.DaemonRestartCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
 	go server.WDTimer()
 	for {
 		select {
@@ -44,38 +63,58 @@ func (server *SYSDServer) StartWDRoutine() error {
 			daemonInfo, exist := server.DaemonMap[kaDaemon]
 			if !exist {
 				daemonInfo = &DaemonInfo{}
+				daemonInfo.Initialize()
 				server.DaemonMap[kaDaemon] = daemonInfo
 			}
 			daemonInfo.RecvedKACount++
-			if daemonInfo.State == sysdCommonDefs.KA_DOWN {
+			if daemonInfo.State != sysdCommonDefs.KA_UP {
 				daemonInfo.State = sysdCommonDefs.KA_UP
 				daemonInfo.Reason = REASON_NONE
-				server.PublishDaemonKANotification(kaDaemon, sysdCommonDefs.KA_UP)
+				server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
 			}
+			server.UpdateDaemonStateInDb(kaDaemon)
 		case daemonConfig := <-server.DaemonConfigCh:
-			server.logger.Info(fmt.Sprintln("Received daemon config for: ", daemonConfig.Name, " to ", daemonConfig.State))
+			server.logger.Info(fmt.Sprintln("Received daemon config for: ", daemonConfig.Name, " Enable ", daemonConfig.Enable))
 			daemon := daemonConfig.Name
-			state := daemonConfig.State
+			enable := daemonConfig.Enable
 			daemonInfo, exist := server.DaemonMap[daemon]
-			if state == "start" {
+			daemonUpdated := false
+			if enable {
 				if !exist {
 					daemonInfo = &DaemonInfo{}
+					daemonInfo.Initialize()
 					server.DaemonMap[daemon] = daemonInfo
 				}
-				go server.ToggleFlexswitchDaemon(daemon, true)
-				daemonInfo.State = sysdCommonDefs.KA_DOWN
-				daemonInfo.Reason = REASON_COMING_UP
-			} else if state == "stop" {
+				if daemonInfo.State == sysdCommonDefs.KA_STOPPED {
+					go server.ToggleFlexswitchDaemon(daemon, true)
+					daemonInfo.State = sysdCommonDefs.KA_STARTING
+					daemonInfo.Reason = REASON_COMING_UP
+				}
+				daemonInfo.Enable = true
+				daemonUpdated = true
+			} else {
 				if exist {
-					go server.ToggleFlexswitchDaemon(daemon, false)
-					daemonInfo.State = sysdCommonDefs.KA_STOPPED
-					daemonInfo.Reason = REASON_DAEMON_STOPPED
-					server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_STOPPED)
+					if daemonInfo.State != sysdCommonDefs.KA_STOPPED {
+						go server.ToggleFlexswitchDaemon(daemon, false)
+						daemonInfo.State = sysdCommonDefs.KA_STOPPED
+						daemonInfo.Reason = REASON_DAEMON_STOPPED
+						server.PublishDaemonKANotification(daemon, daemonInfo.State)
+					}
+					daemonInfo.Enable = false
+					daemonUpdated = true
 				} else {
 					server.logger.Info(fmt.Sprintln("Received call to stop unknown daemon ", daemon))
 				}
 			}
-
+			if daemonUpdated {
+				server.UpdateDaemonStateInDb(daemon)
+			}
+		case daemon := <-server.DaemonRestartCh:
+			if server.DaemonMap[daemon].State != sysdCommonDefs.KA_STOPPED {
+				go server.RestartFlexswitchDaemon(daemon)
+			}
+		case daemon := <-server.UpdateInfoInDbCh:
+			server.UpdateDaemonStateInDb(daemon)
 		}
 	}
 	return nil
@@ -129,8 +168,8 @@ func (server *SYSDServer) ToggleFlexswitchDaemon(daemon string, up bool) error {
 }
 
 func (server *SYSDServer) RestartFlexswitchDaemon(daemon string) error {
+	server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_RESTARTING)
 	server.ToggleFlexswitchDaemon(daemon, false)
-	server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_DOWN)
 	server.ToggleFlexswitchDaemon(daemon, true)
 	return nil
 }
@@ -147,11 +186,12 @@ func (server *SYSDServer) WDTimer() error {
 				}
 				if daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
-					daemonInfo.State = sysdCommonDefs.KA_DOWN
-					go server.RestartFlexswitchDaemon(daemon)
+					server.DaemonRestartCh <- daemon
+					daemonInfo.State = sysdCommonDefs.KA_RESTARTING
 					daemonInfo.NumRestarts++
 					daemonInfo.RestartTime = time.Now().String()
 					daemonInfo.RestartReason = REASON_KA_FAIL
+					server.UpdateInfoInDbCh <- daemon
 				}
 			}
 			daemonInfo.RecvedKACount = 0
@@ -160,14 +200,46 @@ func (server *SYSDServer) WDTimer() error {
 	return nil
 }
 
+func (server *SYSDServer) ConvertDaemonStateToThrift(ent DaemonState) *sysd.DaemonState {
+	dState := sysd.NewDaemonState()
+	dState.Name = string(ent.Name)
+	dState.Enable = ent.Enable
+	dState.State = string(sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State))
+	dState.Reason = string(ent.Reason)
+	dState.Version = string(ent.Version)
+	kaStr := fmt.Sprintf("Received %d keepalives", ent.RecvedKACount)
+	dState.KeepAlive = string(kaStr)
+	dState.RestartCount = int32(ent.NumRestarts)
+	dState.RestartTime = string(ent.RestartTime)
+	dState.RestartReason = string(ent.RestartReason)
+	return dState
+}
+
+func (server *SYSDServer) ConvertDaemonStateToObj(ent DaemonState) models.DaemonState {
+	kaStr := fmt.Sprintf("Received %d keepalives", ent.RecvedKACount)
+	dState := models.DaemonState{
+		Name:          ent.Name,
+		Enable:        ent.Enable,
+		State:         sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State),
+		Reason:        ent.Reason,
+		Version:       ent.Version,
+		KeepAlive:     kaStr,
+		RestartCount:  ent.NumRestarts,
+		RestartTime:   ent.RestartTime,
+		RestartReason: ent.RestartReason,
+	}
+	return dState
+}
+
 func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
-	server.logger.Info(fmt.Sprintln("Get DaemonState ", name))
 	daemonState := new(DaemonState)
 	daemonInfo, found := server.DaemonMap[name]
 	if found {
 		daemonState.Name = name
+		daemonState.Enable = daemonInfo.Enable
 		daemonState.State = daemonInfo.State
 		daemonState.Reason = daemonInfo.Reason
+		daemonState.Version = daemonInfo.Version
 		daemonState.RecvedKACount = daemonInfo.RecvedKACount
 		daemonState.NumRestarts = daemonInfo.NumRestarts
 		daemonState.RestartTime = daemonInfo.RestartTime
@@ -175,6 +247,7 @@ func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
 	}
 	return daemonState
 }
+
 func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []DaemonState) {
 	var nextIdx int
 	var count int
@@ -183,8 +256,10 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 	i := 0
 	for daemon, daemonInfo := range server.DaemonMap {
 		result[i].Name = daemon
+		result[i].Enable = daemonInfo.Enable
 		result[i].State = daemonInfo.State
 		result[i].Reason = daemonInfo.Reason
+		result[i].Version = daemonInfo.Version
 		result[i].RecvedKACount = daemonInfo.RecvedKACount
 		result[i].NumRestarts = daemonInfo.NumRestarts
 		result[i].RestartTime = daemonInfo.RestartTime
@@ -194,4 +269,18 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 	count = i
 	nextIdx = 0
 	return nextIdx, count, result
+}
+
+func (server *SYSDServer) UpdateDaemonStateInDb(name string) error {
+	var err error
+	daemonState := server.GetDaemonState(name)
+	if daemonState != nil {
+		obj := server.ConvertDaemonStateToObj(*daemonState)
+		server.dbHdl.StoreObjectInDb(obj)
+	} else {
+		errStr := "Failed to get daemon " + name
+		server.logger.Info(errStr)
+		err = errors.New(errStr)
+	}
+	return err
 }
