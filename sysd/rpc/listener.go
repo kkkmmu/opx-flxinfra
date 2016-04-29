@@ -121,6 +121,7 @@ func (h *SYSDHandler) convertDaemonStateToThrift(ent server.DaemonState) *sysd.D
 	dState.Name = string(ent.Name)
 	dState.State = string(sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State))
 	dState.Reason = string(ent.Reason)
+	dState.Version = string(ent.Version)
 	kaStr := fmt.Sprintf("Received %d keepalives", ent.RecvedKACount)
 	dState.KeepAlive = string(kaStr)
 	dState.RestartCount = int32(ent.NumRestarts)

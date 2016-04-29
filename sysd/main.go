@@ -37,9 +37,9 @@ func main() {
 	clientsFileName := fileName + "clients.json"
 
 	logger.Info(fmt.Sprintln("Starting Sysd Server..."))
-	sysdServer := server.NewSYSDServer(logger)
+	sysdServer := server.NewSYSDServer(logger, dbHdl, fileName)
 	// Initialize sysd server
-	sysdServer.InitServer(fileName)
+	sysdServer.InitServer()
 	// Start signal handler first
 	go sysdServer.SigHandler(dbHdl)
 	// Start sysd server

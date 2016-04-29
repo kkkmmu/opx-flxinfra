@@ -32,6 +32,7 @@ type DaemonState struct {
 	Name          string
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
+	Version       string
 	RecvedKACount int32
 	NumRestarts   int32
 	RestartTime   string
@@ -40,6 +41,7 @@ type DaemonState struct {
 
 type SYSDServer struct {
 	logger                   *logging.Writer
+	dbHdl                    redis.Conn
 	ServerStartedCh          chan bool
 	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
@@ -52,12 +54,15 @@ type SYSDServer struct {
 	KaRecvCh                 chan string
 	DaemonMap                map[string]*DaemonInfo
 	DaemonConfigCh           chan DaemonConfig
+	UpdateInfoInDbCh         chan string
 }
 
-func NewSYSDServer(logger *logging.Writer) *SYSDServer {
+func NewSYSDServer(logger *logging.Writer, dbHdl redis.Conn, paramsDir string) *SYSDServer {
 	sysdServer := &SYSDServer{}
 	sysdServer.sysdIpTableMgr = ipTable.SysdNewSysdIpTableHandler(logger)
 	sysdServer.logger = logger
+	sysdServer.dbHdl = dbHdl
+	sysdServer.paramsDir = paramsDir
 	sysdServer.ServerStartedCh = make(chan bool)
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
@@ -65,6 +70,7 @@ func NewSYSDServer(logger *logging.Writer) *SYSDServer {
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
 	sysdServer.DaemonConfigCh = make(chan DaemonConfig)
+	sysdServer.UpdateInfoInDbCh = make(chan string)
 	return sysdServer
 }
 
@@ -89,9 +95,8 @@ func (server *SYSDServer) SigHandler(dbHdl redis.Conn) {
 	}
 }
 
-func (server *SYSDServer) InitServer(paramsDir string) {
+func (server *SYSDServer) InitServer() {
 	server.logger.Info(fmt.Sprintln("Initializing Sysd Server"))
-	server.paramsDir = paramsDir
 }
 
 func (server *SYSDServer) InitPublisher(pub_str string) (pub *nanomsg.PubSocket) {

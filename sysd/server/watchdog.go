@@ -2,7 +2,9 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/garyburd/redigo/redis"
 	"infra/sysd/sysdCommonDefs"
 	"os"
 	"os/exec"
@@ -28,6 +30,7 @@ const (
 type DaemonInfo struct {
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
+	Version       string
 	RecvedKACount int32
 	NumRestarts   int32
 	RestartTime   string
@@ -50,13 +53,15 @@ func (server *SYSDServer) StartWDRoutine() error {
 			if daemonInfo.State == sysdCommonDefs.KA_DOWN {
 				daemonInfo.State = sysdCommonDefs.KA_UP
 				daemonInfo.Reason = REASON_NONE
-				server.PublishDaemonKANotification(kaDaemon, sysdCommonDefs.KA_UP)
+				server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
 			}
+			go server.UpdateDaemonStateInDb(kaDaemon)
 		case daemonConfig := <-server.DaemonConfigCh:
 			server.logger.Info(fmt.Sprintln("Received daemon config for: ", daemonConfig.Name, " to ", daemonConfig.State))
 			daemon := daemonConfig.Name
 			state := daemonConfig.State
 			daemonInfo, exist := server.DaemonMap[daemon]
+			daemonUpdated := false
 			if state == "start" {
 				if !exist {
 					daemonInfo = &DaemonInfo{}
@@ -65,17 +70,23 @@ func (server *SYSDServer) StartWDRoutine() error {
 				go server.ToggleFlexswitchDaemon(daemon, true)
 				daemonInfo.State = sysdCommonDefs.KA_DOWN
 				daemonInfo.Reason = REASON_COMING_UP
+				daemonUpdated = true
 			} else if state == "stop" {
 				if exist {
 					go server.ToggleFlexswitchDaemon(daemon, false)
 					daemonInfo.State = sysdCommonDefs.KA_STOPPED
 					daemonInfo.Reason = REASON_DAEMON_STOPPED
-					server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_STOPPED)
+					server.PublishDaemonKANotification(daemon, daemonInfo.State)
+					daemonUpdated = true
 				} else {
 					server.logger.Info(fmt.Sprintln("Received call to stop unknown daemon ", daemon))
 				}
 			}
-
+			if daemonUpdated {
+				go server.UpdateDaemonStateInDb(daemon)
+			}
+		case daemon := <-server.UpdateInfoInDbCh:
+			go server.UpdateDaemonStateInDb(daemon)
 		}
 	}
 	return nil
@@ -152,6 +163,7 @@ func (server *SYSDServer) WDTimer() error {
 					daemonInfo.NumRestarts++
 					daemonInfo.RestartTime = time.Now().String()
 					daemonInfo.RestartReason = REASON_KA_FAIL
+					server.UpdateInfoInDbCh <- daemon
 				}
 			}
 			daemonInfo.RecvedKACount = 0
@@ -161,13 +173,13 @@ func (server *SYSDServer) WDTimer() error {
 }
 
 func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
-	server.logger.Info(fmt.Sprintln("Get DaemonState ", name))
 	daemonState := new(DaemonState)
 	daemonInfo, found := server.DaemonMap[name]
 	if found {
 		daemonState.Name = name
 		daemonState.State = daemonInfo.State
 		daemonState.Reason = daemonInfo.Reason
+		daemonState.Version = daemonInfo.Version
 		daemonState.RecvedKACount = daemonInfo.RecvedKACount
 		daemonState.NumRestarts = daemonInfo.NumRestarts
 		daemonState.RestartTime = daemonInfo.RestartTime
@@ -185,6 +197,7 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 		result[i].Name = daemon
 		result[i].State = daemonInfo.State
 		result[i].Reason = daemonInfo.Reason
+		result[i].Version = daemonInfo.Version
 		result[i].RecvedKACount = daemonInfo.RecvedKACount
 		result[i].NumRestarts = daemonInfo.NumRestarts
 		result[i].RestartTime = daemonInfo.RestartTime
@@ -194,4 +207,18 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 	count = i
 	nextIdx = 0
 	return nextIdx, count, result
+}
+
+func (server *SYSDServer) UpdateDaemonStateInDb(name string) error {
+	var err error
+	daemonState := server.GetDaemonState(name)
+	dbKey := "DaemonState#" + name
+	if daemonState != nil {
+		_, err = server.dbHdl.Do("HMSET", redis.Args{}.Add(dbKey).AddFlat(daemonState)...)
+	} else {
+		errStr := "Failed to get daemon " + name
+		server.logger.Info(errStr)
+		err = errors.New(errStr)
+	}
+	return err
 }
