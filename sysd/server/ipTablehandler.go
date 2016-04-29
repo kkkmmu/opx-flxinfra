@@ -1,16 +1,16 @@
 package server
 
 import (
-	"github.com/garyburd/redigo/redis"
 	"models"
 	"sysd"
+	"utils/dbutils"
 )
 
-func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl redis.Conn) error {
+func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *dbutils.DBUtil) error {
 	server.logger.Info("Reading Ip Acl Config From Db")
 	if dbHdl != nil {
 		var dbObj models.IpTableAcl
-		objList, err := dbObj.GetAllObjFromDb(dbHdl)
+		objList, err := dbHdl.GetAllObjFromDb(dbObj)
 		if err != nil {
 			server.logger.Err("DB query failed for IpTableAcl config")
 			return err

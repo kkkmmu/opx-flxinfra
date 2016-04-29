@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"infra/sysd/rpc"
 	"infra/sysd/server"
+	"utils/dbutils"
 	"utils/logging"
 )
 
@@ -29,11 +29,18 @@ func main() {
 	}
 	logger.Info("Started the logger successfully.")
 
-	dbHdl, err := redis.Dial("tcp", ":6379")
-	if err != nil {
-		logger.Err("Failed to dial out to Redis server")
+	/*
+		dbHdl, err := redis.Dial("tcp", ":6379")
+		if err != nil {
+			logger.Err("Failed to dial out to Redis server")
+			return
+		}
+	*/
+	dbHdl := dbutils.NewDBUtil(logger)
+	if err := dbHdl.Connect(); err != nil {
 		return
 	}
+
 	clientsFileName := fileName + "clients.json"
 
 	logger.Info(fmt.Sprintln("Starting Sysd Server..."))
@@ -43,7 +50,7 @@ func main() {
 	// Start signal handler first
 	go sysdServer.SigHandler(dbHdl)
 	// Start sysd server
-	go sysdServer.StartServer(clientsFileName, dbHdl)
+	go sysdServer.StartServer()
 	<-sysdServer.ServerStartedCh
 
 	// Read IpTableAclConfig during restart case

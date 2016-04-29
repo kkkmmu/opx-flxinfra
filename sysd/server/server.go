@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	nanomsg "github.com/op/go-nanomsg"
 	"infra/sysd/iptables"
 	"infra/sysd/sysdCommonDefs"
@@ -11,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 	"sysd"
+	"utils/dbutils"
 	"utils/logging"
 )
 
@@ -24,12 +24,13 @@ type ComponentLoggingConfig struct {
 }
 
 type DaemonConfig struct {
-	Name  string
-	State string
+	Name   string
+	Enable bool
 }
 
 type DaemonState struct {
 	Name          string
+	Enable        bool
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
 	Version       string
@@ -41,7 +42,7 @@ type DaemonState struct {
 
 type SYSDServer struct {
 	logger                   *logging.Writer
-	dbHdl                    redis.Conn
+	dbHdl                    *dbutils.DBUtil
 	ServerStartedCh          chan bool
 	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
@@ -55,9 +56,10 @@ type SYSDServer struct {
 	DaemonMap                map[string]*DaemonInfo
 	DaemonConfigCh           chan DaemonConfig
 	UpdateInfoInDbCh         chan string
+	DaemonRestartCh          chan string
 }
 
-func NewSYSDServer(logger *logging.Writer, dbHdl redis.Conn, paramsDir string) *SYSDServer {
+func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
 	sysdServer := &SYSDServer{}
 	sysdServer.sysdIpTableMgr = ipTable.SysdNewSysdIpTableHandler(logger)
 	sysdServer.logger = logger
@@ -69,12 +71,10 @@ func NewSYSDServer(logger *logging.Writer, dbHdl redis.Conn, paramsDir string) *
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
-	sysdServer.DaemonConfigCh = make(chan DaemonConfig)
-	sysdServer.UpdateInfoInDbCh = make(chan string)
 	return sysdServer
 }
 
-func (server *SYSDServer) SigHandler(dbHdl redis.Conn) {
+func (server *SYSDServer) SigHandler(dbHdl *dbutils.DBUtil) {
 	server.logger.Info(fmt.Sprintln("Starting SigHandler"))
 	sigChan := make(chan os.Signal, 1)
 	signalList := []os.Signal{syscall.SIGHUP}
@@ -86,7 +86,7 @@ func (server *SYSDServer) SigHandler(dbHdl redis.Conn) {
 			switch signal {
 			case syscall.SIGHUP:
 				server.logger.Info("Received SIGHUP signal. Exiting")
-				dbHdl.Close()
+				dbHdl.Disconnect()
 				os.Exit(0)
 			default:
 				server.logger.Info(fmt.Sprintln("Unhandled signal : ", signal))
@@ -183,7 +183,7 @@ func (server *SYSDServer) ProcessComponentLoggingConfig(cLogConf ComponentLoggin
 	return nil
 }
 
-func (server *SYSDServer) StartServer(paramFile string, dbHdl redis.Conn) {
+func (server *SYSDServer) StartServer() {
 	// Start notification publish thread
 	go server.PublishSysdNotifications()
 	// Start watchdog routine
