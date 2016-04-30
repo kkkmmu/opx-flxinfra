@@ -40,7 +40,7 @@ type DaemonInfo struct {
 
 func (daemonInfo *DaemonInfo) Initialize() error {
 	daemonInfo.Enable = true
-	daemonInfo.State = sysdCommonDefs.KA_STARTING
+	daemonInfo.State = sysdCommonDefs.STARTING
 	daemonInfo.Reason = REASON_COMING_UP
 	daemonInfo.Version = ""
 	daemonInfo.RecvedKACount = 0
@@ -67,8 +67,8 @@ func (server *SYSDServer) StartWDRoutine() error {
 				server.DaemonMap[kaDaemon] = daemonInfo
 			}
 			daemonInfo.RecvedKACount++
-			if daemonInfo.State != sysdCommonDefs.KA_UP {
-				daemonInfo.State = sysdCommonDefs.KA_UP
+			if daemonInfo.State != sysdCommonDefs.UP {
+				daemonInfo.State = sysdCommonDefs.UP
 				daemonInfo.Reason = REASON_NONE
 				server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
 			}
@@ -85,18 +85,18 @@ func (server *SYSDServer) StartWDRoutine() error {
 					daemonInfo.Initialize()
 					server.DaemonMap[daemon] = daemonInfo
 				}
-				if daemonInfo.State == sysdCommonDefs.KA_STOPPED {
+				if daemonInfo.State == sysdCommonDefs.STOPPED {
 					go server.ToggleFlexswitchDaemon(daemon, true)
-					daemonInfo.State = sysdCommonDefs.KA_STARTING
+					daemonInfo.State = sysdCommonDefs.STARTING
 					daemonInfo.Reason = REASON_COMING_UP
 				}
 				daemonInfo.Enable = true
 				daemonUpdated = true
 			} else {
 				if exist {
-					if daemonInfo.State != sysdCommonDefs.KA_STOPPED {
+					if daemonInfo.State != sysdCommonDefs.STOPPED {
 						go server.ToggleFlexswitchDaemon(daemon, false)
-						daemonInfo.State = sysdCommonDefs.KA_STOPPED
+						daemonInfo.State = sysdCommonDefs.STOPPED
 						daemonInfo.Reason = REASON_DAEMON_STOPPED
 						server.PublishDaemonKANotification(daemon, daemonInfo.State)
 					}
@@ -110,7 +110,7 @@ func (server *SYSDServer) StartWDRoutine() error {
 				server.UpdateDaemonStateInDb(daemon)
 			}
 		case daemon := <-server.DaemonRestartCh:
-			if server.DaemonMap[daemon].State != sysdCommonDefs.KA_STOPPED {
+			if server.DaemonMap[daemon].State != sysdCommonDefs.STOPPED {
 				go server.RestartFlexswitchDaemon(daemon)
 			}
 		case daemon := <-server.UpdateInfoInDbCh:
@@ -168,7 +168,7 @@ func (server *SYSDServer) ToggleFlexswitchDaemon(daemon string, up bool) error {
 }
 
 func (server *SYSDServer) RestartFlexswitchDaemon(daemon string) error {
-	server.PublishDaemonKANotification(daemon, sysdCommonDefs.KA_RESTARTING)
+	server.PublishDaemonKANotification(daemon, sysdCommonDefs.RESTARTING)
 	server.ToggleFlexswitchDaemon(daemon, false)
 	server.ToggleFlexswitchDaemon(daemon, true)
 	return nil
@@ -180,14 +180,14 @@ func (server *SYSDServer) WDTimer() error {
 	for t := range wdTimer.C {
 		_ = t
 		for daemon, daemonInfo := range server.DaemonMap {
-			if daemonInfo.State == sysdCommonDefs.KA_UP {
+			if daemonInfo.State == sysdCommonDefs.UP {
 				if daemonInfo.RecvedKACount < KA_TIMEOUT_COUNT && daemonInfo.RecvedKACount > KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is slowing down. Monitoring it."))
 				}
 				if daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
 					server.DaemonRestartCh <- daemon
-					daemonInfo.State = sysdCommonDefs.KA_RESTARTING
+					daemonInfo.State = sysdCommonDefs.RESTARTING
 					daemonInfo.NumRestarts++
 					daemonInfo.RestartTime = time.Now().String()
 					daemonInfo.RestartReason = REASON_KA_FAIL

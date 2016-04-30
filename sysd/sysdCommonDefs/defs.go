@@ -49,22 +49,22 @@ const (
 type SRDaemonStatus uint8
 
 const (
-	KA_UP         SRDaemonStatus = 0
-	KA_STARTING   SRDaemonStatus = 1
-	KA_RESTARTING SRDaemonStatus = 2
-	KA_STOPPED    SRDaemonStatus = 3
+	UP         SRDaemonStatus = 0
+	STARTING   SRDaemonStatus = 1
+	RESTARTING SRDaemonStatus = 2
+	STOPPED    SRDaemonStatus = 3
 )
 
 func ConvertDaemonStateCodeToString(status SRDaemonStatus) string {
 	var statusStr string
 	switch status {
-	case KA_UP:
+	case UP:
 		statusStr = "up"
-	case KA_STARTING:
+	case STARTING:
 		statusStr = "starting"
-	case KA_RESTARTING:
+	case RESTARTING:
 		statusStr = "restarting"
-	case KA_STOPPED:
+	case STOPPED:
 		statusStr = "stopped"
 	default:
 		statusStr = "unknown"
