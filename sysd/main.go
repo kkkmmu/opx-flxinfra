@@ -10,7 +10,7 @@ import (
 )
 
 /*
-#cgo LDFLAGS: -L../../netfilter/libiptables/lib
+#cgo LDFLAGS: -L../../../../external/src/github.com/netfilter/libiptables/lib
 */
 import "C"
 
