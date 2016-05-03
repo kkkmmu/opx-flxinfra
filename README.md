@@ -2,6 +2,6 @@
 This code base is to handle system infrastructure for flexswitch.
 
 ## Support
- - FlexSwitch Daemon State
+ - FlexSwitch System Daemon's State
  - Add/Delete IpTable rules
  - Global Logging Level
