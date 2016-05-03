@@ -156,7 +156,8 @@ func (server *SYSDServer) ToggleFlexswitchDaemon(daemon string, up bool) error {
 	} else {
 		op = "stop"
 	}
-	cmdArgs := []string{"-n", daemon, "-o", op, "-d", cmdDir}
+	//cmdArgs := []string{"-n", daemon, "-o", op, "-d", cmdDir}
+	cmdArgs := []string{"-n", daemon, "-o", op}
 	if cmdOut, err = exec.Command(cmdName, cmdArgs...).Output(); err != nil {
 		server.logger.Info(fmt.Sprintln(os.Stderr, "There was an error to ", op, " flexswitch daemon ", daemon, " : ", err))
 		return err
