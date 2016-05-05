@@ -108,8 +108,9 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Daemon action attrs: ", daemonConfig))
 	dConf := server.DaemonConfig{
-		Name:   daemonConfig.Name,
-		Enable: daemonConfig.Enable,
+		Name:     daemonConfig.Name,
+		Enable:   daemonConfig.Enable,
+		WatchDog: daemonConfig.WatchDog,
 	}
 	h.server.DaemonConfigCh <- dConf
 	return true, nil

@@ -24,8 +24,9 @@ type ComponentLoggingConfig struct {
 }
 
 type DaemonConfig struct {
-	Name   string
-	Enable bool
+	Name     string
+	Enable   bool
+	WatchDog bool
 }
 
 type DaemonState struct {
