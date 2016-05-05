@@ -32,10 +32,12 @@ type DaemonInfo struct {
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
 	Version       string
+	StartTime     string
 	RecvedKACount int32
 	NumRestarts   int32
 	RestartTime   string
 	RestartReason string
+	WatchDog      bool
 }
 
 func (daemonInfo *DaemonInfo) Initialize() error {
@@ -43,6 +45,7 @@ func (daemonInfo *DaemonInfo) Initialize() error {
 	daemonInfo.State = sysdCommonDefs.STARTING
 	daemonInfo.Reason = REASON_COMING_UP
 	daemonInfo.Version = ""
+	daemonInfo.StartTime = time.Now().String()
 	daemonInfo.RecvedKACount = 0
 	daemonInfo.NumRestarts = 0
 	daemonInfo.RestartTime = ""
@@ -77,8 +80,10 @@ func (server *SYSDServer) StartWDRoutine() error {
 			server.logger.Info(fmt.Sprintln("Received daemon config for: ", daemonConfig.Name, " Enable ", daemonConfig.Enable))
 			daemon := daemonConfig.Name
 			enable := daemonConfig.Enable
+			watchDog := daemonConfig.WatchDog
 			daemonInfo, exist := server.DaemonMap[daemon]
 			daemonUpdated := false
+			daemonInfo.WatchDog = watchDog
 			if enable {
 				if !exist {
 					daemonInfo = &DaemonInfo{}
@@ -185,7 +190,7 @@ func (server *SYSDServer) WDTimer() error {
 				if daemonInfo.RecvedKACount < KA_TIMEOUT_COUNT && daemonInfo.RecvedKACount > KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is slowing down. Monitoring it."))
 				}
-				if daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
+				if daemonInfo.WatchDog && daemonInfo.RecvedKACount == KA_TIMEOUT_COUNT_MIN {
 					server.logger.Info(fmt.Sprintln("Daemon ", daemon, " is not responsive. Restarting it."))
 					server.DaemonRestartCh <- daemon
 					daemonInfo.State = sysdCommonDefs.RESTARTING
@@ -207,6 +212,7 @@ func (server *SYSDServer) ConvertDaemonStateToThrift(ent DaemonState) *sysd.Daem
 	dState.Enable = ent.Enable
 	dState.State = string(sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State))
 	dState.Reason = string(ent.Reason)
+	dState.StartTime = string(ent.StartTime)
 	dState.Version = string(ent.Version)
 	kaStr := fmt.Sprintf("Received %d keepalives", ent.RecvedKACount)
 	dState.KeepAlive = string(kaStr)
@@ -223,6 +229,7 @@ func (server *SYSDServer) ConvertDaemonStateToObj(ent DaemonState) models.Daemon
 		Enable:        ent.Enable,
 		State:         sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State),
 		Reason:        ent.Reason,
+		StartTime:     ent.StartTime,
 		Version:       ent.Version,
 		KeepAlive:     kaStr,
 		RestartCount:  ent.NumRestarts,
@@ -240,6 +247,7 @@ func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
 		daemonState.Enable = daemonInfo.Enable
 		daemonState.State = daemonInfo.State
 		daemonState.Reason = daemonInfo.Reason
+		daemonState.StartTime = daemonInfo.StartTime
 		daemonState.Version = daemonInfo.Version
 		daemonState.RecvedKACount = daemonInfo.RecvedKACount
 		daemonState.NumRestarts = daemonInfo.NumRestarts
@@ -260,6 +268,7 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 		result[i].Enable = daemonInfo.Enable
 		result[i].State = daemonInfo.State
 		result[i].Reason = daemonInfo.Reason
+		result[i].StartTime = daemonInfo.StartTime
 		result[i].Version = daemonInfo.Version
 		result[i].RecvedKACount = daemonInfo.RecvedKACount
 		result[i].NumRestarts = daemonInfo.NumRestarts
