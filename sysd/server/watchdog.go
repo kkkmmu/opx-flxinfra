@@ -31,7 +31,6 @@ type DaemonInfo struct {
 	Enable        bool
 	State         sysdCommonDefs.SRDaemonStatus
 	Reason        string
-	Version       string
 	StartTime     string
 	RecvedKACount int32
 	NumRestarts   int32
@@ -44,7 +43,6 @@ func (daemonInfo *DaemonInfo) Initialize() error {
 	daemonInfo.Enable = true
 	daemonInfo.State = sysdCommonDefs.STARTING
 	daemonInfo.Reason = REASON_COMING_UP
-	daemonInfo.Version = ""
 	daemonInfo.StartTime = time.Now().String()
 	daemonInfo.RecvedKACount = 0
 	daemonInfo.NumRestarts = 0
@@ -213,7 +211,6 @@ func (server *SYSDServer) ConvertDaemonStateToThrift(ent DaemonState) *sysd.Daem
 	dState.State = string(sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State))
 	dState.Reason = string(ent.Reason)
 	dState.StartTime = string(ent.StartTime)
-	dState.Version = string(ent.Version)
 	kaStr := fmt.Sprintf("Received %d keepalives", ent.RecvedKACount)
 	dState.KeepAlive = string(kaStr)
 	dState.RestartCount = int32(ent.NumRestarts)
@@ -230,7 +227,6 @@ func (server *SYSDServer) ConvertDaemonStateToObj(ent DaemonState) models.Daemon
 		State:         sysdCommonDefs.ConvertDaemonStateCodeToString(ent.State),
 		Reason:        ent.Reason,
 		StartTime:     ent.StartTime,
-		Version:       ent.Version,
 		KeepAlive:     kaStr,
 		RestartCount:  ent.NumRestarts,
 		RestartTime:   ent.RestartTime,
@@ -248,7 +244,6 @@ func (server *SYSDServer) GetDaemonState(name string) *DaemonState {
 		daemonState.State = daemonInfo.State
 		daemonState.Reason = daemonInfo.Reason
 		daemonState.StartTime = daemonInfo.StartTime
-		daemonState.Version = daemonInfo.Version
 		daemonState.RecvedKACount = daemonInfo.RecvedKACount
 		daemonState.NumRestarts = daemonInfo.NumRestarts
 		daemonState.RestartTime = daemonInfo.RestartTime
@@ -269,7 +264,6 @@ func (server *SYSDServer) GetBulkDaemonStates(idx int, cnt int) (int, int, []Dae
 		result[i].State = daemonInfo.State
 		result[i].Reason = daemonInfo.Reason
 		result[i].StartTime = daemonInfo.StartTime
-		result[i].Version = daemonInfo.Version
 		result[i].RecvedKACount = daemonInfo.RecvedKACount
 		result[i].NumRestarts = daemonInfo.NumRestarts
 		result[i].RestartTime = daemonInfo.RestartTime
