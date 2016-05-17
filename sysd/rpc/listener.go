@@ -168,7 +168,52 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 	return daemonStateGetInfo, nil
 }
 
+func (h *SYSDHandler) CreateSystemParams(cfg *sysd.SystemParams) (bool, error) {
+	return true, nil
+}
+
+func (h *SYSDHandler) UpdateSystemParams(org *sysd.SystemParams, new *sysd.SystemParams, attrset []bool) (bool, error) {
+	return true, nil
+}
+
+func (h *SYSDHandler) DeleteSystemParams(cfg *sysd.SystemParams) (bool, error) {
+	return false, nil
+}
+
+/*********************** SYSD INTERNAL API **************************/
+
 func (h *SYSDHandler) PeriodicKeepAlive(name string) error {
 	h.server.KaRecvCh <- name
 	return nil
 }
+
+/*
+
+func (h *SYSDHandler) GetSystemInfo() (string, error) {
+	return "", nil
+}
+
+func (h *SYSDHandler) GetRouterId() (string, error) {
+	return h.server.SysInfo.RouterId, nil
+}
+
+func (h *SYSDHandler) GetSystemHostname() (string, error) {
+	return h.server.SysInfo.Hostname, nil
+}
+
+func (h *SYSDHandler) GetSystemDescription() (string, error) {
+	return h.server.SysInfo.Description, nil
+}
+
+func (h *SYSDHandler) GetSwitchMac() (string, error) {
+	return h.server.SysInfo.SwitchMac, nil
+}
+
+func (h *SYSDHandler) GetSystemVersion() (string, error) {
+	return h.server.SysInfo.Version, nil
+}
+
+func (h *SYSDHandler) GetSystemMgmtIp() (string, error) {
+	return h.server.SysInfo.MgmtIp, nil
+}
+*/
