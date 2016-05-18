@@ -26,37 +26,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"infra/sysd/sysdCommonDefs"
-	"io/ioutil"
+	_ "io/ioutil"
 	"models"
 	_ "utils/logging"
 )
 
-/*
-type SystemInfo struct {
-	Description string
-	Hostname    string
-	RouterId    string
-	Version     string
-	SwitchMac   string
-	MgmtIp      string
-}
-*/
-
-type SwitchCfgJson struct {
-	SwitchMac   string `json:"SwitchMac"`
-	RouterId    string `json:"RouterId"`
-	Hostname    string `json:"HostName"`
-	Version     string `json:"Version"`
-	MgmtIp      string `json:"MgmtIp"`
-	Description string `json:"Description"`
-	//PluginList       []string          `json:"PluginList"`
-	//IfNameMap        map[string]string `json:"IfNameMap"`
-	//IfNamePrefix     map[string]string `json:"IfNamePrefix"`
-	//SysRsvdVlanRange string            `json:"SysRsvdVlanRange"`
-}
-
 // Func to insert the entry in database
-//func (sys *SystemInfo) Insert() {
 func (svr *SYSDServer) InsertSystemInfoInDB() error {
 	return svr.dbHdl.StoreObjectInDb(svr.SysInfo)
 }
@@ -105,49 +80,15 @@ func (svr *SYSDServer) SendSystemUpdate() ([]byte, error) {
 }
 
 // Initialize system information using json file...or whatever other means are
-func (svr *SYSDServer) InitSystemInfo() { //paramsDir string, logger *logging.Writer) *SystemInfo {
-	//sysInfo := &SystemInfo{}
+func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParams) {
 	svr.SysInfo = &models.SystemParams{}
-	err := svr.ReadSystemInfoFromDB()
-	if err != nil { // Reading from DB is not sucess, in that case lets parse json file and get the system info
-		sysInfo := svr.SysInfo
-		cfgFileData, err := ioutil.ReadFile(svr.paramsDir + "../sysprofile/systemProfile.json")
-		if err != nil {
-			//logger.Err(fmt.Sprintln("Error reading file, err:", err))
-			svr.logger.Err(fmt.Sprintln("Error reading file, err:", err))
-			//return sysInfo
-		}
-		// Get this info from systemProfile
-		var cfg SwitchCfgJson
-		err = json.Unmarshal(cfgFileData, &cfg)
-		if err != nil {
-			//logger.Err(fmt.Sprintln("Error Unmarshalling cfg json data, err:", err))
-			svr.logger.Err(fmt.Sprintln("Error Unmarshalling cfg json data, err:", err))
-			//return sysInfo
-		}
-		// @TODO: make this readable from system profile
-		sysInfo.SwitchMac = cfg.SwitchMac
-		sysInfo.RouterId = cfg.RouterId
-		sysInfo.MgmtIp = cfg.MgmtIp
-		sysInfo.Version = cfg.Version
-		sysInfo.Description = cfg.Description
-		sysInfo.Hostname = cfg.Hostname
-		sysInfo.Vrf = "default"
-		/*
-			sysInfo.RouterId = "10.1.1.254"
-			sysInfo.MgmtIp = "10.1.10.244"
-			sysInfo.Version = "v1.0.0"
-			sysInfo.Description = "FlexSwitch System"
-			sysInfo.Hostname = "dummy HostName"
-			sysInfo.Vrf = "default"
-		*/
-		// If the entry doesn't exist into DB then it means that we just read the entry from system profile..
-		// Update the information into the DB
-		err = svr.InsertSystemInfoInDB()
-		if err != nil {
-			svr.logger.Info(fmt.Sprintln("Failed to insert system params into db", err))
-		}
-	}
+	sysInfo := svr.SysInfo
+	sysInfo.SwitchMac = cfg.SwitchMac
+	sysInfo.RouterId = cfg.RouterId
+	sysInfo.MgmtIp = cfg.MgmtIp
+	sysInfo.Version = cfg.Version
+	sysInfo.Description = cfg.Description
+	sysInfo.Hostname = cfg.Hostname
+	sysInfo.Vrf = cfg.Vrf
 	svr.SendSystemUpdate()
-	//return sysInfo
 }

@@ -13,13 +13,13 @@
 //	 See the License for the specific language governing permissions and
 //	 limitations under the License.
 //
-// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __  
-// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  | 
-// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  | 
-// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   | 
-// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  | 
-// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__| 
-//                                                                                                           
+// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
+// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
+// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  |
+// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   |
+// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  |
+// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
+//
 
 package server
 
@@ -77,6 +77,7 @@ type SYSDServer struct {
 	notificationCh           chan []byte
 	IptableAddCh             chan *sysd.IpTableAcl
 	IptableDelCh             chan *sysd.IpTableAcl
+	SystemParamConfig        chan models.SystemParams
 	KaRecvCh                 chan string
 	DaemonMap                map[string]*DaemonInfo
 	DaemonConfigCh           chan DaemonConfig
@@ -97,6 +98,7 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
+	sysdServer.SystemParamConfig = make(chan models.SystemParams)
 	//	sysdServer.SysInfo = &models.System{} //InitSystemInfo(sysdServer.paramsDir, logger)
 	return sysdServer
 }
@@ -124,7 +126,7 @@ func (server *SYSDServer) SigHandler(dbHdl *dbutils.DBUtil) {
 
 func (server *SYSDServer) InitServer() {
 	server.logger.Info(fmt.Sprintln("Initializing Sysd Server"))
-	server.InitSystemInfo()
+	//server.InitSystemInfo()
 	//server.InsertSystemInfoInDB()
 }
 
@@ -234,6 +236,8 @@ func (server *SYSDServer) StartServer() {
 			server.sysdIpTableMgr.AddIpRule(addConfig, false /*non-restart*/)
 		case delConfig := <-server.IptableDelCh:
 			server.sysdIpTableMgr.DelIpRule(delConfig)
+		case sysConfig := <-server.SystemParamConfig:
+			server.InitSystemInfo(sysConfig)
 		}
 	}
 }
