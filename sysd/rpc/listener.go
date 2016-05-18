@@ -116,8 +116,8 @@ func (h *SYSDHandler) CreateIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 	//return (h.server.AddIpTableRule(ipaclConfig, false /* non - restart*/))
 }
 
-func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl,
-	newConf *sysd.IpTableAcl, attrset []bool, op string) (bool, error) {
+func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.IpTableAcl,
+	attrset []bool, op string) (bool, error) {
 	err := errors.New("Not supported")
 	return false, err
 }
@@ -183,7 +183,8 @@ func (h *SYSDHandler) CreateSystemParams(cfg *sysd.SystemParams) (bool, error) {
 	return true, nil
 }
 
-func (h *SYSDHandler) UpdateSystemParams(org *sysd.SystemParams, new *sysd.SystemParams, attrset []bool) (bool, error) {
+func (h *SYSDHandler) UpdateSystemParams(org *sysd.SystemParams, new *sysd.SystemParams, attrset []bool,
+	op string) (bool, error) {
 	return true, nil
 }
 
