@@ -169,8 +169,12 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 	return daemonStateGetInfo, nil
 }
 
-func (h *SYSDHandler) CreateSystemParams(cfg *sysd.SystemParams) (bool, error) {
-	confg := models.SystemParams{
+func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
+	if h.server.SystemInfoCreated() {
+		return false, errors.New("System Params Info is already created for Default VRF, please do update to modify params")
+	}
+	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+	confg := models.SystemParam{
 		Description: cfg.Description,
 		Version:     cfg.Version,
 		MgmtIp:      cfg.MgmtIp,
@@ -183,13 +187,53 @@ func (h *SYSDHandler) CreateSystemParams(cfg *sysd.SystemParams) (bool, error) {
 	return true, nil
 }
 
-func (h *SYSDHandler) UpdateSystemParams(org *sysd.SystemParams, new *sysd.SystemParams, attrset []bool,
+func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
 	op string) (bool, error) {
 	return true, nil
 }
 
-func (h *SYSDHandler) DeleteSystemParams(cfg *sysd.SystemParams) (bool, error) {
-	return false, nil
+func (h *SYSDHandler) DeleteSystemParam(cfg *sysd.SystemParam) (bool, error) {
+	return false, errors.New("Delete of system params for default vrf is not supported")
+}
+
+func convertSystemParamStateToThrift(info models.SystemParamState, entry *sysd.SystemParamState) {
+	entry.Vrf = string(info.Vrf)
+	entry.SwitchMac = string(info.SwitchMac)
+	entry.RouterId = string(info.RouterId)
+	entry.MgmtIp = string(info.MgmtIp)
+	entry.Version = string(info.Version)
+	entry.Description = string(info.Description)
+	entry.Hostname = string(info.Hostname)
+}
+
+func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, error) {
+	h.logger.Info("Get system params info for " + name)
+	sysParamsResp := sysd.NewSystemParamState()
+	sysInfo := h.server.GetSystemParam(name)
+	if sysInfo == nil {
+		return nil, errors.New("No Matching entry for " + name + "found")
+	}
+	convertSystemParamStateToThrift(*sysInfo, sysParamsResp)
+	h.logger.Info(fmt.Sprintln("Returing System Info:", sysParamsResp))
+	return sysParamsResp, nil
+}
+
+func (h *SYSDHandler) GetBulkSystemParamState(fromIdx sysd.Int, count sysd.Int) (*sysd.SystemParamStateGetInfo, error) {
+	//@TODO: when we support vrf change get bulk... today only one system info is present
+	sysParamsResp, err := h.GetSystemParamState("default")
+	if err != nil {
+		return nil, err
+	}
+	systemGetInfoResp := sysd.NewSystemParamStateGetInfo()
+	systemGetInfoResp.Count = 1
+	systemGetInfoResp.StartIdx = 0
+	systemGetInfoResp.EndIdx = 1
+	systemGetInfoResp.More = false
+	respList := make([]*sysd.SystemParamState, 1)
+	//respList = append(respList, sysParamsResp)
+	respList[0] = sysParamsResp
+	systemGetInfoResp.SystemParamStateList = respList
+	return systemGetInfoResp, nil
 }
 
 /*********************** SYSD INTERNAL API **************************/
@@ -198,34 +242,3 @@ func (h *SYSDHandler) PeriodicKeepAlive(name string) error {
 	h.server.KaRecvCh <- name
 	return nil
 }
-
-/*
-
-func (h *SYSDHandler) GetSystemInfo() (string, error) {
-	return "", nil
-}
-
-func (h *SYSDHandler) GetRouterId() (string, error) {
-	return h.server.SysInfo.RouterId, nil
-}
-
-func (h *SYSDHandler) GetSystemHostname() (string, error) {
-	return h.server.SysInfo.Hostname, nil
-}
-
-func (h *SYSDHandler) GetSystemDescription() (string, error) {
-	return h.server.SysInfo.Description, nil
-}
-
-func (h *SYSDHandler) GetSwitchMac() (string, error) {
-	return h.server.SysInfo.SwitchMac, nil
-}
-
-func (h *SYSDHandler) GetSystemVersion() (string, error) {
-	return h.server.SysInfo.Version, nil
-}
-
-func (h *SYSDHandler) GetSystemMgmtIp() (string, error) {
-	return h.server.SysInfo.MgmtIp, nil
-}
-*/

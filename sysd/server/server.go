@@ -77,13 +77,13 @@ type SYSDServer struct {
 	notificationCh           chan []byte
 	IptableAddCh             chan *sysd.IpTableAcl
 	IptableDelCh             chan *sysd.IpTableAcl
-	SystemParamConfig        chan models.SystemParams
+	SystemParamConfig        chan models.SystemParam
 	KaRecvCh                 chan string
 	DaemonMap                map[string]*DaemonInfo
 	DaemonConfigCh           chan DaemonConfig
 	UpdateInfoInDbCh         chan string
 	DaemonRestartCh          chan string
-	SysInfo                  *models.SystemParams
+	SysInfo                  *models.SystemParam
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
@@ -98,7 +98,7 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
-	sysdServer.SystemParamConfig = make(chan models.SystemParams)
+	sysdServer.SystemParamConfig = make(chan models.SystemParam)
 	//	sysdServer.SysInfo = &models.System{} //InitSystemInfo(sysdServer.paramsDir, logger)
 	return sysdServer
 }
