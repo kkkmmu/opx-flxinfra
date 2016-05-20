@@ -26,14 +26,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"infra/sysd/sysdCommonDefs"
-	_ "io/ioutil"
 	"models"
-	_ "utils/logging"
+	"os/exec"
 )
 
-// Func to insert the entry in database
-func (svr *SYSDServer) InsertSystemInfoInDB() error {
-	return svr.dbHdl.StoreObjectInDb(svr.SysInfo)
+type SystemParamUpdate struct {
+	EntriesUpdated []string
+	NewCfg         *models.SystemParam
 }
 
 func (svr *SYSDServer) ReadSystemInfoFromDB() error {
@@ -79,9 +78,7 @@ func (svr *SYSDServer) SendSystemUpdate() ([]byte, error) {
 	return notificationBuf, nil
 }
 
-// Initialize system information using json file...or whatever other means are
-func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParam) {
-	svr.SysInfo = &models.SystemParam{}
+func (svr *SYSDServer) copyAndSendSystemParam(cfg models.SystemParam) {
 	sysInfo := svr.SysInfo
 	sysInfo.SwitchMac = cfg.SwitchMac
 	sysInfo.RouterId = cfg.RouterId
@@ -93,10 +90,18 @@ func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParam) {
 	svr.SendSystemUpdate()
 }
 
+// Initialize system information using json file...or whatever other means are
+func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParam) {
+	svr.SysInfo = &models.SystemParam{}
+	svr.copyAndSendSystemParam(cfg)
+}
+
+// Helper function for NB listener to determine whether a global object is created or not
 func (svr *SYSDServer) SystemInfoCreated() bool {
 	return (svr.SysInfo != nil)
 }
 
+// During Get calls we will use below api to read from run-time information
 func (svr *SYSDServer) GetSystemParam(name string) *models.SystemParamState {
 	if svr.SysInfo == nil || svr.SysInfo.Vrf != name {
 		return nil
@@ -111,4 +116,24 @@ func (svr *SYSDServer) GetSystemParam(name string) *models.SystemParamState {
 	sysParamsInfo.Description = svr.SysInfo.Description
 	sysParamsInfo.Hostname = svr.SysInfo.Hostname
 	return sysParamsInfo
+}
+
+// Update runtime system param info and send a notification
+func (svr *SYSDServer) UpdateSystemInfo(updateInfo *SystemParamUpdate) {
+	svr.copyAndSendSystemParam(*updateInfo.NewCfg)
+	for _, entry := range updateInfo.EntriesUpdated {
+		switch entry {
+		case "Hostname":
+			binary, lookErr := exec.LookPath("hostname")
+			if lookErr != nil {
+				svr.logger.Err(fmt.Sprintln("Error searching path for hostname", lookErr))
+				continue
+			}
+			cmd := exec.Command(binary, updateInfo.NewCfg.Hostname)
+			err := cmd.Run()
+			if err != nil {
+				svr.logger.Err(fmt.Sprintln("Updating hostname in linux failed", err))
+			}
+		}
+	}
 }
