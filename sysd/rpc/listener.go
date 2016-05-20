@@ -13,13 +13,13 @@
 //	 See the License for the specific language governing permissions and
 //	 limitations under the License.
 //
-// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __  
-// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  | 
-// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  | 
-// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   | 
-// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  | 
-// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__| 
-//                                                                                                           
+// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
+// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
+// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  |
+// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   |
+// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  |
+// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
+//
 
 package rpc
 
@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"infra/sysd/server"
+	"models"
 	"sysd"
 	"utils/logging"
 )
@@ -115,8 +116,8 @@ func (h *SYSDHandler) CreateIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 	//return (h.server.AddIpTableRule(ipaclConfig, false /* non - restart*/))
 }
 
-func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl,
-	newConf *sysd.IpTableAcl, attrset []bool, op string) (bool, error) {
+func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.IpTableAcl,
+	attrset []bool, op string) (bool, error) {
 	err := errors.New("Not supported")
 	return false, err
 }
@@ -167,6 +168,75 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 	daemonStateGetInfo.DaemonStateList = daemonStatesResponse
 	return daemonStateGetInfo, nil
 }
+
+func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
+	if h.server.SystemInfoCreated() {
+		return false, errors.New("System Params Info is already created for Default VRF, please do update to modify params")
+	}
+	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+	confg := models.SystemParam{
+		Description: cfg.Description,
+		Version:     cfg.Version,
+		MgmtIp:      cfg.MgmtIp,
+		RouterId:    cfg.RouterId,
+		Hostname:    cfg.Hostname,
+		SwitchMac:   cfg.SwitchMac,
+		Vrf:         cfg.Vrf,
+	}
+	h.server.SystemParamConfig <- confg
+	return true, nil
+}
+
+func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
+	op string) (bool, error) {
+	return true, nil
+}
+
+func (h *SYSDHandler) DeleteSystemParam(cfg *sysd.SystemParam) (bool, error) {
+	return false, errors.New("Delete of system params for default vrf is not supported")
+}
+
+func convertSystemParamStateToThrift(info models.SystemParamState, entry *sysd.SystemParamState) {
+	entry.Vrf = string(info.Vrf)
+	entry.SwitchMac = string(info.SwitchMac)
+	entry.RouterId = string(info.RouterId)
+	entry.MgmtIp = string(info.MgmtIp)
+	entry.Version = string(info.Version)
+	entry.Description = string(info.Description)
+	entry.Hostname = string(info.Hostname)
+}
+
+func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, error) {
+	h.logger.Info("Get system params info for " + name)
+	sysParamsResp := sysd.NewSystemParamState()
+	sysInfo := h.server.GetSystemParam(name)
+	if sysInfo == nil {
+		return nil, errors.New("No Matching entry for " + name + "found")
+	}
+	convertSystemParamStateToThrift(*sysInfo, sysParamsResp)
+	h.logger.Info(fmt.Sprintln("Returing System Info:", sysParamsResp))
+	return sysParamsResp, nil
+}
+
+func (h *SYSDHandler) GetBulkSystemParamState(fromIdx sysd.Int, count sysd.Int) (*sysd.SystemParamStateGetInfo, error) {
+	//@TODO: when we support vrf change get bulk... today only one system info is present
+	sysParamsResp, err := h.GetSystemParamState("default")
+	if err != nil {
+		return nil, err
+	}
+	systemGetInfoResp := sysd.NewSystemParamStateGetInfo()
+	systemGetInfoResp.Count = 1
+	systemGetInfoResp.StartIdx = 0
+	systemGetInfoResp.EndIdx = 1
+	systemGetInfoResp.More = false
+	respList := make([]*sysd.SystemParamState, 1)
+	//respList = append(respList, sysParamsResp)
+	respList[0] = sysParamsResp
+	systemGetInfoResp.SystemParamStateList = respList
+	return systemGetInfoResp, nil
+}
+
+/*********************** SYSD INTERNAL API **************************/
 
 func (h *SYSDHandler) PeriodicKeepAlive(name string) error {
 	h.server.KaRecvCh <- name
