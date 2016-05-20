@@ -40,7 +40,7 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 	svr.logger.Info("Reading System Information From Db")
 	dbHdl := svr.dbHdl
 	if dbHdl != nil {
-		var dbObj models.SystemParams
+		var dbObj models.SystemParam
 		objList, err := dbHdl.GetAllObjFromDb(dbObj)
 		if err != nil {
 			svr.logger.Err("DB query failed for System Info")
@@ -48,7 +48,7 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 		}
 		svr.logger.Info(fmt.Sprintln("Total System Entries are", len(objList)))
 		for idx := 0; idx < len(objList); idx++ {
-			dbObject := objList[idx].(models.SystemParams)
+			dbObject := objList[idx].(models.SystemParam)
 			svr.SysInfo.SwitchMac = dbObject.SwitchMac
 			svr.SysInfo.RouterId = dbObject.RouterId
 			svr.SysInfo.MgmtIp = dbObject.MgmtIp
@@ -80,8 +80,8 @@ func (svr *SYSDServer) SendSystemUpdate() ([]byte, error) {
 }
 
 // Initialize system information using json file...or whatever other means are
-func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParams) {
-	svr.SysInfo = &models.SystemParams{}
+func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParam) {
+	svr.SysInfo = &models.SystemParam{}
 	sysInfo := svr.SysInfo
 	sysInfo.SwitchMac = cfg.SwitchMac
 	sysInfo.RouterId = cfg.RouterId
@@ -91,4 +91,24 @@ func (svr *SYSDServer) InitSystemInfo(cfg models.SystemParams) {
 	sysInfo.Hostname = cfg.Hostname
 	sysInfo.Vrf = cfg.Vrf
 	svr.SendSystemUpdate()
+}
+
+func (svr *SYSDServer) SystemInfoCreated() bool {
+	return (svr.SysInfo != nil)
+}
+
+func (svr *SYSDServer) GetSystemParam(name string) *models.SystemParamState {
+	if svr.SysInfo == nil || svr.SysInfo.Vrf != name {
+		return nil
+	}
+	sysParamsInfo := new(models.SystemParamState)
+
+	sysParamsInfo.Vrf = svr.SysInfo.Vrf
+	sysParamsInfo.SwitchMac = svr.SysInfo.SwitchMac
+	sysParamsInfo.RouterId = svr.SysInfo.RouterId
+	sysParamsInfo.MgmtIp = svr.SysInfo.MgmtIp
+	sysParamsInfo.Version = svr.SysInfo.Version
+	sysParamsInfo.Description = svr.SysInfo.Description
+	sysParamsInfo.Hostname = svr.SysInfo.Hostname
+	return sysParamsInfo
 }
