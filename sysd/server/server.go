@@ -84,6 +84,7 @@ type SYSDServer struct {
 	UpdateInfoInDbCh         chan string
 	DaemonRestartCh          chan string
 	SysInfo                  *models.SystemParam
+	SysUpdCh                 chan *SystemParamUpdate
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
@@ -99,7 +100,7 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
 	sysdServer.SystemParamConfig = make(chan models.SystemParam)
-	//	sysdServer.SysInfo = &models.System{} //InitSystemInfo(sysdServer.paramsDir, logger)
+	sysdServer.SysUpdCh = make(chan *SystemParamUpdate)
 	return sysdServer
 }
 
@@ -126,8 +127,6 @@ func (server *SYSDServer) SigHandler(dbHdl *dbutils.DBUtil) {
 
 func (server *SYSDServer) InitServer() {
 	server.logger.Info(fmt.Sprintln("Initializing Sysd Server"))
-	//server.InitSystemInfo()
-	//server.InsertSystemInfoInDB()
 }
 
 func (server *SYSDServer) InitPublisher(pub_str string) (pub *nanomsg.PubSocket) {
@@ -238,6 +237,8 @@ func (server *SYSDServer) StartServer() {
 			server.sysdIpTableMgr.DelIpRule(delConfig)
 		case sysConfig := <-server.SystemParamConfig:
 			server.InitSystemInfo(sysConfig)
+		case updateInfo := <-server.SysUpdCh:
+			server.UpdateSystemInfo(updateInfo)
 		}
 	}
 }
