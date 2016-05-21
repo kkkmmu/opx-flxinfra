@@ -13,21 +13,24 @@
 //	 See the License for the specific language governing permissions and
 //	 limitations under the License.
 //
-// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __  
-// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  | 
-// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  | 
-// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   | 
-// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  | 
-// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__| 
-//                                                                                                           
+// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
+// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
+// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  |
+// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   |
+// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  |
+// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
+//
 
 package main
 
 import (
 	"flag"
 	"fmt"
+	"infra/sysd/asicMgr"
 	"infra/sysd/rpc"
 	"infra/sysd/server"
+	"utils/asicdClient"
+	"utils/commonDefs"
 	"utils/dbutils"
 	"utils/logging"
 )
@@ -52,13 +55,6 @@ func main() {
 	}
 	logger.Info("Started the logger successfully.")
 
-	/*
-		dbHdl, err := redis.Dial("tcp", ":6379")
-		if err != nil {
-			logger.Err("Failed to dial out to Redis server")
-			return
-		}
-	*/
 	dbHdl := dbutils.NewDBUtil(logger)
 	if err := dbHdl.Connect(); err != nil {
 		return
@@ -68,16 +64,28 @@ func main() {
 
 	logger.Info(fmt.Sprintln("Starting Sysd Server..."))
 	sysdServer := server.NewSYSDServer(logger, dbHdl, fileName)
-	// Initialize sysd server
-	sysdServer.InitServer()
 	// Start signal handler first
 	go sysdServer.SigHandler(dbHdl)
+
+	pluginName := "Flexswitch"
+	clientInfoFile := fileName + "clients.json"
+	nHdl, nMap := asicMgr.NewNotificationHdl(sysdServer, logger)
+	asicHdl := commonDefs.AsicdClientStruct{
+		Logger: logger,
+		NHdl:   nHdl,
+		NMap:   nMap,
+	}
+	asicPlugin := asicdClient.NewAsicdClientInit(pluginName, clientInfoFile, asicHdl)
+
+	// Initialize sysd server
+	sysdServer.InitServer(asicPlugin)
 	// Start sysd server
 	go sysdServer.StartServer()
 	<-sysdServer.ServerStartedCh
 
 	// Read IpTableAclConfig during restart case
 	sysdServer.ReadIpAclConfigFromDB(dbHdl)
+
 	logger.Info(fmt.Sprintln("Starting Sysd Config listener..."))
 	confIface := rpc.NewSYSDHandler(logger, sysdServer)
 	rpc.StartServer(logger, confIface, clientsFileName)
