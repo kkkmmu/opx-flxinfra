@@ -67,7 +67,7 @@ func (h *SYSDHandler) SendComponentLoggingConfig(cLoggingConfig *sysd.ComponentL
 	return true
 }
 
-func (h *SYSDHandler) UpdateSystemLogging(origConf *sysd.SystemLogging, newConf *sysd.SystemLogging, attrset []bool, op string) (bool, error) {
+func (h *SYSDHandler) UpdateSystemLogging(origConf *sysd.SystemLogging, newConf *sysd.SystemLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Original global config attrs:", origConf))
 	if newConf == nil {
 		err := errors.New("Invalid global Configuration")
@@ -77,7 +77,7 @@ func (h *SYSDHandler) UpdateSystemLogging(origConf *sysd.SystemLogging, newConf 
 	return h.SendGlobalLoggingConfig(newConf), nil
 }
 
-func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, newConf *sysd.ComponentLogging, attrset []bool, op string) (bool, error) {
+func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, newConf *sysd.ComponentLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Original component config attrs:", origConf))
 	if newConf == nil {
 		err := errors.New("Invalid component Configuration")
@@ -117,7 +117,7 @@ func (h *SYSDHandler) CreateIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 }
 
 func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.IpTableAcl,
-	attrset []bool, op string) (bool, error) {
+	attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
 	err := errors.New("Not supported")
 	return false, err
 }
@@ -188,7 +188,7 @@ func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
 }
 
 func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
-	op string) (bool, error) {
+	op []*sysd.PatchOpInfo) (bool, error) {
 	return true, nil
 }
 
