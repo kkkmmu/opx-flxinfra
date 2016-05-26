@@ -61,11 +61,11 @@ func main() {
 
 	logger.Info(fmt.Sprintln("Starting Sysd Server..."))
 	sysdServer := server.NewSYSDServer(logger, dbHdl, fileName)
+	// Initialize sysd server
+	sysdServer.InitServer()
 	// Start signal handler first
 	go sysdServer.SigHandler(dbHdl)
 
-	// Initialize sysd server
-	sysdServer.InitServer()
 	// Start sysd server
 	go sysdServer.StartServer()
 	<-sysdServer.ServerStartedCh
