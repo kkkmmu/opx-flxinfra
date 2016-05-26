@@ -1,3 +1,26 @@
+//
+//Copyright [2016] [SnapRoute Inc]
+//
+//Licensed under the Apache License, Version 2.0 (the "License");
+//you may not use this file except in compliance with the License.
+//You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+//	 Unless required by applicable law or agreed to in writing, software
+//	 distributed under the License is distributed on an "AS IS" BASIS,
+//	 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//	 See the License for the specific language governing permissions and
+//	 limitations under the License.
+//
+// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __  
+// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  | 
+// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  | 
+// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   | 
+// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  | 
+// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__| 
+//                                                                                                           
+
 package sysdCommonDefs
 
 import ()
@@ -7,23 +30,31 @@ const (
 )
 
 const (
-	G_LOG uint8 = 1
-	C_LOG uint8 = 2
+	G_LOG       uint8 = 1 // Global logging configuration
+	C_LOG       uint8 = 2 // Component level logging configuration
+	KA_DAEMON   uint8 = 3 // Daemon keepalive notification
+	SYSTEM_Info uint8 = 4 // System Information notification
 )
+
+type Notification struct {
+	Type    uint8
+	Payload []byte
+}
 
 //Logging levels
 type SRDebugLevel uint8
 
 const (
-	CRIT   SRDebugLevel = 0
-	ERR    SRDebugLevel = 1
-	WARN   SRDebugLevel = 2
-	ALERT  SRDebugLevel = 3
-	EMERG  SRDebugLevel = 4
-	NOTICE SRDebugLevel = 5
-	INFO   SRDebugLevel = 6
-	DEBUG  SRDebugLevel = 7
-	TRACE  SRDebugLevel = 8
+	OFF    SRDebugLevel = 0
+	CRIT   SRDebugLevel = 1
+	ERR    SRDebugLevel = 2
+	WARN   SRDebugLevel = 3
+	ALERT  SRDebugLevel = 4
+	EMERG  SRDebugLevel = 5
+	NOTICE SRDebugLevel = 6
+	INFO   SRDebugLevel = 7
+	DEBUG  SRDebugLevel = 8
+	TRACE  SRDebugLevel = 9
 )
 
 type GlobalLogging struct {
@@ -35,7 +66,37 @@ type ComponentLogging struct {
 	Level SRDebugLevel
 }
 
-type Notification struct {
-	Type    uint8
-	Payload []byte
+const (
+	SYSD_TOTAL_KA_DAEMONS = 32
+)
+
+type SRDaemonStatus uint8
+
+const (
+	UP         SRDaemonStatus = 0
+	STARTING   SRDaemonStatus = 1
+	RESTARTING SRDaemonStatus = 2
+	STOPPED    SRDaemonStatus = 3
+)
+
+func ConvertDaemonStateCodeToString(status SRDaemonStatus) string {
+	var statusStr string
+	switch status {
+	case UP:
+		statusStr = "up"
+	case STARTING:
+		statusStr = "starting"
+	case RESTARTING:
+		statusStr = "restarting"
+	case STOPPED:
+		statusStr = "stopped"
+	default:
+		statusStr = "unknown"
+	}
+	return statusStr
+}
+
+type DaemonStatus struct {
+	Name   string
+	Status SRDaemonStatus
 }
