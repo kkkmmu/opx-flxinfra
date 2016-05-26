@@ -179,7 +179,6 @@ func convertSystemParamThriftToModel(cfg *sysd.SystemParam) models.SystemParam {
 		Description: cfg.Description,
 		Version:     cfg.Version,
 		MgmtIp:      cfg.MgmtIp,
-		RouterId:    cfg.RouterId,
 		Hostname:    cfg.Hostname,
 		SwitchMac:   cfg.SwitchMac,
 		Vrf:         cfg.Vrf,
@@ -266,7 +265,6 @@ func (h *SYSDHandler) DeleteSystemParam(cfg *sysd.SystemParam) (bool, error) {
 func convertSystemParamStateToThrift(info models.SystemParamState, entry *sysd.SystemParamState) {
 	entry.Vrf = string(info.Vrf)
 	entry.SwitchMac = string(info.SwitchMac)
-	entry.RouterId = string(info.RouterId)
 	entry.MgmtIp = string(info.MgmtIp)
 	entry.Version = string(info.Version)
 	entry.Description = string(info.Description)

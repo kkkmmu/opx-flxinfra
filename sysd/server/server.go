@@ -34,8 +34,6 @@ import (
 	"os/signal"
 	"syscall"
 	"sysd"
-	"utils/asicdClient"
-	"utils/commonDefs"
 	"utils/dbutils"
 	"utils/logging"
 )
@@ -87,8 +85,6 @@ type SYSDServer struct {
 	DaemonRestartCh          chan string
 	SysInfo                  *models.SystemParam
 	SysUpdCh                 chan *SystemParamUpdate
-	AsicPlugin               asicdClient.AsicdClientIntf
-	AsicSubSocketCh          chan commonDefs.AsicdNotifyMsg
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
@@ -105,7 +101,6 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
 	sysdServer.SystemParamConfig = make(chan models.SystemParam)
 	sysdServer.SysUpdCh = make(chan *SystemParamUpdate)
-	sysdServer.AsicSubSocketCh = make(chan commonDefs.AsicdNotifyMsg, 2)
 	return sysdServer
 }
 
@@ -130,10 +125,8 @@ func (server *SYSDServer) SigHandler(dbHdl *dbutils.DBUtil) {
 	}
 }
 
-func (server *SYSDServer) InitServer(asicPlugin asicdClient.AsicdClientIntf) {
+func (server *SYSDServer) InitServer() {
 	server.logger.Info(fmt.Sprintln("Initializing Sysd Server"))
-	server.AsicPlugin = asicPlugin
-	server.buildIPv4Info()
 }
 
 func (server *SYSDServer) InitPublisher(pub_str string) (pub *nanomsg.PubSocket) {
@@ -245,8 +238,6 @@ func (server *SYSDServer) StartServer() {
 			server.InitSystemInfo(sysConfig)
 		case updateInfo := <-server.SysUpdCh:
 			server.UpdateSystemInfo(updateInfo)
-		case msg := <-server.AsicSubSocketCh:
-			server.processAsicNotification(msg)
 		}
 	}
 }

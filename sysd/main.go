@@ -26,11 +26,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"infra/sysd/asicMgr"
 	"infra/sysd/rpc"
 	"infra/sysd/server"
-	"utils/asicdClient"
-	"utils/commonDefs"
 	"utils/dbutils"
 	"utils/logging"
 )
@@ -67,18 +64,8 @@ func main() {
 	// Start signal handler first
 	go sysdServer.SigHandler(dbHdl)
 
-	pluginName := "Flexswitch"
-	clientInfoFile := fileName + "clients.json"
-	nHdl, nMap := asicMgr.NewNotificationHdl(sysdServer, logger)
-	asicHdl := commonDefs.AsicdClientStruct{
-		Logger: logger,
-		NHdl:   nHdl,
-		NMap:   nMap,
-	}
-	asicPlugin := asicdClient.NewAsicdClientInit(pluginName, clientInfoFile, asicHdl)
-
 	// Initialize sysd server
-	sysdServer.InitServer(asicPlugin)
+	sysdServer.InitServer()
 	// Start sysd server
 	go sysdServer.StartServer()
 	<-sysdServer.ServerStartedCh
