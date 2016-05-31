@@ -28,8 +28,13 @@ import (
 	"fmt"
 	"infra/sysd/server"
 	"models"
+	"strings"
 	"sysd"
 	"utils/logging"
+)
+
+const (
+	SPECIAL_HOSTNAME_CHARS = "_"
 )
 
 type SYSDHandler struct {
@@ -89,23 +94,25 @@ func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, ne
 
 func (h *SYSDHandler) CreateSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Create global config attrs:", gLoggingConf))
-	return h.SendGlobalLoggingConfig(gLoggingConf), nil
+	err := errors.New("SystemLogging create not supported")
+	return false, err
 }
 
 func (h *SYSDHandler) CreateComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Create component config attrs:", cLoggingConf))
-	return h.SendComponentLoggingConfig(cLoggingConf), nil
+	err := errors.New("CompoenentLogging create not supported")
+	return false, err
 }
 
 func (h *SYSDHandler) DeleteSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Delete global config attrs:", gLoggingConf))
-	err := errors.New("Not supported")
+	err := errors.New("SystemLogging delete not supported")
 	return false, err
 }
 
 func (h *SYSDHandler) DeleteComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Delete component config attrs:", cLoggingConf))
-	err := errors.New("Not supported")
+	err := errors.New("CompoenentLogging delete not supported")
 	return false, err
 }
 
@@ -113,18 +120,16 @@ func (h *SYSDHandler) CreateIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 	h.logger.Info("Create Ip Table rule " + ipaclConfig.Name)
 	h.server.IptableAddCh <- ipaclConfig
 	return true, nil
-	//return (h.server.AddIpTableRule(ipaclConfig, false /* non - restart*/))
 }
 
 func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.IpTableAcl,
 	attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
-	err := errors.New("Not supported")
+	err := errors.New("IpTableAcl update not supported")
 	return false, err
 }
 
 func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, error) {
 	h.logger.Info("Delete Ip Table rule " + ipaclConfig.Name)
-	//return (h.server.DelIpTableRule(ipaclConfig))
 	h.server.IptableDelCh <- ipaclConfig
 	return true, nil
 }
@@ -169,26 +174,87 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 	return daemonStateGetInfo, nil
 }
 
-func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
-	if h.server.SystemInfoCreated() {
-		return false, errors.New("System Params Info is already created for Default VRF, please do update to modify params")
-	}
-	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+func convertSystemParamThriftToModel(cfg *sysd.SystemParam) models.SystemParam {
 	confg := models.SystemParam{
 		Description: cfg.Description,
 		Version:     cfg.Version,
 		MgmtIp:      cfg.MgmtIp,
-		RouterId:    cfg.RouterId,
 		Hostname:    cfg.Hostname,
 		SwitchMac:   cfg.SwitchMac,
 		Vrf:         cfg.Vrf,
 	}
+	return confg
+}
+
+func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
+	if h.server.SystemInfoCreated() {
+		return false, errors.New("System Params Info is already created for Default VRF, please do update to modify params")
+	}
+	if strings.ContainsAny(cfg.Hostname, SPECIAL_HOSTNAME_CHARS) {
+		return false, errors.New("Hostname should not have Special Characters " +
+			SPECIAL_HOSTNAME_CHARS)
+	}
+	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+	confg := convertSystemParamThriftToModel(cfg)
 	h.server.SystemParamConfig <- confg
 	return true, nil
 }
 
+func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset []bool) ([]string, error) {
+	var updatedInfo []string
+	/*
+		1 : string Vrf
+		2 : string MgmtIp
+		3 : string Hostname
+		4 : string RouterId
+		5 : string Version
+		6 : string SwitchMac
+		7 : string Description
+	*/
+	for idx, _ := range attrset {
+		if attrset[idx] == false {
+			continue
+		}
+		switch idx {
+		case 0:
+			return updatedInfo, errors.New("VRF update is not supported")
+		case 1:
+			return updatedInfo, errors.New("MgmtIp update is not supported")
+		case 2:
+			if strings.ContainsAny(newCfg.Hostname, SPECIAL_HOSTNAME_CHARS) {
+				return updatedInfo, errors.New("Hostname should not have Special Characters " +
+					SPECIAL_HOSTNAME_CHARS)
+			}
+			updatedInfo = append(updatedInfo, "Hostname")
+		case 3:
+			return updatedInfo, errors.New("Router ID update is not supported")
+		case 4:
+			return updatedInfo, errors.New("Version update is not supported")
+		case 5:
+			return updatedInfo, errors.New("Switch Mac Address update is not supported")
+		case 6:
+			updatedInfo = append(updatedInfo, "Description")
+		}
+	}
+	return updatedInfo, nil
+}
+
 func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
 	op []*sysd.PatchOpInfo) (bool, error) {
+	h.logger.Info(fmt.Sprintln("Received update for system param information", org, new, attrset))
+	if org == nil || new == nil {
+		return false, errors.New("Invalid information provided to server")
+	}
+	entriesUpdated, err := h.validatUpdateSystemParam(new, attrset)
+	if err != nil {
+		return false, err
+	}
+	cfg := convertSystemParamThriftToModel(new)
+	updInfo := server.SystemParamUpdate{
+		EntriesUpdated: entriesUpdated,
+		NewCfg:         &cfg,
+	}
+	h.server.SysUpdCh <- &updInfo
 	return true, nil
 }
 
@@ -199,7 +265,6 @@ func (h *SYSDHandler) DeleteSystemParam(cfg *sysd.SystemParam) (bool, error) {
 func convertSystemParamStateToThrift(info models.SystemParamState, entry *sysd.SystemParamState) {
 	entry.Vrf = string(info.Vrf)
 	entry.SwitchMac = string(info.SwitchMac)
-	entry.RouterId = string(info.RouterId)
 	entry.MgmtIp = string(info.MgmtIp)
 	entry.Version = string(info.Version)
 	entry.Description = string(info.Description)
