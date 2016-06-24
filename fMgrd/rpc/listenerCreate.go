@@ -26,17 +26,10 @@ package rpc
 import (
 	"fMgrd"
 	"fmt"
-	//"infra/fMgrd/server"
 )
 
 func (h *FMGRHandler) CreateFMgrGlobal(conf *fMgrd.FMgrGlobal) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Received CreateFMgrGlobal call"))
-	/*
-		err := h.SendSetArpGlobalConfig(int(conf.Timeout))
-		if err != nil {
-			return false, err
-		}
-	*/
 	return true, nil
 }
 
@@ -46,13 +39,5 @@ func (h *FMGRHandler) DeleteFMgrGlobal(conf *fMgrd.FMgrGlobal) (bool, error) {
 }
 
 func (h *FMGRHandler) UpdateFMgrGlobal(origConf *fMgrd.FMgrGlobal, newConf *fMgrd.FMgrGlobal, attrset []bool, op []*fMgrd.PatchOpInfo) (bool, error) {
-	/*
-	   h.logger.Info(fmt.Sprintln("Original Arp config attrs:", origConf))
-	   h.logger.Info(fmt.Sprintln("New Arp config attrs:", newConf))
-	   err := h.SendUpdateArpGlobalConfig(int(newConf.Timeout))
-	   if err != nil {
-	           return false, err
-	   }
-	*/
 	return true, nil
 }
