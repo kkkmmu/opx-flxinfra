@@ -28,22 +28,94 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"io/ioutil"
 	"models/events"
 	"time"
 	"utils/logging"
+	"utils/ringBuffer"
 )
 
+type FaultDetail struct {
+	RaiseFault       bool
+	ClearingEventId  int
+	ClearingDaemonId int
+}
+
+type EventStruct struct {
+	EventId     int
+	EventName   string
+	Description string
+	SrcObjName  string
+	EventEnable bool
+	IsFault     bool
+	Fault       FaultDetail
+}
+
+type DaemonEvent struct {
+	DaemonId          int
+	DaemonName        string
+	DaemonEventEnable bool
+	EventList         []EventStruct
+}
+
+type EventJson struct {
+	DaemonEvents []DaemonEvent
+}
+
+const (
+	EventDir string = "/etc/flexswitch/"
+)
+
+type FaultId struct {
+	DaemonId int
+	EventId  int
+}
+
+type NonFaultData struct {
+	IsClearingEvent bool
+	FaultEventId    int
+	FaultOwnerId    int
+}
+
+type EvtDetail struct {
+	IsClearingEvent  bool
+	IsFault          bool
+	RaiseFault       bool
+	ClearingEventId  int
+	ClearingDaemonId int
+}
+
+type FaultDataMap map[FaultObjKey]FaultData
+
+type FaultDatabaseKey struct {
+	FaultId        FaultId
+	FObjKey        FaultObjKey
+	Resolved       bool
+	FaultSeqNumber uint64
+}
+
 type FMGRServer struct {
-	logger   *logging.Writer
-	dbHdl    redis.Conn
-	subHdl   redis.PubSubConn
-	InitDone chan bool
+	logger           *logging.Writer
+	dbHdl            redis.Conn
+	subHdl           redis.PubSubConn
+	FaultEventMap    map[FaultId]FaultDetail
+	NonFaultEventMap map[FaultId]NonFaultData
+	FaultDatabase    map[FaultId]FaultDataMap
+	FaultList        *ringBuffer.RingBuffer
+	FaultSeqNumber   uint64
+	InitDone         chan bool
 }
 
 func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer := &FMGRServer{}
 	fMgrServer.logger = logger
 	fMgrServer.InitDone = make(chan bool)
+	fMgrServer.FaultEventMap = make(map[FaultId]FaultDetail)
+	fMgrServer.NonFaultEventMap = make(map[FaultId]NonFaultData)
+	fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
+	fMgrServer.FaultList = new(ringBuffer.RingBuffer)
+	fMgrServer.FaultList.IncCapacity = 100000 //Max 100000 entries in fault database
+	fMgrServer.FaultSeqNumber = 0
 	return fMgrServer
 }
 
@@ -65,7 +137,7 @@ func (server *FMGRServer) dial() (redis.Conn, error) {
 	return nil, err
 }
 
-func (server *FMGRServer) RedisSub() {
+func (server *FMGRServer) Subscriber() {
 	for {
 		switch n := server.subHdl.Receive().(type) {
 		case redis.Message:
@@ -93,11 +165,9 @@ func (server *FMGRServer) RedisSub() {
 				continue
 			}
 			obj = evt.SrcObjKey
-			if err != nil {
-				server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
-				continue
-			}
 			server.logger.Info(fmt.Sprintln("Src Obj Key", obj))
+
+			server.processEvents(evt)
 
 		case redis.Subscription:
 			if n.Count == 0 {
@@ -112,8 +182,107 @@ func (server *FMGRServer) RedisSub() {
 	server.subHdl.PUnsubscribe()
 }
 
+func (server *FMGRServer) initFaultMgrDS() error {
+	var evtJson EventJson
+	evtMap := make(map[FaultId]EvtDetail)
+	eventsFile := EventDir + "events.json"
+	bytes, err := ioutil.ReadFile(eventsFile)
+	if err != nil {
+		server.logger.Err(fmt.Sprintln("Error in reading ", eventsFile, " file."))
+		err := errors.New(fmt.Sprintln("Error in reading ", eventsFile, " file."))
+		return err
+	}
+
+	err = json.Unmarshal(bytes, &evtJson)
+	if err != nil {
+		server.logger.Err(fmt.Sprintln("Errors in unmarshalling json file : ", eventsFile))
+		err := errors.New(fmt.Sprintln("Errors in unmarshalling json file: ", eventsFile))
+		return err
+	}
+
+	server.logger.Info(fmt.Sprintln("evtJson:", evtJson))
+	for _, daemon := range evtJson.DaemonEvents {
+		server.logger.Info(fmt.Sprintln("daemon.DaemonName:", daemon.DaemonName))
+		for _, evt := range daemon.EventList {
+			fId := FaultId{
+				DaemonId: int(daemon.DaemonId),
+				EventId:  int(evt.EventId),
+			}
+			evtEnt, exist := evtMap[fId]
+			if exist {
+				server.logger.Err(fmt.Sprintln("Duplicate entry found"))
+				continue
+			}
+			if evt.IsFault == true {
+				evtEnt.IsFault = true
+				evtEnt.IsClearingEvent = false
+				evtEnt.RaiseFault = evt.Fault.RaiseFault
+				evtEnt.ClearingEventId = evt.Fault.ClearingEventId
+				evtEnt.ClearingDaemonId = evt.Fault.ClearingDaemonId
+			} else {
+				evtEnt.IsFault = false
+				evtEnt.IsClearingEvent = false
+				evtEnt.RaiseFault = false
+				evtEnt.ClearingEventId = -1
+				evtEnt.ClearingDaemonId = -1
+			}
+			evtMap[fId] = evtEnt
+		}
+	}
+
+	for fId, evt := range evtMap {
+		if evt.IsFault == true {
+			cFId := FaultId{
+				DaemonId: evt.ClearingDaemonId,
+				EventId:  evt.ClearingEventId,
+			}
+			cEvt, exist := evtMap[cFId]
+			if !exist {
+				server.logger.Err(fmt.Sprintln("No clearing event found for fault:", fId))
+				continue
+			}
+
+			cEvt.IsClearingEvent = true
+			evtMap[cFId] = cEvt
+		}
+	}
+
+	for fId, evt := range evtMap {
+		if evt.IsFault == true {
+			evtEnt, _ := server.FaultEventMap[fId]
+			evtEnt.RaiseFault = evt.RaiseFault
+			evtEnt.ClearingEventId = evt.ClearingEventId
+			evtEnt.ClearingDaemonId = evt.ClearingDaemonId
+			server.FaultEventMap[fId] = evtEnt
+			cFId := FaultId{
+				DaemonId: evtEnt.ClearingDaemonId,
+				EventId:  evtEnt.ClearingEventId,
+			}
+			cEvtEnt, _ := server.NonFaultEventMap[cFId]
+			cEvtEnt.FaultOwnerId = fId.DaemonId
+			cEvtEnt.FaultEventId = fId.EventId
+			server.NonFaultEventMap[cFId] = cEvtEnt
+		} else {
+			evtEnt, _ := server.NonFaultEventMap[fId]
+			evtEnt.IsClearingEvent = evt.IsClearingEvent
+			server.NonFaultEventMap[fId] = evtEnt
+		}
+	}
+	return nil
+}
+
 func (server *FMGRServer) InitServer(paramDir string) {
 	var err error
+
+	err = server.initFaultMgrDS()
+	if err != nil {
+		server.logger.Err(fmt.Sprintln(err))
+		return
+	}
+
+	server.logger.Info(fmt.Sprintln("Non Fault Event:", server.NonFaultEventMap))
+	server.logger.Info(fmt.Sprintln("Fault Event:", server.FaultEventMap))
+
 	server.dbHdl, err = server.dial()
 	if err != nil {
 		server.logger.Err(fmt.Sprintln(err))
@@ -124,7 +293,7 @@ func (server *FMGRServer) InitServer(paramDir string) {
 
 	server.subHdl.Subscribe("ASICD")
 	server.subHdl.Subscribe("ARPD")
-	go server.RedisSub()
+	go server.Subscriber()
 
 }
 
