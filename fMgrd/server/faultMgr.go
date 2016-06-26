@@ -65,16 +65,16 @@ func (server *FMGRServer) processEvents(evt events.Event) error {
 	server.logger.Info("Process Events....")
 	if _, exist := server.FaultEventMap[fId]; exist {
 		err := server.processFaultEvents(evt)
-		server.logger.Info(fmt.Sprintln("====1 Fault Database ====", server.FaultDatabase))
-		server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+		//server.logger.Info(fmt.Sprintln("====1 Fault Database ====", server.FaultDatabase))
+		//server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
 		return err
 	}
 
 	if ent, exist := server.NonFaultEventMap[fId]; exist {
 		if ent.IsClearingEvent == true {
 			err := server.processFaultClearingEvents(evt)
-			server.logger.Info(fmt.Sprintln("====2 Fault Database ====", server.FaultDatabase))
-			server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+			//server.logger.Info(fmt.Sprintln("====2 Fault Database ====", server.FaultDatabase))
+			//server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
 			return err
 		}
 	}
@@ -94,12 +94,23 @@ func (server *FMGRServer) processFaultClearingEvents(evt events.Event) error {
 	return nil
 }
 
-func (server *FMGRServer) AddFaultEntryInList(fId FaultId, fObjKey FaultObjKey) int {
+func (server *FMGRServer) AddFaultEntryInList(evt events.Event) int {
+	fId := FaultId{
+		DaemonId: int(evt.OwnerId),
+		EventId:  int(evt.EvtId),
+	}
+
+	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
+
 	fDBKey := FaultDatabaseKey{
 		FaultId:        fId,
 		FObjKey:        fObjKey,
 		Resolved:       false,
 		FaultSeqNumber: server.FaultSeqNumber,
+		OwnerName:      evt.OwnerName,
+		EventName:      evt.EventName,
+		OccuranceTime:  evt.TimeStamp,
+		Description:    evt.Description,
 	}
 
 	return server.FaultList.InsertIntoRingBuffer(fDBKey)
@@ -111,22 +122,26 @@ func (server *FMGRServer) CreateEntryInFaultDatabase(evt events.Event) error {
 		EventId:  int(evt.EvtId),
 	}
 
+	if server.FaultDatabase[fId] == nil {
+		server.FaultDatabase[fId] = make(map[FaultObjKey]FaultData)
+	}
+	fDbEnt, _ := server.FaultDatabase[fId]
 	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 	if fObjKey == "" {
 		err := errors.New("Error generating fault object key")
 		return err
 	}
-
-	if server.FaultDatabase[fId] == nil {
-		server.FaultDatabase[fId] = make(map[FaultObjKey]FaultData)
-	}
-	fDbEnt, _ := server.FaultDatabase[fId]
 	fDataEnt, exist := fDbEnt[fObjKey]
 	if exist {
 		server.logger.Info("Already have corresponding fault in fault Database")
 		return nil
 	}
-	idx := server.AddFaultEntryInList(fId, fObjKey)
+	idx := server.AddFaultEntryInList(evt)
+	if idx == -1 {
+		server.logger.Err("Unable to add entry in fault database")
+		err := errors.New("Unable to add entry in fault database")
+		return err
+	}
 	fDataEnt.OwnerName = evt.OwnerName
 	fDataEnt.EventName = evt.EventName
 	fDataEnt.Desc = evt.Description
@@ -158,7 +173,7 @@ func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt events.Event) error {
 		err := errors.New("Error generating fault object key")
 		return err
 	}
-	server.logger.Info(fmt.Sprintln("fObjKey:", fObjKey, "fId:", fId, "FaultDatabase:", server.FaultDatabase))
+	//server.logger.Info(fmt.Sprintln("fObjKey:", fObjKey, "fId:", fId, "FaultDatabase:", server.FaultDatabase))
 	fDbEnt, exist := server.FaultDatabase[fId]
 	if !exist {
 		server.logger.Info(fmt.Sprintln("No such fault occured to be cleared, no entry found in fault database", evt))
@@ -174,6 +189,7 @@ func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt events.Event) error {
 		fDBKey := intf.(FaultDatabaseKey)
 		if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
 			fDBKey.Resolved = true
+			fDBKey.ResolutionTime = evt.TimeStamp
 			server.FaultList.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
 		}
 		delete(fDbEnt, fObjKey)

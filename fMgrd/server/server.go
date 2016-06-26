@@ -92,6 +92,11 @@ type FaultDatabaseKey struct {
 	FObjKey        FaultObjKey
 	Resolved       bool
 	FaultSeqNumber uint64
+	OwnerName      string
+	EventName      string
+	OccuranceTime  time.Time
+	ResolutionTime time.Time
+	Description    string
 }
 
 type FMGRServer struct {
@@ -114,7 +119,7 @@ func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer.NonFaultEventMap = make(map[FaultId]NonFaultData)
 	fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
 	fMgrServer.FaultList = new(ringBuffer.RingBuffer)
-	fMgrServer.FaultList.IncCapacity(100000) //Max 100000 entries in fault database
+	fMgrServer.FaultList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
 	fMgrServer.FaultSeqNumber = 0
 	return fMgrServer
 }
@@ -147,13 +152,13 @@ func (server *FMGRServer) Subscriber() {
 				server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
 				continue
 			}
-			server.logger.Info(fmt.Sprintln("OwnerId:", evt.OwnerId))
-			server.logger.Info(fmt.Sprintln("OwnerName:", evt.OwnerName))
-			server.logger.Info(fmt.Sprintln("EvtId:", evt.EvtId))
-			server.logger.Info(fmt.Sprintln("EventName:", evt.EventName))
-			server.logger.Info(fmt.Sprintln("Timestamp:", evt.TimeStamp))
-			server.logger.Info(fmt.Sprintln("Description:", evt.Description))
-			server.logger.Info(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
+			//server.logger.Info(fmt.Sprintln("OwnerId:", evt.OwnerId))
+			//server.logger.Info(fmt.Sprintln("OwnerName:", evt.OwnerName))
+			//server.logger.Info(fmt.Sprintln("EvtId:", evt.EvtId))
+			//server.logger.Info(fmt.Sprintln("EventName:", evt.EventName))
+			//server.logger.Info(fmt.Sprintln("Timestamp:", evt.TimeStamp))
+			//server.logger.Info(fmt.Sprintln("Description:", evt.Description))
+			//server.logger.Info(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
 			keyMap, exist := events.EventKeyMap[evt.OwnerName]
 			if !exist {
 				server.logger.Info("Key map not found given Event")
@@ -165,7 +170,7 @@ func (server *FMGRServer) Subscriber() {
 				continue
 			}
 			obj = evt.SrcObjKey
-			server.logger.Info(fmt.Sprintln("Src Obj Key", obj))
+			//server.logger.Info(fmt.Sprintln("Src Obj Key", obj))
 
 			server.processEvents(evt)
 
