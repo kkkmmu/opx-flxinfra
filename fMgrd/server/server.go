@@ -114,7 +114,7 @@ func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer.NonFaultEventMap = make(map[FaultId]NonFaultData)
 	fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
 	fMgrServer.FaultList = new(ringBuffer.RingBuffer)
-	fMgrServer.FaultList.IncCapacity = 100000 //Max 100000 entries in fault database
+	fMgrServer.FaultList.IncCapacity(100000) //Max 100000 entries in fault database
 	fMgrServer.FaultSeqNumber = 0
 	return fMgrServer
 }
