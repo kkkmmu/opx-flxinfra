@@ -170,7 +170,7 @@ func (server *FMGRServer) Subscriber() {
 				continue
 			}
 			obj = evt.SrcObjKey
-			//server.logger.Info(fmt.Sprintln("Src Obj Key", obj))
+			server.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
 
 			server.processEvents(evt)
 
