@@ -298,6 +298,7 @@ func (server *FMGRServer) InitServer(paramDir string) {
 
 	server.subHdl.Subscribe("ASICD")
 	server.subHdl.Subscribe("ARPD")
+	server.subHdl.Subscribe("OPTICD")
 	go server.Subscriber()
 
 }
