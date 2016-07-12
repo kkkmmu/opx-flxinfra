@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"models/events"
 	"time"
+	"utils/eventUtils"
 )
 
 type FaultObjKey string
@@ -56,7 +57,7 @@ func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interfac
 	return FaultObjKey(fmt.Sprintf("%s %s", srcObjName, obj))
 }
 
-func (server *FMGRServer) processEvents(evt events.Event) error {
+func (server *FMGRServer) processEvents(evt eventUtils.Event) error {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -82,19 +83,19 @@ func (server *FMGRServer) processEvents(evt events.Event) error {
 	return nil
 }
 
-func (server *FMGRServer) processFaultEvents(evt events.Event) error {
+func (server *FMGRServer) processFaultEvents(evt eventUtils.Event) error {
 	server.logger.Info(fmt.Sprintln("Processing Fault Events: ", evt))
 	server.CreateEntryInFaultDatabase(evt)
 	return nil
 }
 
-func (server *FMGRServer) processFaultClearingEvents(evt events.Event) error {
+func (server *FMGRServer) processFaultClearingEvents(evt eventUtils.Event) error {
 	server.logger.Info(fmt.Sprintln("Processing Non Fault Events: ", evt))
 	server.DeleteEntryFromFaultDatabase(evt)
 	return nil
 }
 
-func (server *FMGRServer) AddFaultEntryInList(evt events.Event) int {
+func (server *FMGRServer) AddFaultEntryInList(evt eventUtils.Event) int {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -116,7 +117,7 @@ func (server *FMGRServer) AddFaultEntryInList(evt events.Event) int {
 	return server.FaultList.InsertIntoRingBuffer(fDBKey)
 }
 
-func (server *FMGRServer) CreateEntryInFaultDatabase(evt events.Event) error {
+func (server *FMGRServer) CreateEntryInFaultDatabase(evt eventUtils.Event) error {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -156,7 +157,7 @@ func (server *FMGRServer) CreateEntryInFaultDatabase(evt events.Event) error {
 	return nil
 }
 
-func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt events.Event) error {
+func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt eventUtils.Event) error {
 	cFId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
