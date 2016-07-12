@@ -31,6 +31,7 @@ import (
 	"io/ioutil"
 	"models/events"
 	"time"
+	"utils/eventUtils"
 	"utils/logging"
 	"utils/ringBuffer"
 )
@@ -146,7 +147,7 @@ func (server *FMGRServer) Subscriber() {
 	for {
 		switch n := server.subHdl.Receive().(type) {
 		case redis.Message:
-			var evt events.Event
+			var evt eventUtils.Event
 			err := json.Unmarshal(n.Data, &evt)
 			if err != nil {
 				server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
