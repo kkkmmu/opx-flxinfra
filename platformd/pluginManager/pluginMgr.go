@@ -28,6 +28,7 @@ import (
 	"infra/platformd/pluginManager/openBMC"
 	"infra/platformd/pluginManager/pluginCommon"
 	"strings"
+	"utils/logging"
 )
 
 type PluginIntf interface {
@@ -35,15 +36,60 @@ type PluginIntf interface {
 	DeInit() error
 }
 
-func NewPlugin(pluginName string, initParams *pluginCommon.PluginInitParams) PluginIntf {
+type ResourceManagers struct {
+	*SysManager
+	*FanManager
+	*PsuManager
+	*SfpManager
+	*ThermalManager
+	*LedManager
+}
+
+type PluginManager struct {
+	*ResourceManagers
+	logger logging.LoggerIntf
+	plugin PluginIntf
+}
+
+func NewPluginMgr(pluginName string, initParams *pluginCommon.PluginInitParams) *PluginManager {
 	var plugin PluginIntf
+	pluginMgr := new(PluginManager)
+	pluginMgr.ResourceManagers = new(ResourceManagers)
+	pluginMgr.logger = initParams.Logger
 	pluginName = strings.ToLower(pluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
 		plugin = onlp.NewONLPPlugin(initParams)
+		pluginMgr.plugin = plugin
 	case pluginCommon.OpenBMC_PLUGIN:
 		plugin = openBMC.NewOpenBMCPlugin(initParams)
+		pluginMgr.plugin = plugin
 	default:
 	}
-	return plugin
+	pluginMgr.SysManager = &SysMgr
+	pluginMgr.FanManager = &FanMgr
+	pluginMgr.PsuManager = &PsuMgr
+	pluginMgr.SfpManager = &SfpMgr
+	pluginMgr.ThermalManager = &ThermalMgr
+	pluginMgr.LedManager = &LedMgr
+	return pluginMgr
+}
+
+func (pMgr *PluginManager) Init() error {
+	pMgr.SysManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.FanManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.PsuManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.SfpManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.ThermalManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.LedManager.Init(pMgr.logger, pMgr.plugin)
+	return nil
+}
+
+func (pMgr *PluginManager) Deinit() {
+	pMgr.SysManager.Deinit()
+	pMgr.FanManager.Deinit()
+	pMgr.PsuManager.Deinit()
+	pMgr.SfpManager.Deinit()
+	pMgr.ThermalManager.Deinit()
+	pMgr.LedManager.Deinit()
 }

@@ -34,7 +34,7 @@ import (
 type PlatformdServer struct {
 	dmnName        string
 	paramsDir      string
-	plugin         pluginManager.PluginIntf
+	pluginMgr      *pluginManager.PluginManager
 	dbHdl          *dbutils.DBUtil
 	Logger         logging.LoggerIntf
 	InitCompleteCh chan bool
@@ -49,28 +49,28 @@ type InitParams struct {
 }
 
 func NewPlatformdServer(initParams *InitParams) *PlatformdServer {
-	var server PlatformdServer
+	var svr PlatformdServer
 
-	server.dmnName = initParams.DmnName
-	server.paramsDir = initParams.ParamsDir
-	server.dbHdl = initParams.DbHdl
-	server.Logger = initParams.Logger
-	server.InitCompleteCh = make(chan bool)
+	svr.dmnName = initParams.DmnName
+	svr.paramsDir = initParams.ParamsDir
+	svr.dbHdl = initParams.DbHdl
+	svr.Logger = initParams.Logger
+	svr.InitCompleteCh = make(chan bool)
 
 	CfgFileInfo, err := parseCfgFile(initParams.CfgFileName)
 	if err != nil {
-		server.Logger.Err("Failed to parse platformd config file, using default values for all attributes")
+		svr.Logger.Err("Failed to parse platformd config file, using default values for all attributes")
 	}
 	pluginInitParams := &pluginCommon.PluginInitParams{
-		Logger: server.Logger,
+		Logger: svr.Logger,
 	}
-	server.plugin = pluginManager.NewPlugin(CfgFileInfo.PluginName, pluginInitParams)
-	return &server
+	svr.pluginMgr = pluginManager.NewPluginMgr(CfgFileInfo.PluginName, pluginInitParams)
+	return &svr
 }
 
-func (server *PlatformdServer) initServer() error {
+func (svr *PlatformdServer) initServer() error {
 	//Initialize plugin layer first
-	err := server.plugin.Init()
+	err := svr.pluginMgr.Init()
 	if err != nil {
 		return err
 	}
@@ -78,13 +78,14 @@ func (server *PlatformdServer) initServer() error {
 	return err
 }
 
-func (server *PlatformdServer) Serve() {
-	err := server.initServer()
+func (svr *PlatformdServer) Serve() {
+	svr.Logger.Info("Server initialization started")
+	err := svr.initServer()
 	if err != nil {
 		panic(err)
 	}
-	server.InitCompleteCh <- true
-	server.Logger.Debug("Server initialization complete, starting cfg/state listerner")
+	svr.InitCompleteCh <- true
+	svr.Logger.Info("Server initialization complete, starting cfg/state listerner")
 	for {
 		time.Sleep(10)
 	}

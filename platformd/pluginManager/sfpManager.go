@@ -21,35 +21,26 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package pluginManager
 
 import (
-	//	"errors"
-	//	"fmt"
-	"infra/platformd/api"
-	"platformd"
+	//"fmt"
+	"utils/logging"
 )
 
-func (rpcHdl *rpcServiceHandler) GetPlatformSystemState(objName string) (*platformd.PlatformSystemState, error) {
-	var rpcObj *platformd.PlatformSystemState
-
-	obj, err := api.GetPlatformSystemState(objName)
-	if err == nil {
-		rpcObj = convertToRPCFmtPlatformSystemState(obj)
-	}
-	return rpcObj, err
+type SfpManager struct {
+	logger logging.LoggerIntf
+	plugin PluginIntf
 }
 
-func (rpcHdl *rpcServiceHandler) GetBulkPlatformSystemState(fromIdx, count platformd.Int) (*platformd.PlatformSystemStateGetInfo, error) {
-	var getBulkObj platformd.PlatformSystemStateGetInfo
+var SfpMgr SfpManager
 
-	info, err := api.GetBulkPlatformSystemState(int(fromIdx), int(count))
-	getBulkObj.StartIdx = fromIdx
-	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-	getBulkObj.More = info.More
-	getBulkObj.Count = platformd.Int(len(info.List))
-	for idx := 0; idx < len(info.List); idx++ {
-		getBulkObj.PlatformSystemStateList = append(getBulkObj.PlatformSystemStateList, convertToRPCFmtPlatformSystemState(info.List[idx]))
-	}
-	return &getBulkObj, err
+func (sfpMgr *SfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
+	sfpMgr.logger = logger
+	sfpMgr.plugin = plugin
+	sfpMgr.logger.Info("SFP Manager Init()")
+}
+
+func (sfpMgr *SfpManager) Deinit() {
+	sfpMgr.logger.Info("SFP Manager Deinit()")
 }

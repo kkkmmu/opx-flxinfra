@@ -21,35 +21,26 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package pluginManager
 
 import (
-	//	"errors"
-	//	"fmt"
-	"infra/platformd/api"
-	"platformd"
+	//"fmt"
+	"utils/logging"
 )
 
-func (rpcHdl *rpcServiceHandler) GetPlatformSystemState(objName string) (*platformd.PlatformSystemState, error) {
-	var rpcObj *platformd.PlatformSystemState
-
-	obj, err := api.GetPlatformSystemState(objName)
-	if err == nil {
-		rpcObj = convertToRPCFmtPlatformSystemState(obj)
-	}
-	return rpcObj, err
+type LedManager struct {
+	logger logging.LoggerIntf
+	plugin PluginIntf
 }
 
-func (rpcHdl *rpcServiceHandler) GetBulkPlatformSystemState(fromIdx, count platformd.Int) (*platformd.PlatformSystemStateGetInfo, error) {
-	var getBulkObj platformd.PlatformSystemStateGetInfo
+var LedMgr LedManager
 
-	info, err := api.GetBulkPlatformSystemState(int(fromIdx), int(count))
-	getBulkObj.StartIdx = fromIdx
-	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-	getBulkObj.More = info.More
-	getBulkObj.Count = platformd.Int(len(info.List))
-	for idx := 0; idx < len(info.List); idx++ {
-		getBulkObj.PlatformSystemStateList = append(getBulkObj.PlatformSystemStateList, convertToRPCFmtPlatformSystemState(info.List[idx]))
-	}
-	return &getBulkObj, err
+func (lMgr *LedManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
+	lMgr.logger = logger
+	lMgr.plugin = plugin
+	lMgr.logger.Info("Led Manager Init()")
+}
+
+func (lMgr *LedManager) Deinit() {
+	lMgr.logger.Info("Led Manager Deinit()")
 }
