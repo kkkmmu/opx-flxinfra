@@ -56,7 +56,7 @@ func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interfac
 		return ""
 	}
 	obj = srcObjKey
-	return FaultObjKey(fmt.Sprintf("%s %s", srcObjName, obj))
+	return FaultObjKey(fmt.Sprintf("%v %v", srcObjName, obj))
 }
 
 func (server *FMGRServer) processEvents(evt eventUtils.Event) error {
