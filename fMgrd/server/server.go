@@ -40,6 +40,7 @@ type FaultDetail struct {
 	RaiseFault       bool
 	ClearingEventId  int
 	ClearingDaemonId int
+	AlarmSeverity    string
 }
 
 type EventStruct struct {
@@ -100,16 +101,24 @@ type FaultDatabaseKey struct {
 	Description    string
 }
 
+type AlarmDatabaseKey struct {
+	FaultId  FaultId
+	FObjKey  FaultObjKey
+	FaultIdx int
+}
+
 type FMGRServer struct {
-	logger           *logging.Writer
-	dbHdl            redis.Conn
-	subHdl           redis.PubSubConn
-	FaultEventMap    map[FaultId]FaultDetail
-	NonFaultEventMap map[FaultId]NonFaultData
-	FaultDatabase    map[FaultId]FaultDataMap
-	FaultList        *ringBuffer.RingBuffer
-	FaultSeqNumber   uint64
-	InitDone         chan bool
+	logger                     logging.LoggerIntf
+	dbHdl                      redis.Conn
+	subHdl                     redis.PubSubConn
+	FaultEventMap              map[FaultId]FaultDetail
+	NonFaultEventMap           map[FaultId]NonFaultData
+	FaultDatabase              map[FaultId]FaultDataMap
+	FaultList                  *ringBuffer.RingBuffer
+	AlarmList                  *ringBuffer.RingBuffer
+	FaultSeqNumber             uint64
+	InitDone                   chan bool
+	FaultToAlarmTransitionTime time.Duration
 }
 
 func NewFMGRServer(logger *logging.Writer) *FMGRServer {
@@ -121,7 +130,10 @@ func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
 	fMgrServer.FaultList = new(ringBuffer.RingBuffer)
 	fMgrServer.FaultList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
+	fMgrServer.AlarmList = new(ringBuffer.RingBuffer)
+	fMgrServer.AlarmList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
 	fMgrServer.FaultSeqNumber = 0
+	fMgrServer.FaultToAlarmTransitionTime = time.Duration(3) * time.Second
 	return fMgrServer
 }
 
