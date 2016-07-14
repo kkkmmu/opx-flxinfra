@@ -85,6 +85,7 @@ type EvtDetail struct {
 	RaiseFault       bool
 	ClearingEventId  int
 	ClearingDaemonId int
+	AlarmSeverity    string
 }
 
 type FaultDataMap map[FaultObjKey]FaultData
@@ -237,12 +238,14 @@ func (server *FMGRServer) initFaultMgrDS() error {
 				evtEnt.RaiseFault = evt.Fault.RaiseFault
 				evtEnt.ClearingEventId = evt.Fault.ClearingEventId
 				evtEnt.ClearingDaemonId = evt.Fault.ClearingDaemonId
+				evtEnt.AlarmSeverity = evt.Fault.AlarmSeverity
 			} else {
 				evtEnt.IsFault = false
 				evtEnt.IsClearingEvent = false
 				evtEnt.RaiseFault = false
 				evtEnt.ClearingEventId = -1
 				evtEnt.ClearingDaemonId = -1
+				evtEnt.AlarmSeverity = ""
 			}
 			evtMap[fId] = evtEnt
 		}
@@ -271,6 +274,7 @@ func (server *FMGRServer) initFaultMgrDS() error {
 			evtEnt.RaiseFault = evt.RaiseFault
 			evtEnt.ClearingEventId = evt.ClearingEventId
 			evtEnt.ClearingDaemonId = evt.ClearingDaemonId
+			evtEnt.AlarmSeverity = evt.AlarmSeverity
 			server.FaultEventMap[fId] = evtEnt
 			cFId := FaultId{
 				DaemonId: evtEnt.ClearingDaemonId,
