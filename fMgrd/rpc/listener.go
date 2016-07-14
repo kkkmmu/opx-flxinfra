@@ -94,3 +94,42 @@ func (h *FMGRHandler) GetBulkFaultState(fromIndex fMgrd.Int, count fMgrd.Int) (*
 func (h *FMGRHandler) GetFaultState(ownerId int32, eventId int32, ownerName string, eventName string, srcObjName string) (*fMgrd.FaultState, error) {
 	return nil, nil
 }
+
+func (h *FMGRHandler) convertAlarmEntryToThrift(alarmState server.AlarmState) *fMgrd.AlarmState {
+	alarm := fMgrd.NewAlarmState()
+	alarm.OwnerId = int32(alarmState.OwnerId)
+	alarm.EventId = int32(alarmState.EventId)
+	alarm.OwnerName = alarmState.OwnerName
+	alarm.EventName = alarmState.EventName
+	alarm.SrcObjName = alarmState.SrcObjName
+	alarm.Description = alarmState.Description
+	alarm.OccuranceTime = alarmState.OccuranceTime
+	alarm.SrcObjKey = alarmState.SrcObjKey
+	alarm.ResolutionTime = alarmState.ResolutionTime
+	alarm.Severity = alarmState.Severity
+	return alarm
+}
+
+func (h *FMGRHandler) GetBulkAlarmState(fromIndex fMgrd.Int, count fMgrd.Int) (*fMgrd.AlarmStateGetInfo, error) {
+	h.logger.Info(fmt.Sprintln("Get bulk call for Alarm"))
+	nextIdx, currCount, alarmEntry := h.server.GetBulkAlarm(int(fromIndex), int(count))
+	if alarmEntry == nil {
+		err := errors.New("Alarm Manager server unable to fetch fault entry")
+		return nil, err
+	}
+	alarmEntryResponse := make([]*fMgrd.AlarmState, len(alarmEntry))
+	for idx, item := range alarmEntry {
+		alarmEntryResponse[idx] = h.convertAlarmEntryToThrift(item)
+	}
+
+	alarmEntryBulk := fMgrd.NewAlarmStateGetInfo()
+	alarmEntryBulk.Count = fMgrd.Int(currCount)
+	alarmEntryBulk.StartIdx = fMgrd.Int(fromIndex)
+	alarmEntryBulk.EndIdx = fMgrd.Int(nextIdx)
+	alarmEntryBulk.AlarmStateList = alarmEntryResponse
+	return alarmEntryBulk, nil
+}
+
+func (h *FMGRHandler) GetAlarmState(ownerId int32, eventId int32, ownerName string, eventName string, srcObjName string) (*fMgrd.AlarmState, error) {
+	return nil, nil
+}
