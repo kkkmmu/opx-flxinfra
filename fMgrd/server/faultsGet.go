@@ -57,10 +57,9 @@ func (server *FMGRServer) GetBulkFault(fromIdx int, cnt int) (int, int, []FaultS
 		result[i].EventId = fault.FaultId.EventId
 		result[i].OwnerName = fault.OwnerName
 		result[i].EventName = fault.EventName
-		str := strings.Split(string(fault.FObjKey), " ")
+		str := strings.Split(string(fault.FObjKey), " map[")
 		result[i].SrcObjName = str[0]
 		result[i].Description = fault.Description
-		str = strings.Split(str[1], "[")
 		str = strings.Split(str[1], "]")
 		result[i].OccuranceTime = fault.OccuranceTime.String()
 		result[i].SrcObjKey = str[0]
