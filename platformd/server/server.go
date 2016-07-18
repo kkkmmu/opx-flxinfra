@@ -24,6 +24,8 @@
 package server
 
 import (
+	"fmt"
+	//"infra/platformd/objects"
 	"infra/platformd/pluginManager"
 	"infra/platformd/pluginManager/pluginCommon"
 	"time"
@@ -38,6 +40,8 @@ type PlatformdServer struct {
 	dbHdl          *dbutils.DBUtil
 	Logger         logging.LoggerIntf
 	InitCompleteCh chan bool
+	ReqChan        chan *ServerRequest
+	ReplyChan      chan interface{}
 }
 
 type InitParams struct {
@@ -56,6 +60,8 @@ func NewPlatformdServer(initParams *InitParams) *PlatformdServer {
 	svr.dbHdl = initParams.DbHdl
 	svr.Logger = initParams.Logger
 	svr.InitCompleteCh = make(chan bool)
+	svr.ReqChan = make(chan *ServerRequest)
+	svr.ReplyChan = make(chan interface{})
 
 	CfgFileInfo, err := parseCfgFile(initParams.CfgFileName)
 	if err != nil {
@@ -78,6 +84,27 @@ func (svr *PlatformdServer) initServer() error {
 	return err
 }
 
+func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
+	svr.Logger.Info(fmt.Sprintln("Calling handle RPC Request for:", *req))
+	switch req.Op {
+	case GET_FAN_STATE:
+		var retObj GetFanStateOutArgs
+		if val, ok := req.Data.(*GetFanStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getFanState(val.FanId)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_FAN_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_FAN_STATE:
+		var retObj GetBulkFanStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkFanState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	default:
+		svr.Logger.Err(fmt.Sprintln("Error : Server recevied unrecognized request - ", req.Op))
+	}
+}
+
 func (svr *PlatformdServer) Serve() {
 	svr.Logger.Info("Server initialization started")
 	err := svr.initServer()
@@ -87,6 +114,12 @@ func (svr *PlatformdServer) Serve() {
 	svr.InitCompleteCh <- true
 	svr.Logger.Info("Server initialization complete, starting cfg/state listerner")
 	for {
+		select {
+		case req := <-svr.ReqChan:
+			svr.Logger.Info(fmt.Sprintln("Server request received - ", *req))
+			svr.handleRPCRequest(req)
+
+		}
 		time.Sleep(10)
 	}
 }

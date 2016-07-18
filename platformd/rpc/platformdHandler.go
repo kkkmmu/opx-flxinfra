@@ -25,7 +25,7 @@ package rpc
 
 import (
 	//	"errors"
-	//	"fmt"
+	"fmt"
 	"infra/platformd/api"
 	"platformd"
 )
@@ -52,4 +52,46 @@ func (rpcHdl *rpcServiceHandler) GetBulkPlatformSystemState(fromIdx, count platf
 		getBulkObj.PlatformSystemStateList = append(getBulkObj.PlatformSystemStateList, convertToRPCFmtPlatformSystemState(info.List[idx]))
 	}
 	return &getBulkObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetFanState(fanId int32) (*platformd.FanState, error) {
+	var rpcObj *platformd.FanState
+	var err error
+
+	obj, err := api.GetFanState(fanId)
+	if err == nil {
+		rpcObj = convertToRPCFmtFanState(obj)
+	}
+	return rpcObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkFanState(fromIdx, count platformd.Int) (*platformd.FanStateGetInfo, error) {
+	var getBulkObj platformd.FanStateGetInfo
+	var err error
+
+	fmt.Println("=====Inside GetBulkFanState====")
+	info, err := api.GetBulkFanState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.FanStateList = append(getBulkObj.FanStateList, convertToRPCFmtFanState(info.List[idx]))
+	}
+	return &getBulkObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) CreateFan(config *platformd.Fan) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteFan(config *platformd.Fan) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateFan(oldConfig *platformd.Fan, newConfig *platformd.Fan, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	return true, nil
 }

@@ -21,28 +21,31 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package server
 
 import (
+	//"errors"
+	//"fmt"
 	"infra/platformd/objects"
-	"platformd"
 )
 
-func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platformd.PlatformSystemState {
-	return &platformd.PlatformSystemState{
-		ObjName:   "PlatformSystemState",
-		SerialNum: obj.SerialNum,
-	}
+func (svr *PlatformdServer) getFanState(fanId int32) (*objects.FanState, error) {
+	/*
+		var retObj objects.FanState
+		retObj.FanId = fanId
+		retObj.OperMode = "ON"
+		retObj.OperSpeed = 10000
+		retObj.OperDirection = "B2F"
+		retObj.Status = "PRESENT"
+		retObj.Model = "USHA"
+		retObj.SerialNum = "AABBCC112233"
+	*/
+	retObj, err := svr.pluginMgr.GetFanState(fanId)
+	return retObj, err
+
 }
 
-func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
-	return &platformd.FanState{
-		FanId:         obj.FanId,
-		OperMode:      obj.OperMode,
-		OperSpeed:     obj.OperSpeed,
-		OperDirection: obj.OperDirection,
-		Status:        obj.Status,
-		Model:         obj.Model,
-		SerialNum:     obj.SerialNum,
-	}
+func (svr *PlatformdServer) getBulkFanState(fromIdx int, count int) (*objects.FanStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanState(fromIdx, count)
+	return retObj, err
 }

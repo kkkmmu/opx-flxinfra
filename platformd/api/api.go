@@ -24,6 +24,7 @@
 package api
 
 import (
+	"errors"
 	"infra/platformd/objects"
 	"infra/platformd/server"
 )
@@ -57,4 +58,49 @@ func GetBulkPlatformSystemState(fromIdx, count int) (*objects.PlatformSystemStat
 	retObj.More = false
 	retObj.List = append(retObj.List, &obj)
 	return &retObj, nil
+}
+
+func GetFanState(fanId int32) (*objects.FanState, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_FAN_STATE,
+		Data: interface{}(&server.GetFanStateInArgs{
+			FanId: fanId,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetFanStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetFanState")
+	}
+}
+
+func GetBulkFanState(fromIdx, count int) (*objects.FanStateGetInfo, error) {
+	/*
+		obj := objects.FanState{
+			ObjName:   "PlatformSystem",
+			SerialNum: "000011112222333",
+		}
+		var retObj objects.PlatformSystemStateGetInfo
+
+		retObj.EndIdx = 0
+		retObj.Count = 1
+		retObj.More = false
+		retObj.List = append(retObj.List, &obj)
+		return &retObj, nil
+	*/
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_FAN_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkFanStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkFanState")
+
+	}
 }

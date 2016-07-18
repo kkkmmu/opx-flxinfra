@@ -23,6 +23,7 @@
 package openBMC
 
 import (
+	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
 	"utils/logging"
 )
@@ -46,4 +47,16 @@ func (driver *openBMCDriver) Init() error {
 func (driver *openBMCDriver) DeInit() error {
 	driver.logger.Info("DeInitializing openBMC driver")
 	return nil
+}
+
+func (driver *openBMCDriver) GetFanState(fanId int32) (*objects.FanState, error) {
+	var retObj objects.FanState
+	retObj.FanId = fanId
+	retObj.OperMode = "ON"
+	retObj.OperSpeed = 10000
+	retObj.OperDirection = "B2F"
+	retObj.Status = "PRESENT"
+	retObj.Model = "OPENBMC"
+	retObj.SerialNum = "AABBCC112233"
+	return &retObj, nil
 }

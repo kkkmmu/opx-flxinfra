@@ -21,28 +21,21 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package objects
 
-import (
-	"infra/platformd/objects"
-	"platformd"
-)
-
-func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platformd.PlatformSystemState {
-	return &platformd.PlatformSystemState{
-		ObjName:   "PlatformSystemState",
-		SerialNum: obj.SerialNum,
-	}
+type FanState struct {
+	FanId         int32
+	OperMode      string
+	OperSpeed     int32
+	OperDirection string
+	Status        string
+	Model         string
+	SerialNum     string
 }
 
-func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
-	return &platformd.FanState{
-		FanId:         obj.FanId,
-		OperMode:      obj.OperMode,
-		OperSpeed:     obj.OperSpeed,
-		OperDirection: obj.OperDirection,
-		Status:        obj.Status,
-		Model:         obj.Model,
-		SerialNum:     obj.SerialNum,
-	}
+type FanStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanState
 }
