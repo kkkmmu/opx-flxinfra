@@ -24,6 +24,7 @@
 package api
 
 import (
+	"errors"
 	"infra/platformd/objects"
 	"infra/platformd/server"
 )
@@ -57,4 +58,52 @@ func GetBulkPlatformSystemState(fromIdx, count int) (*objects.PlatformSystemStat
 	retObj.More = false
 	retObj.List = append(retObj.List, &obj)
 	return &retObj, nil
+}
+
+func GetFanState(fanId int32) (*objects.FanState, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_FAN_STATE,
+		Data: interface{}(&server.GetFanStateInArgs{
+			FanId: fanId,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetFanStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetFanState")
+	}
+}
+
+func GetBulkFanState(fromIdx, count int) (*objects.FanStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_FAN_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkFanStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkFanState")
+
+	}
+}
+
+func UpdateFan(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.UPDATE_FAN_CONFIG,
+		Data: interface{}(&server.UpdateFanConfigInArgs{
+			FanOldCfg: oldCfg,
+			FanNewCfg: newCfg,
+			AttrSet:   attrset,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.UpdateConfigOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	}
+	return false, errors.New("Error: Invalid response received from server during UpdateFan")
 }

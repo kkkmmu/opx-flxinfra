@@ -1,3 +1,4 @@
+//
 //Copyright [2016] [SnapRoute Inc]
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,48 +21,27 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package onlp
+package objects
 
-import (
-	"infra/platformd/objects"
-	"infra/platformd/pluginManager/pluginCommon"
-	"utils/logging"
-)
-
-type onlpDriver struct {
-	logger logging.LoggerIntf
+type FanState struct {
+	FanId         int32
+	OperMode      string
+	OperSpeed     int32
+	OperDirection string
+	Status        string
+	Model         string
+	SerialNum     string
 }
 
-var driver onlpDriver
-
-func NewONLPPlugin(params *pluginCommon.PluginInitParams) *onlpDriver {
-	driver.logger = params.Logger
-	return &driver
+type FanStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanState
 }
 
-func (driver *onlpDriver) Init() error {
-	driver.logger.Info("Initializing onlp driver")
-	return nil
-}
-
-func (driver *onlpDriver) DeInit() error {
-	driver.logger.Info("DeInitializing onlp driver")
-	return nil
-}
-
-func (driver *onlpDriver) GetFanState(fanId int32) (*objects.FanState, error) {
-	var retObj objects.FanState
-	retObj.FanId = fanId
-	retObj.OperMode = "ON"
-	retObj.OperSpeed = 10000
-	retObj.OperDirection = "B2F"
-	retObj.Status = "PRESENT"
-	retObj.Model = "ONLP"
-	retObj.SerialNum = "AABBCC112233"
-	return &retObj, nil
-}
-
-func (driver *onlpDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
-	driver.logger.Info("Updating Onlp Fan Config")
-	return true, nil
+type FanConfig struct {
+	FanId          int32
+	AdminSpeed     int32
+	AdminDirection string
 }

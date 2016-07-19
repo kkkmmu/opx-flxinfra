@@ -24,7 +24,9 @@
 package pluginManager
 
 import (
-	//"fmt"
+	"errors"
+	"fmt"
+	"infra/platformd/objects"
 	"utils/logging"
 )
 
@@ -43,4 +45,37 @@ func (fMgr *FanManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 
 func (fMgr *FanManager) Deinit() {
 	fMgr.logger.Info("Fan Manager Deinit()")
+}
+
+func (fMgr *FanManager) GetFanState(fanId int32) (*objects.FanState, error) {
+	if fMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	return fMgr.plugin.GetFanState(fanId)
+}
+
+func (fMgr *FanManager) GetBulkFanState(fromIdx int, count int) (*objects.FanStateGetInfo, error) {
+	var retObj objects.FanStateGetInfo
+	var fanId int32
+	fanId = 1
+	if fMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	obj, err := fMgr.plugin.GetFanState(fanId)
+	if err != nil {
+		fMgr.logger.Err(fmt.Sprintln("Error getting the fan state Id for fanId:", fanId))
+	}
+	retObj.List = append(retObj.List, obj)
+	retObj.More = false
+	retObj.EndIdx = 1
+	retObj.Count = 1
+	return &retObj, nil
+}
+
+func (fMgr *FanManager) UpdateFanConfig(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	if fMgr.plugin == nil {
+		return false, errors.New("Invalid platform plugin")
+	}
+	ret, err := fMgr.plugin.UpdateFanConfig(newCfg)
+	return ret, err
 }
