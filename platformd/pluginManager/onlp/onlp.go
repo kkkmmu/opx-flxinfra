@@ -61,6 +61,14 @@ func (driver *onlpDriver) GetFanState(fanId int32) (*objects.FanState, error) {
 	return &retObj, nil
 }
 
+func (driver *onlpDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
+	var retObj objects.FanConfig
+	retObj.FanId = fanId
+	retObj.AdminSpeed = 10000
+	retObj.AdminDirection = "B2F"
+	return &retObj, nil
+}
+
 func (driver *onlpDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
 	driver.logger.Info("Updating Onlp Fan Config")
 	return true, nil

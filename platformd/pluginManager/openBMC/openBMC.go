@@ -61,6 +61,14 @@ func (driver *openBMCDriver) GetFanState(fanId int32) (*objects.FanState, error)
 	return &retObj, nil
 }
 
+func (driver *openBMCDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
+	var retObj objects.FanConfig
+	retObj.FanId = fanId
+	retObj.AdminSpeed = 10000
+	retObj.AdminDirection = "B2F"
+	return &retObj, nil
+}
+
 func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
 	driver.logger.Info("Updating OpenBMC Fan Config")
 	return true, nil

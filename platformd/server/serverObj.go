@@ -32,6 +32,8 @@ type ServerOpId int
 const (
 	GET_FAN_STATE ServerOpId = iota
 	GET_BULK_FAN_STATE
+	GET_FAN_CONFIG
+	GET_BULK_FAN_CONFIG
 	UPDATE_FAN_CONFIG
 )
 
@@ -56,6 +58,20 @@ type GetFanStateOutArgs struct {
 
 type GetBulkFanStateOutArgs struct {
 	BulkInfo *objects.FanStateGetInfo
+	Err      error
+}
+
+type GetFanConfigInArgs struct {
+	FanId int32
+}
+
+type GetFanConfigOutArgs struct {
+	Obj *objects.FanConfig
+	Err error
+}
+
+type GetBulkFanConfigOutArgs struct {
+	BulkInfo *objects.FanConfigGetInfo
 	Err      error
 }
 
