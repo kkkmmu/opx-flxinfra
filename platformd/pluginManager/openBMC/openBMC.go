@@ -60,3 +60,8 @@ func (driver *openBMCDriver) GetFanState(fanId int32) (*objects.FanState, error)
 	retObj.SerialNum = "AABBCC112233"
 	return &retObj, nil
 }
+
+func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
+	driver.logger.Info("Updating OpenBMC Fan Config")
+	return true, nil
+}

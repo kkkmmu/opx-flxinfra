@@ -30,16 +30,6 @@ import (
 )
 
 func (svr *PlatformdServer) getFanState(fanId int32) (*objects.FanState, error) {
-	/*
-		var retObj objects.FanState
-		retObj.FanId = fanId
-		retObj.OperMode = "ON"
-		retObj.OperSpeed = 10000
-		retObj.OperDirection = "B2F"
-		retObj.Status = "PRESENT"
-		retObj.Model = "USHA"
-		retObj.SerialNum = "AABBCC112233"
-	*/
 	retObj, err := svr.pluginMgr.GetFanState(fanId)
 	return retObj, err
 
@@ -48,4 +38,9 @@ func (svr *PlatformdServer) getFanState(fanId int32) (*objects.FanState, error) 
 func (svr *PlatformdServer) getBulkFanState(fromIdx int, count int) (*objects.FanStateGetInfo, error) {
 	retObj, err := svr.pluginMgr.GetBulkFanState(fromIdx, count)
 	return retObj, err
+}
+
+func (svr *PlatformdServer) updateFanConfig(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdateFanConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }

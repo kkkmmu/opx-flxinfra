@@ -37,6 +37,7 @@ type PluginIntf interface {
 	Init() error
 	DeInit() error
 	GetFanState(fanId int32) (*objects.FanState, error)
+	UpdateFanConfig(cfg *objects.FanConfig) (bool, error)
 }
 
 type ResourceManagers struct {

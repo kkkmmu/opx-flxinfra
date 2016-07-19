@@ -71,3 +71,11 @@ func (fMgr *FanManager) GetBulkFanState(fromIdx int, count int) (*objects.FanSta
 	retObj.Count = 1
 	return &retObj, nil
 }
+
+func (fMgr *FanManager) UpdateFanConfig(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	if fMgr.plugin == nil {
+		return false, errors.New("Invalid platform plugin")
+	}
+	ret, err := fMgr.plugin.UpdateFanConfig(newCfg)
+	return ret, err
+}

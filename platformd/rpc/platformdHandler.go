@@ -93,5 +93,8 @@ func (rpcHdl *rpcServiceHandler) DeleteFan(config *platformd.Fan) (bool, error) 
 }
 
 func (rpcHdl *rpcServiceHandler) UpdateFan(oldConfig *platformd.Fan, newConfig *platformd.Fan, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	return true, nil
+	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	return rv, err
 }

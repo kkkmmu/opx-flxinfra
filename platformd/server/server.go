@@ -100,6 +100,12 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.BulkInfo, retObj.Err = svr.getBulkFanState(val.FromIdx, val.Count)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_FAN_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateFanConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateFanConfig(val.FanOldCfg, val.FanNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	default:
 		svr.Logger.Err(fmt.Sprintln("Error : Server recevied unrecognized request - ", req.Op))
 	}

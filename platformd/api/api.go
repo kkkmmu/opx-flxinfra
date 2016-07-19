@@ -76,19 +76,6 @@ func GetFanState(fanId int32) (*objects.FanState, error) {
 }
 
 func GetBulkFanState(fromIdx, count int) (*objects.FanStateGetInfo, error) {
-	/*
-		obj := objects.FanState{
-			ObjName:   "PlatformSystem",
-			SerialNum: "000011112222333",
-		}
-		var retObj objects.PlatformSystemStateGetInfo
-
-		retObj.EndIdx = 0
-		retObj.Count = 1
-		retObj.More = false
-		retObj.List = append(retObj.List, &obj)
-		return &retObj, nil
-	*/
 	svr.ReqChan <- &server.ServerRequest{
 		Op: server.GET_BULK_FAN_STATE,
 		Data: interface{}(&server.GetBulkInArgs{
@@ -103,4 +90,20 @@ func GetBulkFanState(fromIdx, count int) (*objects.FanStateGetInfo, error) {
 		return nil, errors.New("Error: Invalid response received from server during GetBulkFanState")
 
 	}
+}
+
+func UpdateFan(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.UPDATE_FAN_CONFIG,
+		Data: interface{}(&server.UpdateFanConfigInArgs{
+			FanOldCfg: oldCfg,
+			FanNewCfg: newCfg,
+			AttrSet:   attrset,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.UpdateConfigOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	}
+	return false, errors.New("Error: Invalid response received from server during UpdateFan")
 }

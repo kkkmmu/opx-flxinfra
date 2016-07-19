@@ -39,3 +39,9 @@ type FanStateGetInfo struct {
 	More   bool
 	List   []*FanState
 }
+
+type FanConfig struct {
+	FanId          int32
+	AdminSpeed     int32
+	AdminDirection string
+}

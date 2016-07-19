@@ -46,3 +46,11 @@ func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
 		SerialNum:     obj.SerialNum,
 	}
 }
+
+func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
+	return &objects.FanConfig{
+		FanId:          rpcObj.FanId,
+		AdminSpeed:     rpcObj.AdminSpeed,
+		AdminDirection: rpcObj.AdminDirection,
+	}
+}

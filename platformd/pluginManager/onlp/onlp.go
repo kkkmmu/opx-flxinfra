@@ -60,3 +60,8 @@ func (driver *onlpDriver) GetFanState(fanId int32) (*objects.FanState, error) {
 	retObj.SerialNum = "AABBCC112233"
 	return &retObj, nil
 }
+
+func (driver *onlpDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
+	driver.logger.Info("Updating Onlp Fan Config")
+	return true, nil
+}
