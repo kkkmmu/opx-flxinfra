@@ -100,6 +100,19 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.BulkInfo, retObj.Err = svr.getBulkFanState(val.FromIdx, val.Count)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_FAN_CONFIG:
+		var retObj GetFanConfigOutArgs
+		if val, ok := req.Data.(*GetFanConfigInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getFanConfig(val.FanId)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_FAN_CONFIG request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_FAN_CONFIG:
+		var retObj GetBulkFanConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkFanConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	case UPDATE_FAN_CONFIG:
 		var retObj UpdateConfigOutArgs
 		if val, ok := req.Data.(*UpdateFanConfigInArgs); ok {

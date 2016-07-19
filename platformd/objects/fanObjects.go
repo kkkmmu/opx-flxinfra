@@ -45,3 +45,10 @@ type FanConfig struct {
 	AdminSpeed     int32
 	AdminDirection string
 }
+
+type FanConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanConfig
+}

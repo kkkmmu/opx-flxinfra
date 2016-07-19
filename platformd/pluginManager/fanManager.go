@@ -63,7 +63,32 @@ func (fMgr *FanManager) GetBulkFanState(fromIdx int, count int) (*objects.FanSta
 	}
 	obj, err := fMgr.plugin.GetFanState(fanId)
 	if err != nil {
-		fMgr.logger.Err(fmt.Sprintln("Error getting the fan state Id for fanId:", fanId))
+		fMgr.logger.Err(fmt.Sprintln("Error getting the fan state for fanId:", fanId))
+	}
+	retObj.List = append(retObj.List, obj)
+	retObj.More = false
+	retObj.EndIdx = 1
+	retObj.Count = 1
+	return &retObj, nil
+}
+
+func (fMgr *FanManager) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
+	if fMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	return fMgr.plugin.GetFanConfig(fanId)
+}
+
+func (fMgr *FanManager) GetBulkFanConfig(fromIdx int, count int) (*objects.FanConfigGetInfo, error) {
+	var retObj objects.FanConfigGetInfo
+	var fanId int32
+	fanId = 1
+	if fMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	obj, err := fMgr.plugin.GetFanConfig(fanId)
+	if err != nil {
+		fMgr.logger.Err(fmt.Sprintln("Error getting the fan config for fanId:", fanId))
 	}
 	retObj.List = append(retObj.List, obj)
 	retObj.More = false

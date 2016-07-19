@@ -32,11 +32,20 @@ import (
 func (svr *PlatformdServer) getFanState(fanId int32) (*objects.FanState, error) {
 	retObj, err := svr.pluginMgr.GetFanState(fanId)
 	return retObj, err
-
 }
 
 func (svr *PlatformdServer) getBulkFanState(fromIdx int, count int) (*objects.FanStateGetInfo, error) {
 	retObj, err := svr.pluginMgr.GetBulkFanState(fromIdx, count)
+	return retObj, err
+}
+
+func (svr *PlatformdServer) getFanConfig(fanId int32) (*objects.FanConfig, error) {
+	retObj, err := svr.pluginMgr.GetFanConfig(fanId)
+	return retObj, err
+}
+
+func (svr *PlatformdServer) getBulkFanConfig(fromIdx int, count int) (*objects.FanConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanConfig(fromIdx, count)
 	return retObj, err
 }
 
