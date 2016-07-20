@@ -24,6 +24,8 @@
 package pluginManager
 
 import (
+	"fmt"
+	"infra/platformd/objects"
 	"infra/platformd/pluginManager/onlp"
 	"infra/platformd/pluginManager/openBMC"
 	"infra/platformd/pluginManager/pluginCommon"
@@ -34,6 +36,9 @@ import (
 type PluginIntf interface {
 	Init() error
 	DeInit() error
+	GetFanState(fanId int32) (*objects.FanState, error)
+	GetFanConfig(fanId int32) (*objects.FanConfig, error)
+	UpdateFanConfig(cfg *objects.FanConfig) (bool, error)
 }
 
 type ResourceManagers struct {
@@ -59,9 +64,11 @@ func NewPluginMgr(pluginName string, initParams *pluginCommon.PluginInitParams) 
 	pluginName = strings.ToLower(pluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
+		fmt.Println("===== ONLP_PLUGIN =====")
 		plugin = onlp.NewONLPPlugin(initParams)
 		pluginMgr.plugin = plugin
 	case pluginCommon.OpenBMC_PLUGIN:
+		fmt.Println("===== OPENBMC_PLUGIN =====")
 		plugin = openBMC.NewOpenBMCPlugin(initParams)
 		pluginMgr.plugin = plugin
 	default:

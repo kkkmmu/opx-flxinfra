@@ -1,3 +1,4 @@
+//
 //Copyright [2016] [SnapRoute Inc]
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,56 +21,35 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package openBMC
+package server
 
 import (
+	//"errors"
+	//"fmt"
 	"infra/platformd/objects"
-	"infra/platformd/pluginManager/pluginCommon"
-	"utils/logging"
 )
 
-type openBMCDriver struct {
-	logger logging.LoggerIntf
+func (svr *PlatformdServer) getFanState(fanId int32) (*objects.FanState, error) {
+	retObj, err := svr.pluginMgr.GetFanState(fanId)
+	return retObj, err
 }
 
-var driver openBMCDriver
-
-func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) *openBMCDriver {
-	driver.logger = params.Logger
-	return &driver
+func (svr *PlatformdServer) getBulkFanState(fromIdx int, count int) (*objects.FanStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanState(fromIdx, count)
+	return retObj, err
 }
 
-func (driver *openBMCDriver) Init() error {
-	driver.logger.Info("Initializing openBMC driver")
-	return nil
+func (svr *PlatformdServer) getFanConfig(fanId int32) (*objects.FanConfig, error) {
+	retObj, err := svr.pluginMgr.GetFanConfig(fanId)
+	return retObj, err
 }
 
-func (driver *openBMCDriver) DeInit() error {
-	driver.logger.Info("DeInitializing openBMC driver")
-	return nil
+func (svr *PlatformdServer) getBulkFanConfig(fromIdx int, count int) (*objects.FanConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanConfig(fromIdx, count)
+	return retObj, err
 }
 
-func (driver *openBMCDriver) GetFanState(fanId int32) (*objects.FanState, error) {
-	var retObj objects.FanState
-	retObj.FanId = fanId
-	retObj.OperMode = "ON"
-	retObj.OperSpeed = 10000
-	retObj.OperDirection = "B2F"
-	retObj.Status = "PRESENT"
-	retObj.Model = "OPENBMC"
-	retObj.SerialNum = "AABBCC112233"
-	return &retObj, nil
-}
-
-func (driver *openBMCDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
-	var retObj objects.FanConfig
-	retObj.FanId = fanId
-	retObj.AdminSpeed = 10000
-	retObj.AdminDirection = "B2F"
-	return &retObj, nil
-}
-
-func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
-	driver.logger.Info("Updating OpenBMC Fan Config")
-	return true, nil
+func (svr *PlatformdServer) updateFanConfig(oldCfg *objects.FanConfig, newCfg *objects.FanConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdateFanConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }

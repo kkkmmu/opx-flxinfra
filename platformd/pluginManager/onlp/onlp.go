@@ -23,6 +23,7 @@
 package onlp
 
 import (
+	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
 	"utils/logging"
 )
@@ -46,4 +47,29 @@ func (driver *onlpDriver) Init() error {
 func (driver *onlpDriver) DeInit() error {
 	driver.logger.Info("DeInitializing onlp driver")
 	return nil
+}
+
+func (driver *onlpDriver) GetFanState(fanId int32) (*objects.FanState, error) {
+	var retObj objects.FanState
+	retObj.FanId = fanId
+	retObj.OperMode = "ON"
+	retObj.OperSpeed = 10000
+	retObj.OperDirection = "B2F"
+	retObj.Status = "PRESENT"
+	retObj.Model = "ONLP"
+	retObj.SerialNum = "AABBCC112233"
+	return &retObj, nil
+}
+
+func (driver *onlpDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
+	var retObj objects.FanConfig
+	retObj.FanId = fanId
+	retObj.AdminSpeed = 10000
+	retObj.AdminDirection = "B2F"
+	return &retObj, nil
+}
+
+func (driver *onlpDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
+	driver.logger.Info("Updating Onlp Fan Config")
+	return true, nil
 }

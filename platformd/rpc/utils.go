@@ -34,3 +34,31 @@ func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platf
 		SerialNum: obj.SerialNum,
 	}
 }
+
+func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
+	return &platformd.FanState{
+		FanId:         obj.FanId,
+		OperMode:      obj.OperMode,
+		OperSpeed:     obj.OperSpeed,
+		OperDirection: obj.OperDirection,
+		Status:        obj.Status,
+		Model:         obj.Model,
+		SerialNum:     obj.SerialNum,
+	}
+}
+
+func convertToRPCFmtFanConfig(obj *objects.FanConfig) *platformd.Fan {
+	return &platformd.Fan{
+		FanId:          obj.FanId,
+		AdminSpeed:     obj.AdminSpeed,
+		AdminDirection: obj.AdminDirection,
+	}
+}
+
+func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
+	return &objects.FanConfig{
+		FanId:          rpcObj.FanId,
+		AdminSpeed:     rpcObj.AdminSpeed,
+		AdminDirection: rpcObj.AdminDirection,
+	}
+}

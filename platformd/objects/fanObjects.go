@@ -1,3 +1,4 @@
+//
 //Copyright [2016] [SnapRoute Inc]
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,56 +21,34 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package openBMC
+package objects
 
-import (
-	"infra/platformd/objects"
-	"infra/platformd/pluginManager/pluginCommon"
-	"utils/logging"
-)
-
-type openBMCDriver struct {
-	logger logging.LoggerIntf
+type FanState struct {
+	FanId         int32
+	OperMode      string
+	OperSpeed     int32
+	OperDirection string
+	Status        string
+	Model         string
+	SerialNum     string
 }
 
-var driver openBMCDriver
-
-func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) *openBMCDriver {
-	driver.logger = params.Logger
-	return &driver
+type FanStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanState
 }
 
-func (driver *openBMCDriver) Init() error {
-	driver.logger.Info("Initializing openBMC driver")
-	return nil
+type FanConfig struct {
+	FanId          int32
+	AdminSpeed     int32
+	AdminDirection string
 }
 
-func (driver *openBMCDriver) DeInit() error {
-	driver.logger.Info("DeInitializing openBMC driver")
-	return nil
-}
-
-func (driver *openBMCDriver) GetFanState(fanId int32) (*objects.FanState, error) {
-	var retObj objects.FanState
-	retObj.FanId = fanId
-	retObj.OperMode = "ON"
-	retObj.OperSpeed = 10000
-	retObj.OperDirection = "B2F"
-	retObj.Status = "PRESENT"
-	retObj.Model = "OPENBMC"
-	retObj.SerialNum = "AABBCC112233"
-	return &retObj, nil
-}
-
-func (driver *openBMCDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
-	var retObj objects.FanConfig
-	retObj.FanId = fanId
-	retObj.AdminSpeed = 10000
-	retObj.AdminDirection = "B2F"
-	return &retObj, nil
-}
-
-func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
-	driver.logger.Info("Updating OpenBMC Fan Config")
-	return true, nil
+type FanConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanConfig
 }
