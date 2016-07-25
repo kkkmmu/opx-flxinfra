@@ -10,14 +10,14 @@ SRCS=main.go
 IPC_SRCS=rpc/platformd.thrift
 COMP_NAME=platformd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
-BUILD_TARGET = onlp
+PLATFORM_BUILD_TARGET = onlp
 
 #CGO CFLAGS
 CGO_CFLAGS=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/pluginCommon/
-ifeq ($(BUILD_TARGET), openBMC)
+ifeq ($(PLATFORM_BUILD_TARGET), openBMC)
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/openBMC/inc
 export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/openBMC/libs
-else ifeq ($(BUILD_TARGET), onlp)
+else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
 export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
 else 
@@ -31,7 +31,7 @@ ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
-	bash makeSymLinks.sh $(BUILD_TARGET)
+	bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
 	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS):$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs" $(SRCS)
 
 guard:
