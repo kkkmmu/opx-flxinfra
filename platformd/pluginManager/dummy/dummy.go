@@ -1,4 +1,3 @@
-//
 //Copyright [2016] [SnapRoute Inc]
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,30 +20,55 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package dummy
 
 import (
+	"infra/platformd/objects"
+	"infra/platformd/pluginManager/pluginCommon"
 	"utils/logging"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openbmc"
-	Dummy_PLUGIN   = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger logging.LoggerIntf
+type dummyDriver struct {
+	logger logging.LoggerIntf
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	Valid         bool
+var driver dummyDriver
+
+func NewDummyPlugin(params *pluginCommon.PluginInitParams) *dummyDriver {
+	driver.logger = params.Logger
+	return &driver
+}
+
+func (driver *dummyDriver) Init() error {
+	driver.logger.Info("Initializing Dummy driver")
+	return nil
+}
+
+func (driver *dummyDriver) DeInit() error {
+	driver.logger.Info("DeInitializing Dummy driver")
+	return nil
+}
+
+func (driver *dummyDriver) GetFanState(fanId int32) (pluginCommon.FanState, error) {
+	var retObj pluginCommon.FanState
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
+	var retObj objects.FanConfig
+	return &retObj, nil
+}
+
+func (driver *dummyDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
+	driver.logger.Info("Updating Dummy Fan Config")
+	return true, nil
+}
+
+func (driver *dummyDriver) GetMaxNumOfFans() int {
+	driver.logger.Info("Inside Dummy: GetMaxNumOfFans()")
+	return 0
+}
+
+func (driver *dummyDriver) GetAllFanState(state []pluginCommon.FanState, cnt int) error {
+	return nil
 }

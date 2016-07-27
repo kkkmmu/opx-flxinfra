@@ -2,20 +2,66 @@
 #include "onlp.h"
 #include <onlp/fan.h>
 #include <onlp/sys.h>
+#include <dlfcn.h>
 
 static onlp_oid_t fan_oid_table[ONLP_OID_TABLE_SIZE];
 static onlp_fan_info_t fan_info_table[ONLP_OID_TABLE_SIZE];
 static int flag[ONLP_OID_TABLE_SIZE] = {0};
 onlp_sys_info_t si;
+void *handle;
+int (*onlpInit)(void);
+int (*onlpSysInfoGet)(onlp_sys_info_t*);
+int (*onlpFanInfoGet)(onlp_oid_t, onlp_fan_info_t*);
+
+int loadOnlpSym() {
+	char *error;
+
+        handle = dlopen ("/lib/x86_64-linux-gnu/libonlp.so", RTLD_LAZY);
+        if (!handle) {
+		printf(dlerror(), stderr);
+		return -1;
+        }
+
+	onlpInit = dlsym(handle, "onlp_init");
+        if ((error = dlerror()) != NULL)  {
+		printf(error, stderr);
+		return -1;
+        }
+	onlpFanInfoGet = dlsym(handle, "onlp_fan_info_get");
+	if ((error = dlerror()) != NULL)  {
+		printf(error, stderr);
+		return -1;
+	}
+	onlpSysInfoGet = dlsym(handle, "onlp_sys_info_get");
+        if ((error = dlerror()) != NULL)  {
+		printf(error, stderr);
+		return -1;
+        }
+	return 0;
+}
 
 int Init() {
 	int ret = 0;
 	int i = 0;
 	onlp_oid_t* oidp;
 
-	printf("=============Init================");
-	onlp_init();
-	ret = onlp_sys_info_get(&si);
+	ret = loadOnlpSym();
+	if (ret < 0) {
+		printf("Error loading the ONLP symbols");
+		return -1;
+	}
+
+	if (onlpInit == NULL) {
+		printf("onlpInit ptr to onlp_init() is NULL\n");
+		return -1;
+	}
+	(*onlpInit)();
+
+	if (onlpSysInfoGet == NULL) {
+		printf("onlpSysInfoGet ptr to onlp_sys_info_get is NULL\n");
+		return -1;
+	}
+	ret = (*onlpSysInfoGet)(&si);
 	if (ret < 0) {
 		printf("onlp_sys_info_get() failed during init. Return Value:%d\n", ret);
 		return ret;
@@ -35,6 +81,10 @@ int GetMaxNumOfFans() {
 int GetAllFanState(fan_info_t *info, int count) {
 	printf("Count = %d", count);
 	int i = 0;
+	if (onlpFanInfoGet == NULL) {
+		printf("onlpFanInfoGet ptr to onlp_fan_info_get is NULL\n");
+		return -1;
+	}
 	for (i = 0; i < count; i++) {
 		onlp_fan_info_t fi;
 		int fid = ONLP_OID_ID_GET(fan_oid_table[i]);
@@ -43,7 +93,7 @@ int GetAllFanState(fan_info_t *info, int count) {
 		if (fan_oid_table[i] == 0) {
 			continue;
 		}
-		if (onlp_fan_info_get(fan_oid_table[i], &fi) < 0) {
+		if ((*onlpFanInfoGet)(fan_oid_table[i], &fi) < 0) {
 			printf("Failure retreiving status of Fan Id %d\n", fid);
 			continue;
 		}
@@ -73,6 +123,10 @@ int GetAllFanState(fan_info_t *info, int count) {
 
 int GetFanState(fan_info_t *info, int fanId) {
 	int i = 0;
+	if (onlpFanInfoGet == NULL) {
+		printf("onlpFanInfoGet ptr to onlp_fan_info_get is NULL\n");
+		return -1;
+	}
 	for (i = 0; i < sizeof(fan_oid_table)/sizeof(fan_oid_table[0]); i++) {
 		onlp_fan_info_t fi;
 		int fid = ONLP_OID_ID_GET(fan_oid_table[i]);
@@ -84,7 +138,7 @@ int GetFanState(fan_info_t *info, int fanId) {
 		if (fan_oid_table[i] == 0) {
 			continue;
 		}
-		if (onlp_fan_info_get(fan_oid_table[i], &fi) < 0) {
+		if ((*onlpFanInfoGet)(fan_oid_table[i], &fi) < 0) {
 			printf("Failure retreiving status of Fan Id %d\n", fid);
 			continue;
 		}
@@ -111,4 +165,8 @@ int GetFanState(fan_info_t *info, int fanId) {
 		return 0;
 	}
 	return -1;
+}
+
+int DeInit() {
+	dlclose(handle);
 }
