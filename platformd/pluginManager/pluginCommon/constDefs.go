@@ -31,6 +31,7 @@ import (
 const (
 	ONLP_PLUGIN    = "onlp"
 	OpenBMC_PLUGIN = "openbmc"
+	Dummy_PLUGIN   = "dummy"
 )
 
 type PluginInitParams struct {

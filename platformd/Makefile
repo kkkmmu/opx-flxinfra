@@ -10,19 +10,20 @@ SRCS=main.go
 IPC_SRCS=rpc/platformd.thrift
 COMP_NAME=platformd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
-PLATFORM_BUILD_TARGET = onlp
+PLATFORM_BUILD_TARGET = dummy
 
 #CGO CFLAGS
 CGO_CFLAGS=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/pluginCommon/
 ifeq ($(PLATFORM_BUILD_TARGET), openBMC)
-export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/openBMC/inc
-export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/openBMC/libs
+export CGO_CFLAGS
 else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
 export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
+export CGO_CFLAGS+=-D PLAT_ONLP
+else ifeq ($(PLATFORM_BUILD_TARGET), dummy)
+export CGO_CFLAGS
 else 
-export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
-export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
+export CGO_CFLAGS
 endif
 
 
@@ -32,7 +33,7 @@ ipc:
 
 exe: $(SRCS)
 	bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
-	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS):$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs" $(SRCS)
+	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS)" $(SRCS)
 
 guard:
 ifndef SR_CODE_BASE
@@ -41,7 +42,16 @@ endif
 
 install:
 	$(MKDIR) $(PARAMSDIR)
-	install params/platformd.conf $(PARAMSDIR)/
+ifeq ($(PLATFORM_BUILD_TARGET), openBMC)
+	install params/openBMC_platformd.conf $(PARAMSDIR)/platformd.conf
+else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
+	install params/onlp_platformd.conf $(PARAMSDIR)/platformd.conf
+else ifeq ($(PLATFORM_BUILD_TARGET), dummy)
+	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
+else
+	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
+endif
+
 clean:guard
 	$(RM) $(DESTDIR)/$(COMP_NAME) 
 	$(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)
