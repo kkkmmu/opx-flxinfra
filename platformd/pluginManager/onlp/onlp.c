@@ -1,14 +1,19 @@
 #include <stdio.h>
 #include "onlp.h"
+#ifdef PLAT_ONLP
 #include <onlp/fan.h>
 #include <onlp/sys.h>
+#endif
 
+#ifdef PLAT_ONLP
 static onlp_oid_t fan_oid_table[ONLP_OID_TABLE_SIZE];
 static onlp_fan_info_t fan_info_table[ONLP_OID_TABLE_SIZE];
 static int flag[ONLP_OID_TABLE_SIZE] = {0};
 onlp_sys_info_t si;
+#endif
 
 int Init() {
+#ifdef PLAT_ONLP
 	int ret = 0;
 	int i = 0;
 	onlp_oid_t* oidp;
@@ -25,14 +30,20 @@ int Init() {
 		fan_oid_table[i++] = *oidp;
 	}
 	
+#endif
 	return 0;
 }
 
 int GetMaxNumOfFans() {
+#ifdef PLAT_ONLP
 	return ONLP_OID_TABLE_SIZE;
+#else
+	return 0;
+#endif
 }
 
 int GetAllFanState(fan_info_t *info, int count) {
+#ifdef PLAT_ONLP
 	printf("Count = %d", count);
 	int i = 0;
 	for (i = 0; i < count; i++) {
@@ -68,10 +79,12 @@ int GetAllFanState(fan_info_t *info, int count) {
 		strncpy(info[i].Model, fi.model, 100);
 		strncpy(info[i].SerialNum, fi.serial, 100);
 	}
+#endif
 	return 0;
 }
 
 int GetFanState(fan_info_t *info, int fanId) {
+#ifdef PLAT_ONLP
 	int i = 0;
 	for (i = 0; i < sizeof(fan_oid_table)/sizeof(fan_oid_table[0]); i++) {
 		onlp_fan_info_t fi;
@@ -110,5 +123,6 @@ int GetFanState(fan_info_t *info, int fanId) {
 		strncpy(info[0].SerialNum, fi.serial, 100);
 		return 0;
 	}
+#endif
 	return -1;
 }
