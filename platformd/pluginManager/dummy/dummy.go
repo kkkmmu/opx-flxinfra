@@ -51,22 +51,11 @@ func (driver *dummyDriver) DeInit() error {
 
 func (driver *dummyDriver) GetFanState(fanId int32) (pluginCommon.FanState, error) {
 	var retObj pluginCommon.FanState
-	retObj.FanId = fanId
-	retObj.OperMode = "ON"
-	retObj.OperSpeed = 10000
-	retObj.OperDirection = "B2F"
-	retObj.Status = "PRESENT"
-	retObj.Model = "DUMMY"
-	retObj.SerialNum = "AABBCC112233"
-	retObj.Valid = true
 	return retObj, nil
 }
 
 func (driver *dummyDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
 	var retObj objects.FanConfig
-	retObj.FanId = fanId
-	retObj.AdminSpeed = 10000
-	retObj.AdminDirection = "B2F"
 	return &retObj, nil
 }
 

@@ -14,18 +14,8 @@ PLATFORM_BUILD_TARGET = dummy
 
 #CGO CFLAGS
 CGO_CFLAGS=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/pluginCommon/
-ifeq ($(PLATFORM_BUILD_TARGET), openBMC)
-export CGO_CFLAGS
-else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
-export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
-export CGO_CFLAGS+=-D PLAT_ONLP
-else ifeq ($(PLATFORM_BUILD_TARGET), dummy)
-export CGO_CFLAGS
-else 
-export CGO_CFLAGS
-endif
-
+export CGO_LDFLAGS+=-ldl -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
 
 all:ipc exe 
 ipc:
