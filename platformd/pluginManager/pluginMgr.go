@@ -42,6 +42,10 @@ type PluginIntf interface {
 	UpdateFanConfig(cfg *objects.FanConfig) (bool, error)
 	GetMaxNumOfFans() int
 	GetAllFanState(state []pluginCommon.FanState, count int) error
+	GetSfpState(sfpId int32) (pluginCommon.SfpState, error)
+	GetSfpConfig(sfpId int32) (*objects.SfpConfig, error)
+	UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error)
+	GetAllSfpState(state []pluginCommon.SfpState, count int) error
 }
 
 type ResourceManagers struct {

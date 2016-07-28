@@ -83,3 +83,29 @@ func (driver *openBMCDriver) GetMaxNumOfFans() int {
 func (driver *openBMCDriver) GetAllFanState(state []pluginCommon.FanState, cnt int) error {
 	return nil
 }
+
+func (driver *openBMCDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {
+	var retObj pluginCommon.SfpState
+
+	// TODO
+	retObj.SfpId = sfpId
+	return retObj, nil
+}
+
+func (driver *openBMCDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
+	var retObj objects.SfpConfig
+
+	// TODO
+	retObj.SfpId = sfpId
+	return &retObj, nil
+}
+
+func (driver *openBMCDriver) UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error) {
+	driver.logger.Info("Updating Onlp SFP Config")
+	return true, nil
+}
+
+func (driver *openBMCDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int) error {
+	driver.logger.Info("GetAllSfpState")
+	return nil
+}

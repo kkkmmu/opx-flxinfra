@@ -48,3 +48,12 @@ type FanState struct {
 	SerialNum     string
 	Valid         bool
 }
+
+type SfpState struct {
+	SfpId      int32
+	AdminState string
+	OperStatus string
+	SfpLOS     string
+	SfpType    string
+	EEPROM     [256]string
+}

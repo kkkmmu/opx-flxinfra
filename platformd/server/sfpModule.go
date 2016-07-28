@@ -21,50 +21,33 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package server
 
 import (
 	"infra/platformd/objects"
-	"platformd"
 )
 
-func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platformd.PlatformSystemState {
-	return &platformd.PlatformSystemState{
-		ObjName:   "PlatformSystemState",
-		SerialNum: obj.SerialNum,
-	}
+func (svr *PlatformdServer) getSfpState(sfpId int32) (*objects.SfpState, error) {
+	retObj, err := svr.pluginMgr.GetSfpState(sfpId)
+	return retObj, err
 }
 
-func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
-	return &platformd.FanState{
-		FanId:         obj.FanId,
-		OperMode:      obj.OperMode,
-		OperSpeed:     obj.OperSpeed,
-		OperDirection: obj.OperDirection,
-		Status:        obj.Status,
-		Model:         obj.Model,
-		SerialNum:     obj.SerialNum,
-	}
+func (svr *PlatformdServer) getBulkSfpState(fromIdx int, count int) (*objects.SfpStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkSfpState(fromIdx, count)
+	return retObj, err
 }
 
-func convertToRPCFmtFanConfig(obj *objects.FanConfig) *platformd.Fan {
-	return &platformd.Fan{
-		FanId:          obj.FanId,
-		AdminSpeed:     obj.AdminSpeed,
-		AdminDirection: obj.AdminDirection,
-	}
+func (svr *PlatformdServer) getSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
+	retObj, err := svr.pluginMgr.GetSfpConfig(sfpId)
+	return retObj, err
 }
 
-func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
-	return &objects.FanConfig{
-		FanId:          rpcObj.FanId,
-		AdminSpeed:     rpcObj.AdminSpeed,
-		AdminDirection: rpcObj.AdminDirection,
-	}
+func (svr *PlatformdServer) getBulkSfpConfig(fromIdx int, count int) (*objects.SfpConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkSfpConfig(fromIdx, count)
+	return retObj, err
 }
 
-func convertToRPCFmtSfpConfig(obj *objects.SfpConfig) *platformd.Sfp {
-	return &platformd.Sfp{
-		SfpId: obj.SfpId,
-	}
+func (svr *PlatformdServer) updateSfpConfig(oldCfg *objects.SfpConfig, newCfg *objects.SfpConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdateSfpConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }
