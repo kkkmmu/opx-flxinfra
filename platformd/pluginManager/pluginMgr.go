@@ -26,6 +26,7 @@ package pluginManager
 import (
 	"fmt"
 	"infra/platformd/objects"
+	"infra/platformd/pluginManager/dummy"
 	"infra/platformd/pluginManager/onlp"
 	"infra/platformd/pluginManager/openBMC"
 	"infra/platformd/pluginManager/pluginCommon"
@@ -76,6 +77,10 @@ func NewPluginMgr(pluginName string, initParams *pluginCommon.PluginInitParams) 
 	case pluginCommon.OpenBMC_PLUGIN:
 		fmt.Println("===== OPENBMC_PLUGIN =====")
 		plugin = openBMC.NewOpenBMCPlugin(initParams)
+		pluginMgr.plugin = plugin
+	case pluginCommon.Dummy_PLUGIN:
+		fmt.Println("===== Dummy_PLUGIN =====")
+		plugin = dummy.NewDummyPlugin(initParams)
 		pluginMgr.plugin = plugin
 	default:
 	}

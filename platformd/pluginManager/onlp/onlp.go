@@ -61,6 +61,7 @@ func (driver *onlpDriver) Init() error {
 
 func (driver *onlpDriver) DeInit() error {
 	driver.logger.Info("DeInitializing onlp driver")
+	C.DeInit()
 	return nil
 }
 
