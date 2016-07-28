@@ -72,3 +72,29 @@ func (driver *dummyDriver) GetMaxNumOfFans() int {
 func (driver *dummyDriver) GetAllFanState(state []pluginCommon.FanState, cnt int) error {
 	return nil
 }
+
+func (driver *dummyDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {
+	var retObj pluginCommon.SfpState
+
+	// TODO
+	retObj.SfpId = sfpId
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
+	var retObj objects.SfpConfig
+
+	// TODO
+	retObj.SfpId = sfpId
+	return &retObj, nil
+}
+
+func (driver *dummyDriver) UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error) {
+	driver.logger.Info("Updating Onlp SFP Config")
+	return true, nil
+}
+
+func (driver *dummyDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int) error {
+	driver.logger.Info("GetAllSfpState")
+	return nil
+}
