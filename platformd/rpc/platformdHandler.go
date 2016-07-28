@@ -24,8 +24,6 @@
 package rpc
 
 import (
-	//	"errors"
-	//"fmt"
 	"infra/platformd/api"
 	"platformd"
 )
@@ -125,4 +123,41 @@ func (rpcHdl *rpcServiceHandler) GetBulkFan(fromIdx, count platformd.Int) (*plat
 		getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
 	}
 	return &getBulkObj, err
+}
+
+// TODO
+func (rpcHdl *rpcServiceHandler) GetBulkSfp(fromIdx, count platformd.Int) (*platformd.SfpGetInfo, error) {
+	var getBulkObj platformd.SfpGetInfo
+	var err error
+
+	return &getBulkObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) CreateSfp(config *platformd.Sfp) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteSfp(config *platformd.Sfp) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateSfp(oldConfig *platformd.Sfp, newConfig *platformd.Sfp, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	return false, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetSfp(sfpID int32) (*platformd.Sfp, error) {
+	var rpcObj platformd.Sfp
+
+	return &rpcObj, nil
+}
+func (rpcHdl *rpcServiceHandler) GetBulkSfpState(fromIdx, count platformd.Int) (*platformd.SfpStateGetInfo, error) {
+	var obj platformd.SfpStateGetInfo
+
+	return &obj, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetSfpState(sfpId int32) (*platformd.SfpState, error) {
+	var obj platformd.SfpState
+
+	return &obj, nil
 }

@@ -1,5 +1,5 @@
 RM=rm -f
-RMFORCE=rm -rf 
+RMFORCE=rm -rf
 MKDIR = mkdir -p
 DESTDIR=$(SR_CODE_BASE)/snaproute/src/out/bin
 SR_PLATFORMD_CODE_BASE=$(SR_CODE_BASE)/snaproute/src/infra/platformd
@@ -20,19 +20,18 @@ export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/openBMC/libs
 else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
 export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
-else 
+else
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
 export CGO_LDFLAGS+=-L$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs -lonlp -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
 endif
 
-
-all:ipc exe 
-ipc:
+all:ipc exe
+ipc: $(IPC_SRCS)
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
 	bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
-	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS):$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs" $(SRCS)
+	go build -p 64 -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS):$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/libs" $(SRCS)
 
 guard:
 ifndef SR_CODE_BASE
@@ -43,5 +42,5 @@ install:
 	$(MKDIR) $(PARAMSDIR)
 	install params/platformd.conf $(PARAMSDIR)/
 clean:guard
-	$(RM) $(DESTDIR)/$(COMP_NAME) 
+	$(RM) $(DESTDIR)/$(COMP_NAME)
 	$(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)

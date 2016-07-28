@@ -35,6 +35,16 @@ const (
 	GET_FAN_CONFIG
 	GET_BULK_FAN_CONFIG
 	UPDATE_FAN_CONFIG
+	GET_SFP_STATE
+	GET_BULK_SFP_STATE
+	GET_SFP_CONFIG
+	GET_BULK_SFP_CONFIG
+	UPDATE_SFP_CONFIG
+	GET_PSU_STATE
+	GET_BULK_PSU_STATE
+	GET_PSU_CONFIG
+	GET_BULK_PSU_CONFIG
+	UPDATE_PSU_CONFIG
 )
 
 type ServerRequest struct {
@@ -84,4 +94,38 @@ type UpdateFanConfigInArgs struct {
 type UpdateConfigOutArgs struct {
 	RetVal bool
 	Err    error
+}
+
+type GetSfpStateInArgs struct {
+	SfpId int32
+}
+
+type GetSfpStateOutArgs struct {
+	Obj *objects.SfpState
+	Err error
+}
+
+type GetBulkSfpStateOutArgs struct {
+	BulkInfo *objects.SfpStateGetInfo
+	Err      error
+}
+
+type GetSfpConfigInArgs struct {
+	SfpId int32
+}
+
+type GetSfpConfigOutArgs struct {
+	Obj *objects.SfpConfig
+	Err error
+}
+
+type GetBulkSfpConfigOutArgs struct {
+	BulkInfo *objects.SfpConfigGetInfo
+	Err      error
+}
+
+type UpdateSfpConfigInArgs struct {
+	SfpOldCfg *objects.SfpConfig
+	SfpNewCfg *objects.SfpConfig
+	AttrSet   []bool
 }

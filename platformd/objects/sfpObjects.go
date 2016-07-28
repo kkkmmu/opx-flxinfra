@@ -21,50 +21,33 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package objects
 
-import (
-	"infra/platformd/objects"
-	"platformd"
-)
-
-func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platformd.PlatformSystemState {
-	return &platformd.PlatformSystemState{
-		ObjName:   "PlatformSystemState",
-		SerialNum: obj.SerialNum,
-	}
+type SfpState struct {
+	SfpId      int32
+	OperSpeed  int32
+	SfpPresent string
+	SfpConfig  string
+	Model      string
+	SerialNum  string
 }
 
-func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
-	return &platformd.FanState{
-		FanId:         obj.FanId,
-		OperMode:      obj.OperMode,
-		OperSpeed:     obj.OperSpeed,
-		OperDirection: obj.OperDirection,
-		Status:        obj.Status,
-		Model:         obj.Model,
-		SerialNum:     obj.SerialNum,
-	}
+type SfpStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*SfpState
 }
 
-func convertToRPCFmtFanConfig(obj *objects.FanConfig) *platformd.Fan {
-	return &platformd.Fan{
-		FanId:          obj.FanId,
-		AdminSpeed:     obj.AdminSpeed,
-		AdminDirection: obj.AdminDirection,
-	}
+type SfpConfig struct {
+	SfpId          int32
+	AdminSpeed     int32
+	AdminDirection string
 }
 
-func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
-	return &objects.FanConfig{
-		FanId:          rpcObj.FanId,
-		AdminSpeed:     rpcObj.AdminSpeed,
-		AdminDirection: rpcObj.AdminDirection,
-	}
-}
-
-func convertToRPCFmtSfpConfig(obj *objects.SfpConfig) *platformd.Sfp {
-	return &platformd.Sfp{
-		SfpId: obj.SfpId,
-	}
+type SfpConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*SfpConfig
 }

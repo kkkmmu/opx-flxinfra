@@ -137,3 +137,31 @@ func GetBulkFanConfig(fromIdx, count int) (*objects.FanConfigGetInfo, error) {
 		return nil, errors.New("Error: Invalid response received from server during GetBulkFanConfig")
 	}
 }
+
+func UpdateSfp(oldCfg *objects.SfpConfig, newCfg *objects.SfpConfig, attrset []bool) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.UPDATE_SFP_CONFIG,
+		Data: interface{}(&server.UpdateSfpConfigInArgs{
+			SfpOldCfg: oldCfg,
+			SfpNewCfg: newCfg,
+			AttrSet:   attrset,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.UpdateConfigOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	}
+	return false, errors.New("Error: Invalid response received from server during UpdateFan")
+}
+
+func GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
+	var obj objects.SfpConfig
+
+	return &obj, nil
+}
+
+func GetBulkSfpConfig(fromIdx, count int) (*objects.SfpConfigGetInfo, error) {
+	var obj objects.SfpConfigGetInfo
+
+	return &obj, nil
+}
