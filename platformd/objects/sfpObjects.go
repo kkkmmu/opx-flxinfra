@@ -21,39 +21,33 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
-
-import (
-	"utils/logging"
-)
-
-//Plugin name constants
-const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openbmc"
-	Dummy_PLUGIN   = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger logging.LoggerIntf
-}
-
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	Valid         bool
-}
+package objects
 
 type SfpState struct {
 	SfpId      int32
-	AdminState string
-	OperStatus string
-	SfpLOS     string
-	SfpType    string
-	EEPROM     [256]string
+	OperSpeed  int32
+	SfpPresent string
+	SfpConfig  string
+	Model      string
+	SerialNum  string
+}
+
+type SfpStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*SfpState
+}
+
+type SfpConfig struct {
+	SfpId          int32
+	AdminSpeed     int32
+	AdminDirection string
+}
+
+type SfpConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*SfpConfig
 }

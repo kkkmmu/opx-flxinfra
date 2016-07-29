@@ -21,39 +21,33 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package server
 
 import (
-	"utils/logging"
+	"infra/platformd/objects"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openbmc"
-	Dummy_PLUGIN   = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger logging.LoggerIntf
+func (svr *PlatformdServer) getSfpState(sfpId int32) (*objects.SfpState, error) {
+	retObj, err := svr.pluginMgr.GetSfpState(sfpId)
+	return retObj, err
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	Valid         bool
+func (svr *PlatformdServer) getBulkSfpState(fromIdx int, count int) (*objects.SfpStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkSfpState(fromIdx, count)
+	return retObj, err
 }
 
-type SfpState struct {
-	SfpId      int32
-	AdminState string
-	OperStatus string
-	SfpLOS     string
-	SfpType    string
-	EEPROM     [256]string
+func (svr *PlatformdServer) getSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
+	retObj, err := svr.pluginMgr.GetSfpConfig(sfpId)
+	return retObj, err
+}
+
+func (svr *PlatformdServer) getBulkSfpConfig(fromIdx int, count int) (*objects.SfpConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkSfpConfig(fromIdx, count)
+	return retObj, err
+}
+
+func (svr *PlatformdServer) updateSfpConfig(oldCfg *objects.SfpConfig, newCfg *objects.SfpConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdateSfpConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }

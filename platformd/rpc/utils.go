@@ -49,16 +49,20 @@ func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
 
 func convertToRPCFmtFanConfig(obj *objects.FanConfig) *platformd.Fan {
 	return &platformd.Fan{
-		FanId:          obj.FanId,
-		AdminSpeed:     obj.AdminSpeed,
-		AdminDirection: obj.AdminDirection,
+		FanId:      obj.FanId,
+		AdminSpeed: obj.AdminSpeed,
 	}
 }
 
 func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
 	return &objects.FanConfig{
-		FanId:          rpcObj.FanId,
-		AdminSpeed:     rpcObj.AdminSpeed,
-		AdminDirection: rpcObj.AdminDirection,
+		FanId:      rpcObj.FanId,
+		AdminSpeed: rpcObj.AdminSpeed,
+	}
+}
+
+func convertToRPCFmtSfpConfig(obj *objects.SfpConfig) *platformd.Sfp {
+	return &platformd.Sfp{
+		SfpId: obj.SfpId,
 	}
 }
