@@ -45,9 +45,9 @@ type onlpDriver struct {
 
 var driver onlpDriver
 
-func NewONLPPlugin(params *pluginCommon.PluginInitParams) *onlpDriver {
+func NewONLPPlugin(params *pluginCommon.PluginInitParams) (*onlpDriver, error) {
 	driver.logger = params.Logger
-	return &driver
+	return &driver, nil
 }
 
 func (driver *onlpDriver) Init() error {
@@ -107,12 +107,8 @@ func (driver *onlpDriver) GetFanState(fanId int32) (pluginCommon.FanState, error
 	return retObj, nil
 }
 
-func (driver *onlpDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
-	var retObj objects.FanConfig
-	retObj.FanId = fanId
-	retObj.AdminSpeed = 10000
-	retObj.AdminDirection = "B2F"
-	return &retObj, nil
+func (driver *onlpDriver) GetFanConfig(fanId int32) (retObj *objects.FanConfig, err error) {
+	return retObj, err
 }
 
 func (driver *onlpDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {

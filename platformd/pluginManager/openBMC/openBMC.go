@@ -23,25 +23,85 @@
 package openBMC
 
 import (
+	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"sync"
+	"time"
 	"utils/logging"
 )
 
+const (
+	NUM_OF_FAN          int = 10
+	SENSOR_POLLING_TIME     = time.Duration(1) * time.Second
+)
+
+/*
+ * FanId Mapping
+ * Fan1Front = FanId(0)
+ * Fan1Rear  = FanId(1)
+ * Fan2Front = FanId(2)
+ * Fan2Rear  = FanId(3)
+ * Fan3Front = FanId(4)
+ * Fan3Rear  = FanId(5)
+ * Fan4Front = FanId(6)
+ * Fan4Rear  = FanId(7)
+ * Fan5Front = FanId(8)
+ * Fan5Rear  = FanId(9)
+ */
+
 type openBMCDriver struct {
-	logger logging.LoggerIntf
+	logger      logging.LoggerIntf
+	ipAddr      string
+	port        string
+	sensorMutex sync.RWMutex
+	sensorData  SensorData
 }
 
 var driver openBMCDriver
 
-func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) *openBMCDriver {
+func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) (*openBMCDriver, error) {
+	var err error
 	driver.logger = params.Logger
-	return &driver
+	driver.ipAddr = params.IpAddr
+	driver.port = params.Port
+	return &driver, err
+}
+
+func (driver *openBMCDriver) processSensorData() (err error) {
+	//driver.processFanData(data.FanSensor)
+	driver.sensorMutex.Lock()
+	driver.sensorData, err = driver.GetSensorState()
+	if err != nil {
+		driver.logger.Err(fmt.Sprintln("Error getting OpenBMC Senssor Data", err))
+		driver.sensorMutex.Unlock()
+		return err
+	}
+	driver.sensorMutex.Unlock()
+	return err
 }
 
 func (driver *openBMCDriver) Init() error {
 	driver.logger.Info("Initializing openBMC driver")
-	return nil
+	err := driver.processSensorData()
+	if err != nil {
+		return err
+	}
+	go driver.collectSensorData()
+	return err
+}
+
+func (driver *openBMCDriver) collectSensorData() {
+	var err error
+	for {
+		time.Sleep(SENSOR_POLLING_TIME)
+		driver.sensorMutex.Lock()
+		driver.sensorData, err = driver.GetSensorState()
+		if err != nil {
+			driver.logger.Err(fmt.Sprintln("Error getting OpenBMC Senssor Data", err))
+		}
+		driver.sensorMutex.Unlock()
+	}
 }
 
 func (driver *openBMCDriver) DeInit() error {
@@ -50,24 +110,49 @@ func (driver *openBMCDriver) DeInit() error {
 }
 
 func (driver *openBMCDriver) GetFanState(fanId int32) (pluginCommon.FanState, error) {
-	var retObj pluginCommon.FanState
-	retObj.FanId = fanId
-	retObj.OperMode = "ON"
-	retObj.OperSpeed = 10000
-	retObj.OperDirection = "B2F"
-	retObj.Status = "PRESENT"
-	retObj.Model = "OPENBMC"
-	retObj.SerialNum = "AABBCC112233"
-	retObj.Valid = true
-	return retObj, nil
+	var state pluginCommon.FanState
+	state.Valid = true
+	state.FanId = fanId
+	//driver.logger.Info(fmt.Sprintln("Sensor Data:", sensorData))
+	driver.sensorMutex.Lock()
+	switch fanId {
+	case 0:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan1Front)
+	case 1:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan1Rear)
+	case 2:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan2Front)
+	case 3:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan2Rear)
+	case 4:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan3Front)
+	case 5:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan3Rear)
+	case 6:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan4Front)
+	case 7:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan4Rear)
+	case 8:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan5Front)
+	case 9:
+		state.OperSpeed = convertFanSpeedStringToInt32(driver.sensorData.FanSensor.Fan5Rear)
+	}
+	driver.sensorMutex.Unlock()
+	if state.OperSpeed == 0 {
+		state.OperMode = pluginCommon.FAN_MODE_OFF_STR
+	} else {
+		state.OperMode = pluginCommon.FAN_MODE_ON_STR
+	}
+	state.OperDirection = "Not Supported"
+	state.Status = "Not Supported"
+	state.Model = "Not Supported"
+	state.SerialNum = "Not Supported"
+	state.LedId = -1
+	return state, nil
 }
 
-func (driver *openBMCDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
-	var retObj objects.FanConfig
-	retObj.FanId = fanId
-	retObj.AdminSpeed = 10000
-	retObj.AdminDirection = "B2F"
-	return &retObj, nil
+func (driver *openBMCDriver) GetFanConfig(fanId int32) (retObj *objects.FanConfig, err error) {
+	return retObj, nil
 }
 
 func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
@@ -77,10 +162,13 @@ func (driver *openBMCDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, erro
 
 func (driver *openBMCDriver) GetMaxNumOfFans() int {
 	driver.logger.Info("Inside OpenBMC: GetMaxNumOfFans()")
-	return 0
+	return NUM_OF_FAN
 }
 
-func (driver *openBMCDriver) GetAllFanState(state []pluginCommon.FanState, cnt int) error {
+func (driver *openBMCDriver) GetAllFanState(states []pluginCommon.FanState, cnt int) error {
+	for idx := 0; idx < cnt; idx++ {
+		states[idx], _ = driver.GetFanState(int32(idx))
+	}
 	return nil
 }
 
