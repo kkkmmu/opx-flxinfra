@@ -41,11 +41,12 @@ type FanState struct {
 	Status        string
 	Model         string
 	SerialNum     string
+	LedId         int32
 }
 
 type FanConfig struct {
-	AdminSpeed     int32
-	AdminDirection string
+	AdminSpeed int32
+	AdminState string
 }
 
 type FanManager struct {
@@ -80,7 +81,7 @@ func (fMgr *FanManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		fanEnt.SerialNum = fan.SerialNum
 		fMgr.stateDB[FanId(fan.FanId)] = fanEnt
 		fanCfgEnt, _ := fMgr.configDB[FanId(fan.FanId)]
-		fanCfgEnt.AdminDirection = fan.OperDirection
+		fanCfgEnt.AdminState = fan.OperMode
 		fanCfgEnt.AdminSpeed = fan.OperSpeed
 		fMgr.configDB[FanId(fan.FanId)] = fanCfgEnt
 		fMgr.fanIdList = append(fMgr.fanIdList, FanId(fan.FanId))
@@ -120,6 +121,7 @@ func (fMgr *FanManager) GetFanState(fanId int32) (*objects.FanState, error) {
 	fanObj.Status = fanState.Status
 	fanObj.Model = fanState.Model
 	fanObj.SerialNum = fanState.SerialNum
+	fanObj.LedId = fanState.LedId
 	return &fanObj, err
 }
 
@@ -162,7 +164,7 @@ func (fMgr *FanManager) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
 	}
 	fanObj.FanId = fanId
 	fanObj.AdminSpeed = fanCfgEnt.AdminSpeed
-	fanObj.AdminDirection = fanCfgEnt.AdminDirection
+	fanObj.AdminState = fanCfgEnt.AdminState
 	return &fanObj, nil
 }
 

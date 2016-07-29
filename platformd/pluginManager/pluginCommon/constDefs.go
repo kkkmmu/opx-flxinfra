@@ -35,7 +35,10 @@ const (
 )
 
 type PluginInitParams struct {
-	Logger logging.LoggerIntf
+	Logger     logging.LoggerIntf
+	PluginName string
+	IpAddr     string
+	Port       string
 }
 
 type FanState struct {
@@ -46,6 +49,7 @@ type FanState struct {
 	Status        string
 	Model         string
 	SerialNum     string
+	LedId         int32
 	Valid         bool
 }
 

@@ -52,7 +52,7 @@ type InitParams struct {
 	Logger      logging.LoggerIntf
 }
 
-func NewPlatformdServer(initParams *InitParams) *PlatformdServer {
+func NewPlatformdServer(initParams *InitParams) (*PlatformdServer, error) {
 	var svr PlatformdServer
 
 	svr.dmnName = initParams.DmnName
@@ -68,10 +68,16 @@ func NewPlatformdServer(initParams *InitParams) *PlatformdServer {
 		svr.Logger.Err("Failed to parse platformd config file, using default values for all attributes")
 	}
 	pluginInitParams := &pluginCommon.PluginInitParams{
-		Logger: svr.Logger,
+		Logger:     svr.Logger,
+		PluginName: CfgFileInfo.PluginName,
+		IpAddr:     CfgFileInfo.IpAddr,
+		Port:       CfgFileInfo.Port,
 	}
-	svr.pluginMgr = pluginManager.NewPluginMgr(CfgFileInfo.PluginName, pluginInitParams)
-	return &svr
+	svr.pluginMgr, err = pluginManager.NewPluginMgr(pluginInitParams)
+	if err != nil {
+		return nil, err
+	}
+	return &svr, err
 }
 
 func (svr *PlatformdServer) initServer() error {
