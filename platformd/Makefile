@@ -10,7 +10,11 @@ SRCS=main.go
 IPC_SRCS=rpc/platformd.thrift
 COMP_NAME=platformd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
-PLATFORM_BUILD_TARGET = onlp
+
+
+ifeq ($(PLATFORM_BUILD_TARGET), )
+PLATFORM_BUILD_TARGET = dummy
+endif
 
 #CGO CFLAGS
 CGO_CFLAGS=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/pluginCommon/
