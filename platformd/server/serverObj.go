@@ -45,6 +45,7 @@ const (
 	GET_PSU_CONFIG
 	GET_BULK_PSU_CONFIG
 	UPDATE_PSU_CONFIG
+	GET_PLATFORMSYSTEM_STATE
 )
 
 type ServerRequest struct {
@@ -128,4 +129,13 @@ type UpdateSfpConfigInArgs struct {
 	SfpOldCfg *objects.SfpConfig
 	SfpNewCfg *objects.SfpConfig
 	AttrSet   []bool
+}
+
+type GetPlatformSystemStateInArgs struct {
+	ObjName string
+}
+
+type GetPlatformSystemStateOutArgs struct {
+	Obj *objects.PlatformSystemState
+	Err error
 }

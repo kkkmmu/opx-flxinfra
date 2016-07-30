@@ -163,6 +163,7 @@ func (rpcHdl *rpcServiceHandler) GetSfpState(sfpId int32) (*platformd.SfpState, 
 	return &obj, nil
 }
 
+// TODO
 func (rpcHdl *rpcServiceHandler) CreateLed(config *platformd.Led) (bool, error) {
 	return true, nil
 }

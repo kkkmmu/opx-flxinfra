@@ -1,5 +1,5 @@
 RM=rm -f
-RMFORCE=rm -rf 
+RMFORCE=rm -rf
 MKDIR = mkdir -p
 DESTDIR=$(SR_CODE_BASE)/snaproute/src/out/bin
 SR_PLATFORMD_CODE_BASE=$(SR_CODE_BASE)/snaproute/src/infra/platformd
@@ -10,14 +10,16 @@ SRCS=main.go
 IPC_SRCS=rpc/platformd.thrift
 COMP_NAME=platformd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
-PLATFORM_BUILD_TARGET = dummy
+PLATFORM_BUILD_TARGET = onlp
 
 #CGO CFLAGS
 CGO_CFLAGS=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/pluginCommon/
 export CGO_CFLAGS+=-I$(SR_PLATFORMD_CODE_BASE)/pluginManager/onlp/inc
-export CGO_LDFLAGS+=-ldl -lm -Wl,--unresolved-symbols=ignore-in-shared-libs
+export CGO_LDFLAGS+=-ldl -Wl,--unresolved-symbols=ignore-in-shared-libs
 
-all:ipc exe 
+.PHONY: all
+
+all:ipc exe
 ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
@@ -43,5 +45,5 @@ else
 endif
 
 clean:guard
-	$(RM) $(DESTDIR)/$(COMP_NAME) 
+	$(RM) $(DESTDIR)/$(COMP_NAME)
 	$(RMFORCE) $(GENERATED_IPC)/$(COMP_NAME)

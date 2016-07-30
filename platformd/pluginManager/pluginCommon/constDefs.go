@@ -57,3 +57,14 @@ type SfpState struct {
 	SfpType    string
 	EEPROM     [256]string
 }
+
+type PlatformSystemState struct {
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	ONIEVersion  string
+}

@@ -199,3 +199,24 @@ func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int
 	driver.logger.Info("GetAllSfpState")
 	return nil
 }
+
+func (driver *onlpDriver) GetPlatformSystemState() (pluginCommon.PlatformSystemState, error) {
+	var retObj pluginCommon.PlatformSystemState
+	var sysInfo C.sys_info_t
+
+	rt := int(C.GetPlatformSystemState(&sysInfo))
+
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch System info"))
+	}
+
+	retObj.ProductName = C.GoString(&sysInfo.product_name[0])
+	retObj.Vendor = C.GoString(&sysInfo.vendor[0])
+	retObj.SerialNum = C.GoString(&sysInfo.serial_number[0])
+	retObj.Manufacturer = C.GoString(&sysInfo.manufacturer[0])
+	retObj.Release = C.GoString(&sysInfo.label_revision[0])
+	retObj.PlatformName = C.GoString(&sysInfo.platform_name[0])
+	retObj.ONIEVersion = C.GoString(&sysInfo.onie_version[0])
+
+	return retObj, nil
+}

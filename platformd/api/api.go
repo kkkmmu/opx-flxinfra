@@ -40,10 +40,18 @@ func InitApiLayer(server *server.PlatformdServer) {
 }
 
 func GetPlatformSystemState(objName string) (*objects.PlatformSystemState, error) {
-	return &objects.PlatformSystemState{
-		ObjName:   objName,
-		SerialNum: "000011112222333",
-	}, nil
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_PLATFORMSYSTEM_STATE,
+		Data: interface{}(&server.GetPlatformSystemStateInArgs{
+			ObjName: objName,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetPlatformSystemStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetPlatformSystemState")
+	}
 }
 
 func GetBulkPlatformSystemState(fromIdx, count int) (*objects.PlatformSystemStateGetInfo, error) {

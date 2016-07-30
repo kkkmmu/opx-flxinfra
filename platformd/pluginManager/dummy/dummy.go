@@ -98,3 +98,9 @@ func (driver *dummyDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt in
 	driver.logger.Info("GetAllSfpState")
 	return nil
 }
+
+func (driver *dummyDriver) GetPlatformSystemState() (pluginCommon.PlatformSystemState, error) {
+	var retObj pluginCommon.PlatformSystemState
+
+	return retObj, nil
+}
