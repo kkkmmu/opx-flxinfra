@@ -46,6 +46,8 @@ const (
 	GET_BULK_PSU_CONFIG
 	UPDATE_PSU_CONFIG
 	GET_PLATFORMSYSTEM_STATE
+	GET_THERMAL_STATE
+	GET_BULK_THERMAL_STATE
 )
 
 type ServerRequest struct {
@@ -138,4 +140,18 @@ type GetPlatformSystemStateInArgs struct {
 type GetPlatformSystemStateOutArgs struct {
 	Obj *objects.PlatformSystemState
 	Err error
+}
+
+type GetThermalStateInArgs struct {
+	ThermalId int32
+}
+
+type GetThermalStateOutArgs struct {
+	Obj *objects.ThermalState
+	Err error
+}
+
+type GetBulkThermalStateOutArgs struct {
+	BulkInfo *objects.ThermalStateGetInfo
+	Err      error
 }

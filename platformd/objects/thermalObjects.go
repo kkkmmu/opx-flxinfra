@@ -21,57 +21,7 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
-
-import (
-	"utils/logging"
-)
-
-//Plugin name constants
-const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openbmc"
-	Dummy_PLUGIN   = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
-}
-
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
-}
-
-type SfpState struct {
-	SfpId      int32
-	AdminState string
-	OperStatus string
-	SfpLOS     string
-	SfpType    string
-	EEPROM     [256]string
-}
-
-type PlatformSystemState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	ONIEVersion  string
-}
+package objects
 
 type ThermalState struct {
 	ThermalId                 int32
@@ -80,5 +30,11 @@ type ThermalState struct {
 	LowerWatermarkTemperature string
 	UpperWatermarkTemperature string
 	ShutdownTemperature       string
-	Valid                     bool
+}
+
+type ThermalStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*ThermalState
 }

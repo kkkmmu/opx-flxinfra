@@ -21,64 +21,18 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package server
 
 import (
-	"utils/logging"
+	"infra/platformd/objects"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openbmc"
-	Dummy_PLUGIN   = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+func (svr *PlatformdServer) getThermalState(thermalId int32) (*objects.ThermalState, error) {
+	retObj, err := svr.pluginMgr.GetThermalState(thermalId)
+	return retObj, err
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
-}
-
-type SfpState struct {
-	SfpId      int32
-	AdminState string
-	OperStatus string
-	SfpLOS     string
-	SfpType    string
-	EEPROM     [256]string
-}
-
-type PlatformSystemState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	ONIEVersion  string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+func (svr *PlatformdServer) getBulkThermalState(fromIdx int, count int) (*objects.ThermalStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkThermalState(fromIdx, count)
+	return retObj, err
 }

@@ -44,6 +44,7 @@ func convertToRPCFmtFanState(obj *objects.FanState) *platformd.FanState {
 		Status:        obj.Status,
 		Model:         obj.Model,
 		SerialNum:     obj.SerialNum,
+		LedId:         obj.LedId,
 	}
 }
 
@@ -51,6 +52,7 @@ func convertToRPCFmtFanConfig(obj *objects.FanConfig) *platformd.Fan {
 	return &platformd.Fan{
 		FanId:      obj.FanId,
 		AdminSpeed: obj.AdminSpeed,
+		AdminState: obj.AdminState,
 	}
 }
 
@@ -58,11 +60,23 @@ func convertRPCToObjFmtFanConfig(rpcObj *platformd.Fan) *objects.FanConfig {
 	return &objects.FanConfig{
 		FanId:      rpcObj.FanId,
 		AdminSpeed: rpcObj.AdminSpeed,
+		AdminState: rpcObj.AdminState,
 	}
 }
 
 func convertToRPCFmtSfpConfig(obj *objects.SfpConfig) *platformd.Sfp {
 	return &platformd.Sfp{
 		SfpId: obj.SfpId,
+	}
+}
+
+func convertToRPCFmtThermalState(obj *objects.ThermalState) *platformd.ThermalState {
+	return &platformd.ThermalState{
+		ThermalId:                 obj.ThermalId,
+		Location:                  obj.Location,
+		Temperature:               obj.Temperature,
+		LowerWatermarkTemperature: obj.LowerWatermarkTemperature,
+		UpperWatermarkTemperature: obj.UpperWatermarkTemperature,
+		ShutdownTemperature:       obj.ShutdownTemperature,
 	}
 }

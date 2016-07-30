@@ -34,9 +34,9 @@ type dummyDriver struct {
 
 var driver dummyDriver
 
-func NewDummyPlugin(params *pluginCommon.PluginInitParams) *dummyDriver {
+func NewDummyPlugin(params *pluginCommon.PluginInitParams) (*dummyDriver, error) {
 	driver.logger = params.Logger
-	return &driver
+	return &driver, nil
 }
 
 func (driver *dummyDriver) Init() error {
@@ -49,14 +49,12 @@ func (driver *dummyDriver) DeInit() error {
 	return nil
 }
 
-func (driver *dummyDriver) GetFanState(fanId int32) (pluginCommon.FanState, error) {
-	var retObj pluginCommon.FanState
+func (driver *dummyDriver) GetFanState(fanId int32) (retObj pluginCommon.FanState, err error) {
 	return retObj, nil
 }
 
-func (driver *dummyDriver) GetFanConfig(fanId int32) (*objects.FanConfig, error) {
-	var retObj objects.FanConfig
-	return &retObj, nil
+func (driver *dummyDriver) GetFanConfig(fanId int32) (retObj *objects.FanConfig, err error) {
+	return retObj, nil
 }
 
 func (driver *dummyDriver) UpdateFanConfig(cfg *objects.FanConfig) (bool, error) {
@@ -73,20 +71,16 @@ func (driver *dummyDriver) GetAllFanState(state []pluginCommon.FanState, cnt int
 	return nil
 }
 
-func (driver *dummyDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {
-	var retObj pluginCommon.SfpState
-
+func (driver *dummyDriver) GetSfpState(sfpId int32) (retObj pluginCommon.SfpState, err error) {
 	// TODO
 	retObj.SfpId = sfpId
 	return retObj, nil
 }
 
-func (driver *dummyDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
-	var retObj objects.SfpConfig
-
+func (driver *dummyDriver) GetSfpConfig(sfpId int32) (retObj *objects.SfpConfig, err error) {
 	// TODO
 	retObj.SfpId = sfpId
-	return &retObj, nil
+	return retObj, nil
 }
 
 func (driver *dummyDriver) UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error) {
@@ -103,4 +97,12 @@ func (driver *dummyDriver) GetPlatformSystemState() (pluginCommon.PlatformSystem
 	var retObj pluginCommon.PlatformSystemState
 
 	return retObj, nil
+}
+func (driver *dummyDriver) GetThermalState(thermalId int32) (retObj pluginCommon.ThermalState, err error) {
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetMaxNumOfThermal() int {
+	driver.logger.Info("Inside Dummy: GetMaxNumOfThermal()")
+	return 0
 }
