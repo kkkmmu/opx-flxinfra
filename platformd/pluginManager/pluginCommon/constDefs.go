@@ -62,6 +62,17 @@ type SfpState struct {
 	EEPROM     [256]string
 }
 
+type PlatformSystemState struct {
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	ONIEVersion  string
+}
+
 type ThermalState struct {
 	ThermalId                 int32
 	Location                  string

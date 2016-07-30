@@ -24,7 +24,10 @@
 package pluginManager
 
 import (
-	//"fmt"
+	"errors"
+	"fmt"
+	"infra/platformd/objects"
+	"infra/platformd/pluginManager/pluginCommon"
 	"utils/logging"
 )
 
@@ -43,4 +46,28 @@ func (sMgr *SysManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 
 func (sMgr *SysManager) Deinit() {
 	sMgr.logger.Info("System Manager Deinit()")
+}
+
+func (sMgr *SysManager) GetPlatformSystemState(sysName string) (*objects.PlatformSystemState, error) {
+	var retObj objects.PlatformSystemState
+	var platInfo pluginCommon.PlatformSystemState
+	if sMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	platInfo, err := sMgr.plugin.GetPlatformSystemState()
+	if err != nil {
+		sMgr.logger.Err(fmt.Sprintln("Error getting Platform Info"))
+		return &retObj, err
+	}
+
+	retObj.ObjName = sysName
+	retObj.ProductName = platInfo.ProductName
+	retObj.SerialNum = platInfo.SerialNum
+	retObj.Manufacturer = platInfo.Manufacturer
+	retObj.Vendor = platInfo.Vendor
+	retObj.Release = platInfo.Release
+	retObj.PlatformName = platInfo.PlatformName
+	retObj.ONIEVersion = platInfo.ONIEVersion
+
+	return &retObj, nil
 }

@@ -210,6 +210,11 @@ func (driver *openBMCDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt 
 	return nil
 }
 
+func (driver *openBMCDriver) GetPlatformSystemState() (pluginCommon.PlatformSystemState, error) {
+	var retObj pluginCommon.PlatformSystemState
+	return retObj, nil
+}
+
 func (driver *openBMCDriver) GetMaxNumOfThermal() int {
 	driver.logger.Info("Inside OpenBMC: GetMaxNumOfThermal()")
 	return NUM_OF_THERMAL

@@ -24,8 +24,14 @@
 package objects
 
 type PlatformSystemState struct {
-	ObjName   string
-	SerialNum string
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	ONIEVersion  string
 }
 
 type PlatformSystemStateGetInfo struct {
