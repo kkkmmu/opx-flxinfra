@@ -201,15 +201,33 @@ func (rpcHdl *rpcServiceHandler) GetLedState(sfpId int32) (*platformd.LedState, 
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkThermalState(fromIdx, count platformd.Int) (*platformd.ThermalStateGetInfo, error) {
-	var obj platformd.ThermalStateGetInfo
+	var getBulkObj platformd.ThermalStateGetInfo
+	var err error
 
-	return &obj, nil
+	info, err := api.GetBulkThermalState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.ThermalStateList = append(getBulkObj.ThermalStateList, convertToRPCFmtThermalState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetThermalState(sensorId int32) (*platformd.ThermalState, error) {
-	var obj platformd.ThermalState
+func (rpcHdl *rpcServiceHandler) GetThermalState(thermalId int32) (*platformd.ThermalState, error) {
+	var rpcObj *platformd.ThermalState
+	var err error
 
-	return &obj, nil
+	obj, err := api.GetThermalState(thermalId)
+	if err == nil {
+		rpcObj = convertToRPCFmtThermalState(obj)
+	}
+	return rpcObj, err
+
 }
 
 func (rpcHdl *rpcServiceHandler) CreatePsu(config *platformd.Psu) (bool, error) {

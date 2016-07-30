@@ -28,7 +28,6 @@ import (
 	//"infra/platformd/objects"
 	"infra/platformd/pluginManager"
 	"infra/platformd/pluginManager/pluginCommon"
-	"time"
 	"utils/dbutils"
 	"utils/logging"
 )
@@ -125,6 +124,19 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.RetVal, retObj.Err = svr.updateFanConfig(val.FanOldCfg, val.FanNewCfg, val.AttrSet)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_THERMAL_STATE:
+		var retObj GetThermalStateOutArgs
+		if val, ok := req.Data.(*GetThermalStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getThermalState(val.ThermalId)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_THERMAL_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_THERMAL_STATE:
+		var retObj GetBulkThermalStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkThermalState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	default:
 		svr.Logger.Err(fmt.Sprintln("Error : Server recevied unrecognized request - ", req.Op))
 	}
@@ -145,6 +157,5 @@ func (svr *PlatformdServer) Serve() {
 			svr.handleRPCRequest(req)
 
 		}
-		time.Sleep(10)
 	}
 }

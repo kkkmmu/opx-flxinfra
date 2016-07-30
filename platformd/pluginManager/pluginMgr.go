@@ -46,6 +46,8 @@ type PluginIntf interface {
 	GetSfpConfig(sfpId int32) (*objects.SfpConfig, error)
 	UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error)
 	GetAllSfpState(state []pluginCommon.SfpState, count int) error
+	GetThermalState(thermalId int32) (pluginCommon.ThermalState, error)
+	GetMaxNumOfThermal() int
 }
 
 type ResourceManagers struct {
