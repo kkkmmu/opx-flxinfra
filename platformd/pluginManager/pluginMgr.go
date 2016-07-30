@@ -63,24 +63,34 @@ type PluginManager struct {
 	plugin PluginIntf
 }
 
-func NewPluginMgr(pluginName string, initParams *pluginCommon.PluginInitParams) *PluginManager {
+func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, error) {
 	var plugin PluginIntf
+	var err error
 	pluginMgr := new(PluginManager)
 	pluginMgr.ResourceManagers = new(ResourceManagers)
 	pluginMgr.logger = initParams.Logger
-	pluginName = strings.ToLower(pluginName)
+	pluginName := strings.ToLower(initParams.PluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
 		fmt.Println("===== ONLP_PLUGIN =====")
-		plugin = onlp.NewONLPPlugin(initParams)
+		plugin, err = onlp.NewONLPPlugin(initParams)
+		if err != nil {
+			return nil, err
+		}
 		pluginMgr.plugin = plugin
 	case pluginCommon.OpenBMC_PLUGIN:
 		fmt.Println("===== OPENBMC_PLUGIN =====")
-		plugin = openBMC.NewOpenBMCPlugin(initParams)
+		plugin, err = openBMC.NewOpenBMCPlugin(initParams)
+		if err != nil {
+			return nil, err
+		}
 		pluginMgr.plugin = plugin
 	case pluginCommon.Dummy_PLUGIN:
 		fmt.Println("===== Dummy_PLUGIN =====")
-		plugin = dummy.NewDummyPlugin(initParams)
+		plugin, err = dummy.NewDummyPlugin(initParams)
+		if err != nil {
+			return nil, err
+		}
 		pluginMgr.plugin = plugin
 	default:
 	}
@@ -90,7 +100,7 @@ func NewPluginMgr(pluginName string, initParams *pluginCommon.PluginInitParams) 
 	pluginMgr.SfpManager = &SfpMgr
 	pluginMgr.ThermalManager = &ThermalMgr
 	pluginMgr.LedManager = &LedMgr
-	return pluginMgr
+	return pluginMgr, nil
 }
 
 func (pMgr *PluginManager) Init() error {
