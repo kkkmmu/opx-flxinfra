@@ -195,3 +195,11 @@ func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int
 	driver.logger.Info("GetAllSfpState")
 	return nil
 }
+
+func (driver *onlpDriver) GetMaxNumOfThermal() int {
+	return 0
+}
+
+func (driver *onlpDriver) GetThermalState(thermalId int32) (tState pluginCommon.ThermalState, err error) {
+	return tState, err
+}

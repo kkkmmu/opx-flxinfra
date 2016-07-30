@@ -69,3 +69,14 @@ func convertToRPCFmtSfpConfig(obj *objects.SfpConfig) *platformd.Sfp {
 		SfpId: obj.SfpId,
 	}
 }
+
+func convertToRPCFmtThermalState(obj *objects.ThermalState) *platformd.ThermalState {
+	return &platformd.ThermalState{
+		ThermalId:                 obj.ThermalId,
+		Location:                  obj.Location,
+		Temperature:               obj.Temperature,
+		LowerWatermarkTemperature: obj.LowerWatermarkTemperature,
+		UpperWatermarkTemperature: obj.UpperWatermarkTemperature,
+		ShutdownTemperature:       obj.ShutdownTemperature,
+	}
+}
