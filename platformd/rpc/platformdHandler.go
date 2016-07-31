@@ -28,26 +28,26 @@ import (
 	"platformd"
 )
 
-func (rpcHdl *rpcServiceHandler) GetPlatformSystemState(objName string) (*platformd.PlatformSystemState, error) {
-	var rpcObj *platformd.PlatformSystemState
+func (rpcHdl *rpcServiceHandler) GetPlatformState(objName string) (*platformd.PlatformState, error) {
+	var rpcObj *platformd.PlatformState
 
-	obj, err := api.GetPlatformSystemState(objName)
+	obj, err := api.GetPlatformState(objName)
 	if err == nil {
-		rpcObj = convertToRPCFmtPlatformSystemState(obj)
+		rpcObj = convertToRPCFmtPlatformState(obj)
 	}
 	return rpcObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetBulkPlatformSystemState(fromIdx, count platformd.Int) (*platformd.PlatformSystemStateGetInfo, error) {
-	var getBulkObj platformd.PlatformSystemStateGetInfo
+func (rpcHdl *rpcServiceHandler) GetBulkPlatformState(fromIdx, count platformd.Int) (*platformd.PlatformStateGetInfo, error) {
+	var getBulkObj platformd.PlatformStateGetInfo
 
-	info, err := api.GetBulkPlatformSystemState(int(fromIdx), int(count))
+	info, err := api.GetBulkPlatformState(int(fromIdx), int(count))
 	getBulkObj.StartIdx = fromIdx
 	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
 	getBulkObj.More = info.More
 	getBulkObj.Count = platformd.Int(len(info.List))
 	for idx := 0; idx < len(info.List); idx++ {
-		getBulkObj.PlatformSystemStateList = append(getBulkObj.PlatformSystemStateList, convertToRPCFmtPlatformSystemState(info.List[idx]))
+		getBulkObj.PlatformStateList = append(getBulkObj.PlatformStateList, convertToRPCFmtPlatformState(info.List[idx]))
 	}
 	return &getBulkObj, err
 }

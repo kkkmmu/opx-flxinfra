@@ -27,8 +27,13 @@ import (
 	"infra/platformd/objects"
 )
 
-func (svr *PlatformdServer) getPlatformSystemState(platName string) (*objects.PlatformSystemState, error) {
-	retObj, err := svr.pluginMgr.GetPlatformSystemState(platName)
+func (svr *PlatformdServer) getPlatformState(platName string) (*objects.PlatformState, error) {
+	retObj, err := svr.pluginMgr.GetPlatformState(platName)
 
+	return retObj, err
+}
+
+func (svr *PlatformdServer) getBulkPlatformState(fromIdx int, count int) (*objects.PlatformStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkPlatformState(fromIdx, count)
 	return retObj, err
 }

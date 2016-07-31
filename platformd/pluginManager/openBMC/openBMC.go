@@ -68,6 +68,8 @@ type openBMCDriver struct {
 	port        string
 	sensorMutex sync.RWMutex
 	sensorData  SensorData
+	mbFruidInfo MBFruidInfo
+	bmcInfo     BMCInfo
 }
 
 var driver openBMCDriver
@@ -81,7 +83,6 @@ func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) (*openBMCDriver, er
 }
 
 func (driver *openBMCDriver) processSensorData() (err error) {
-	//driver.processFanData(data.FanSensor)
 	driver.sensorMutex.Lock()
 	driver.sensorData, err = driver.GetSensorState()
 	if err != nil {
@@ -93,9 +94,35 @@ func (driver *openBMCDriver) processSensorData() (err error) {
 	return err
 }
 
+func (driver *openBMCDriver) processMBFruidInfo() (err error) {
+	driver.mbFruidInfo, err = driver.GetMBFruidInfo()
+	if err != nil {
+		driver.logger.Err(fmt.Sprintln("Error getting OpenBMC MB Fruid Info", err))
+		return err
+	}
+	return err
+}
+
+func (driver *openBMCDriver) processBMCInfo() (err error) {
+	driver.bmcInfo, err = driver.GetBMCInfo()
+	if err != nil {
+		driver.logger.Err(fmt.Sprintln("Error getting OpenBMC BMC Info", err))
+		return err
+	}
+	return err
+}
+
 func (driver *openBMCDriver) Init() error {
 	driver.logger.Info("Initializing openBMC driver")
 	err := driver.processSensorData()
+	if err != nil {
+		return err
+	}
+	err = driver.processMBFruidInfo()
+	if err != nil {
+		return err
+	}
+	err = driver.processBMCInfo()
 	if err != nil {
 		return err
 	}
@@ -210,8 +237,15 @@ func (driver *openBMCDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt 
 	return nil
 }
 
-func (driver *openBMCDriver) GetPlatformSystemState() (pluginCommon.PlatformSystemState, error) {
-	var retObj pluginCommon.PlatformSystemState
+func (driver *openBMCDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
+	var retObj pluginCommon.PlatformState
+	retObj.ProductName = driver.mbFruidInfo.ProductName
+	retObj.SerialNum = driver.mbFruidInfo.ProSerialNum
+	retObj.Manufacturer = driver.mbFruidInfo.SystemManufacturer
+	retObj.Vendor = driver.mbFruidInfo.AssemAt
+	retObj.Release = fmt.Sprintf("%d.%d", driver.mbFruidInfo.ProductVer, driver.mbFruidInfo.ProSubVer)
+	retObj.PlatformName = driver.bmcInfo.Description
+	retObj.Version = driver.bmcInfo.OpenBMCVersion
 	return retObj, nil
 }
 

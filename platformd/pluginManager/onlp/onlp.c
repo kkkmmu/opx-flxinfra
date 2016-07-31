@@ -182,7 +182,7 @@ GetFanState(fan_info_t *info, int fanId)
 }
 
 int
-GetPlatformSystemState(sys_info_t *info_p)
+GetPlatformState(sys_info_t *info_p)
 {
     int ret = 0;
 
