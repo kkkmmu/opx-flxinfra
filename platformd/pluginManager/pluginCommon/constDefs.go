@@ -62,7 +62,7 @@ type SfpState struct {
 	EEPROM     [256]string
 }
 
-type PlatformSystemState struct {
+type PlatformState struct {
 	ObjName      string
 	ProductName  string
 	SerialNum    string
@@ -70,7 +70,7 @@ type PlatformSystemState struct {
 	Vendor       string
 	Release      string
 	PlatformName string
-	ONIEVersion  string
+	Version      string
 }
 
 type ThermalState struct {

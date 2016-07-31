@@ -8,6 +8,6 @@ int DeInit();
 int GetMaxNumOfFans();
 int GetAllFanState(fan_info_t *, int);
 int GetFanState(fan_info_t *, int);
-int GetPlatformSystemState(sys_info_t *);
+int GetPlatformState(sys_info_t *);
 
 #endif //ONPL_H

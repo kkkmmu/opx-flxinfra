@@ -39,33 +39,35 @@ func InitApiLayer(server *server.PlatformdServer) {
 	svr.Logger.Info("Initializing API layer")
 }
 
-func GetPlatformSystemState(objName string) (*objects.PlatformSystemState, error) {
+func GetPlatformState(objName string) (*objects.PlatformState, error) {
 	svr.ReqChan <- &server.ServerRequest{
-		Op: server.GET_PLATFORMSYSTEM_STATE,
-		Data: interface{}(&server.GetPlatformSystemStateInArgs{
+		Op: server.GET_PLATFORM_STATE,
+		Data: interface{}(&server.GetPlatformStateInArgs{
 			ObjName: objName,
 		}),
 	}
 	ret := <-svr.ReplyChan
-	if retObj, ok := ret.(*server.GetPlatformSystemStateOutArgs); ok {
+	if retObj, ok := ret.(*server.GetPlatformStateOutArgs); ok {
 		return retObj.Obj, retObj.Err
 	} else {
-		return nil, errors.New("Error: Invalid response received from server during GetPlatformSystemState")
+		return nil, errors.New("Error: Invalid response received from server during GetPlatformState")
 	}
 }
 
-func GetBulkPlatformSystemState(fromIdx, count int) (*objects.PlatformSystemStateGetInfo, error) {
-	obj := objects.PlatformSystemState{
-		ObjName:   "PlatformSystem",
-		SerialNum: "000011112222333",
+func GetBulkPlatformState(fromIdx, count int) (*objects.PlatformStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_PLATFORM_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
 	}
-	var retObj objects.PlatformSystemStateGetInfo
-
-	retObj.EndIdx = 0
-	retObj.Count = 1
-	retObj.More = false
-	retObj.List = append(retObj.List, &obj)
-	return &retObj, nil
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkPlatformStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkPlatformState")
+	}
 }
 
 func GetFanState(fanId int32) (*objects.FanState, error) {

@@ -28,10 +28,16 @@ import (
 	"platformd"
 )
 
-func convertToRPCFmtPlatformSystemState(obj *objects.PlatformSystemState) *platformd.PlatformSystemState {
-	return &platformd.PlatformSystemState{
-		ObjName:   "PlatformSystemState",
-		SerialNum: obj.SerialNum,
+func convertToRPCFmtPlatformState(obj *objects.PlatformState) *platformd.PlatformState {
+	return &platformd.PlatformState{
+		ObjName:      "Platform",
+		ProductName:  obj.ProductName,
+		SerialNum:    obj.SerialNum,
+		Manufacturer: obj.Manufacturer,
+		Vendor:       obj.Vendor,
+		Release:      obj.Release,
+		PlatformName: obj.PlatformName,
+		Version:      obj.Version,
 	}
 }
 
