@@ -92,3 +92,17 @@ func (driver *dummyDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt in
 	driver.logger.Info("GetAllSfpState")
 	return nil
 }
+
+func (driver *dummyDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
+	var retObj pluginCommon.PlatformState
+
+	return retObj, nil
+}
+func (driver *dummyDriver) GetThermalState(thermalId int32) (retObj pluginCommon.ThermalState, err error) {
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetMaxNumOfThermal() int {
+	driver.logger.Info("Inside Dummy: GetMaxNumOfThermal()")
+	return 0
+}

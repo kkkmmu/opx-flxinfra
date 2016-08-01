@@ -33,6 +33,7 @@ import (
 
 const (
 	NUM_OF_FAN          int = 10
+	NUM_OF_THERMAL      int = 7
 	SENSOR_POLLING_TIME     = time.Duration(1) * time.Second
 )
 
@@ -50,12 +51,25 @@ const (
  * Fan5Rear  = FanId(9)
  */
 
+/*
+ * ThermalId Mapping
+ * Switch 		= ThermalId(0)
+ * Inlet Left 		= ThermalId(1)
+ * Inlet Middle 	= ThermalId(2)
+ * Inlet Right 		= ThermalId(3)
+ * Outlet Left 		= ThermalId(4)
+ * Outlet Middle 	= ThermalId(5)
+ * Outlet Right 	= ThermalId(6)
+ */
+
 type openBMCDriver struct {
 	logger      logging.LoggerIntf
 	ipAddr      string
 	port        string
 	sensorMutex sync.RWMutex
 	sensorData  SensorData
+	mbFruidInfo MBFruidInfo
+	bmcInfo     BMCInfo
 }
 
 var driver openBMCDriver
@@ -69,7 +83,6 @@ func NewOpenBMCPlugin(params *pluginCommon.PluginInitParams) (*openBMCDriver, er
 }
 
 func (driver *openBMCDriver) processSensorData() (err error) {
-	//driver.processFanData(data.FanSensor)
 	driver.sensorMutex.Lock()
 	driver.sensorData, err = driver.GetSensorState()
 	if err != nil {
@@ -81,9 +94,35 @@ func (driver *openBMCDriver) processSensorData() (err error) {
 	return err
 }
 
+func (driver *openBMCDriver) processMBFruidInfo() (err error) {
+	driver.mbFruidInfo, err = driver.GetMBFruidInfo()
+	if err != nil {
+		driver.logger.Err(fmt.Sprintln("Error getting OpenBMC MB Fruid Info", err))
+		return err
+	}
+	return err
+}
+
+func (driver *openBMCDriver) processBMCInfo() (err error) {
+	driver.bmcInfo, err = driver.GetBMCInfo()
+	if err != nil {
+		driver.logger.Err(fmt.Sprintln("Error getting OpenBMC BMC Info", err))
+		return err
+	}
+	return err
+}
+
 func (driver *openBMCDriver) Init() error {
 	driver.logger.Info("Initializing openBMC driver")
 	err := driver.processSensorData()
+	if err != nil {
+		return err
+	}
+	err = driver.processMBFruidInfo()
+	if err != nil {
+		return err
+	}
+	err = driver.processBMCInfo()
 	if err != nil {
 		return err
 	}
@@ -196,4 +235,57 @@ func (driver *openBMCDriver) UpdateSfpConfig(cfg *objects.SfpConfig) (bool, erro
 func (driver *openBMCDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int) error {
 	driver.logger.Info("GetAllSfpState")
 	return nil
+}
+
+func (driver *openBMCDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
+	var retObj pluginCommon.PlatformState
+	retObj.ProductName = driver.mbFruidInfo.ProductName
+	retObj.SerialNum = driver.mbFruidInfo.ProSerialNum
+	retObj.Manufacturer = driver.mbFruidInfo.SystemManufacturer
+	retObj.Vendor = driver.mbFruidInfo.AssemAt
+	retObj.Release = fmt.Sprintf("%d.%d", driver.mbFruidInfo.ProductVer, driver.mbFruidInfo.ProSubVer)
+	retObj.PlatformName = driver.bmcInfo.Description
+	retObj.Version = driver.bmcInfo.OpenBMCVersion
+	return retObj, nil
+}
+
+func (driver *openBMCDriver) GetMaxNumOfThermal() int {
+	driver.logger.Info("Inside OpenBMC: GetMaxNumOfThermal()")
+	return NUM_OF_THERMAL
+}
+
+func (driver *openBMCDriver) GetThermalState(thermalId int32) (pluginCommon.ThermalState, error) {
+	var state pluginCommon.ThermalState
+	state.Valid = true
+	state.ThermalId = thermalId
+	//driver.logger.Info(fmt.Sprintln("Sensor Data:", sensorData))
+	driver.sensorMutex.Lock()
+	switch thermalId {
+	case 0:
+		state.Location = "Switch"
+		state.Temperature = driver.sensorData.TempSensor.SwitchTemp.Temp
+	case 1:
+		state.Location = "Inlet Left"
+		state.Temperature = driver.sensorData.TempSensor.InLeftTemp.Temp
+	case 2:
+		state.Location = "Inlet Middle"
+		state.Temperature = driver.sensorData.TempSensor.InMidTemp.Temp
+	case 3:
+		state.Location = "Inlet Right"
+		state.Temperature = driver.sensorData.TempSensor.InRightTemp.Temp
+	case 4:
+		state.Location = "Outlet Left"
+		state.Temperature = driver.sensorData.TempSensor.OutLeftTemp.Temp
+	case 5:
+		state.Location = "Outlet Middle"
+		state.Temperature = driver.sensorData.TempSensor.OutMidTemp.Temp
+	case 6:
+		state.Location = "Outlet Right"
+		state.Temperature = driver.sensorData.TempSensor.OutRightTemp.Temp
+	}
+	driver.sensorMutex.Unlock()
+	state.LowerWatermarkTemperature = "Not Supported"
+	state.UpperWatermarkTemperature = "Not Supported"
+	state.ShutdownTemperature = "Not Supported"
+	return state, nil
 }

@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
-	"sync"
 	"utils/logging"
 )
 
@@ -50,7 +49,6 @@ type FanConfig struct {
 }
 
 type FanManager struct {
-	dbMutex   sync.RWMutex
 	logger    logging.LoggerIntf
 	plugin    PluginIntf
 	fanIdList []FanId

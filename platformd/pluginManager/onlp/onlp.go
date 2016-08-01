@@ -195,3 +195,32 @@ func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int
 	driver.logger.Info("GetAllSfpState")
 	return nil
 }
+
+func (driver *onlpDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
+	var retObj pluginCommon.PlatformState
+	var sysInfo C.sys_info_t
+
+	rt := int(C.GetPlatformState(&sysInfo))
+
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch System info"))
+	}
+
+	retObj.ProductName = C.GoString(&sysInfo.product_name[0])
+	retObj.Vendor = C.GoString(&sysInfo.vendor[0])
+	retObj.SerialNum = C.GoString(&sysInfo.serial_number[0])
+	retObj.Manufacturer = C.GoString(&sysInfo.manufacturer[0])
+	retObj.Release = C.GoString(&sysInfo.label_revision[0])
+	retObj.PlatformName = C.GoString(&sysInfo.platform_name[0])
+	retObj.Version = C.GoString(&sysInfo.onie_version[0])
+
+	return retObj, nil
+}
+
+func (driver *onlpDriver) GetMaxNumOfThermal() int {
+	return 0
+}
+
+func (driver *onlpDriver) GetThermalState(thermalId int32) (tState pluginCommon.ThermalState, err error) {
+	return tState, err
+}

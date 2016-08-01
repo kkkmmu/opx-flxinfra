@@ -61,3 +61,24 @@ type SfpState struct {
 	SfpType    string
 	EEPROM     [256]string
 }
+
+type PlatformState struct {
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	Version      string
+}
+
+type ThermalState struct {
+	ThermalId                 int32
+	Location                  string
+	Temperature               string
+	LowerWatermarkTemperature string
+	UpperWatermarkTemperature string
+	ShutdownTemperature       string
+	Valid                     bool
+}

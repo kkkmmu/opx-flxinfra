@@ -45,6 +45,10 @@ const (
 	GET_PSU_CONFIG
 	GET_BULK_PSU_CONFIG
 	UPDATE_PSU_CONFIG
+	GET_PLATFORM_STATE
+	GET_BULK_PLATFORM_STATE
+	GET_THERMAL_STATE
+	GET_BULK_THERMAL_STATE
 )
 
 type ServerRequest struct {
@@ -128,4 +132,32 @@ type UpdateSfpConfigInArgs struct {
 	SfpOldCfg *objects.SfpConfig
 	SfpNewCfg *objects.SfpConfig
 	AttrSet   []bool
+}
+
+type GetPlatformStateInArgs struct {
+	ObjName string
+}
+
+type GetPlatformStateOutArgs struct {
+	Obj *objects.PlatformState
+	Err error
+}
+
+type GetBulkPlatformStateOutArgs struct {
+	BulkInfo *objects.PlatformStateGetInfo
+	Err      error
+}
+
+type GetThermalStateInArgs struct {
+	ThermalId int32
+}
+
+type GetThermalStateOutArgs struct {
+	Obj *objects.ThermalState
+	Err error
+}
+
+type GetBulkThermalStateOutArgs struct {
+	BulkInfo *objects.ThermalStateGetInfo
+	Err      error
 }

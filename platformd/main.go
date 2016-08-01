@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	DMN_NAME = "PLATFORMD"
+	DMN_NAME = "platformd"
 	CFG_FILE = "platformd.conf"
 	CFG_DIR  = "/etc/flexswitch/"
 )
