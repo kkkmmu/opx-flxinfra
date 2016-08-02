@@ -25,6 +25,8 @@
 
 #include <stdio.h>
 
+#define DEFAULT_SIZE 128
+
 typedef enum fan_dir_e {
 	FAN_DIR_B2F,
 	FAN_DIR_F2B,
@@ -51,10 +53,34 @@ typedef struct fan_info {
 	int Speed;
 	fan_dir_t Direction;
 	fan_status_t Status;
-	char Model[100];
-	char SerialNum[100];
+	char Model[DEFAULT_SIZE];
+	char SerialNum[DEFAULT_SIZE];
 } fan_info_t;
 
+typedef struct sys_info {
+    char product_name[DEFAULT_SIZE];
+    char serial_number[DEFAULT_SIZE];
+    char manufacturer[DEFAULT_SIZE];
+    char vendor[DEFAULT_SIZE];
+    char platform_name[DEFAULT_SIZE];
+    char onie_version[DEFAULT_SIZE];
+    char label_revision[DEFAULT_SIZE];
+} sys_info_t;
+
+typedef enum {
+    SFP_ERROR = -1,
+    SFP_OK = 0,
+    SFP_MISSING = 1,
+}SFP_RET;
+
+typedef struct sfp_info {
+   int sfp_id;
+   unsigned int spf_speed; /* in Mbps */
+   int sfp_present;
+   int sfp_los;
+   char serial_number[12];
+   char eeprom[256];
+} sfp_info_t;
 
 
 #endif // PLUGINCOMMON_H
