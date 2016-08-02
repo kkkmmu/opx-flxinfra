@@ -24,7 +24,9 @@
 package pluginManager
 
 import (
+	"errors"
 	"infra/platformd/objects"
+	//"infra/platformd/pluginManager/pluginCommon"
 	"utils/logging"
 )
 
@@ -60,8 +62,26 @@ func (sfpMgr *SfpManager) Deinit() {
 	sfpMgr.logger.Info("SFP Manager Deinit()")
 }
 
-func (sfpMgr *SfpManager) GetSfpState(spfID int32) (*objects.SfpState, error) {
+func (sfpMgr *SfpManager) GetSfpState(sfpId int32) (*objects.SfpState, error) {
 	var obj objects.SfpState
+
+	if sfpMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+
+	sfpState, err := sfpMgr.plugin.GetSfpState(sfpId)
+
+	if err != nil {
+		return &obj, err
+	}
+	obj.SfpId = sfpState.SfpId
+	obj.SfpSpeed = sfpState.SfpSpeed
+	obj.SfpLos = sfpState.SfpLos
+	obj.SfpPresent = sfpState.SfpPresent
+	obj.SfpType = sfpState.SfpType
+	obj.SerialNum = sfpState.SerialNum
+	obj.EEPROM = sfpState.EEPROM
+
 	return &obj, nil
 }
 

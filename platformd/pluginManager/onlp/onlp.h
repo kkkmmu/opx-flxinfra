@@ -5,9 +5,13 @@
 
 int Init();
 int DeInit();
-int GetMaxNumOfFans();
-int GetAllFanState(fan_info_t *, int);
-int GetFanState(fan_info_t *, int);
+
 int GetPlatformState(sys_info_t *);
+
+int GetFanState(fan_info_t *, int);
+int GetAllFanState(fan_info_t *, int);
+int GetMaxNumOfFans();
+
+int GetSfpState(sfp_info_t *, int);
 
 #endif //ONPL_H
