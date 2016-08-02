@@ -13,5 +13,6 @@ int GetAllFanState(fan_info_t *, int);
 int GetMaxNumOfFans();
 
 int GetSfpState(sfp_info_t *, int);
+int GetSfpCnt();
 
 #endif //ONPL_H
