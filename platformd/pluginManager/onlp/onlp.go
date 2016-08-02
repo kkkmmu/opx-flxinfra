@@ -169,13 +169,45 @@ func (driver *onlpDriver) GetAllFanState(states []pluginCommon.FanState, cnt int
 	return nil
 }
 
-//TODO
 func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {
 	var retObj pluginCommon.SfpState
+	var sfpInfo C.sfp_info_t
+	var rt int
 
-	// TODO
-	retObj.SfpId = sfpId
+	rt = int(C.GetSfpState(&sfpInfo, C.int(sfpId)))
+
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch SFP info for ", sfpId))
+	}
+
+	if int(rt) > 0 {
+		// SFP missing
+		return retObj, errors.New(fmt.Sprintln("SFP MISSING"))
+	}
+
+	retObj.SfpId = int32(sfpInfo.sfp_id)
+
+	if int(sfpInfo.sfp_present) == 0 {
+		retObj.SfpPresent = "SfpNotPresent"
+		return retObj, nil
+	}
+
+	retObj.SfpPresent = "SfpPresent"
+	if int(sfpInfo.sfp_los) > 0 {
+		retObj.SfpLos = "LaserUp"
+	} else {
+		retObj.SfpLos = "LaserDown"
+	}
+
+	retObj.SerialNum = C.GoString(&sfpInfo.serial_number[0])
+	retObj.EEPROM = C.GoString(&sfpInfo.eeprom[0])
+
 	return retObj, nil
+}
+
+func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int) error {
+	driver.logger.Info("GetAllSfpState")
+	return nil
 }
 
 func (driver *onlpDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
@@ -189,11 +221,6 @@ func (driver *onlpDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) 
 func (driver *onlpDriver) UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error) {
 	driver.logger.Info("Updating Onlp SFP Config")
 	return true, nil
-}
-
-func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int) error {
-	driver.logger.Info("GetAllSfpState")
-	return nil
 }
 
 func (driver *onlpDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
