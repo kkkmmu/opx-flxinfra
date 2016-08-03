@@ -53,11 +53,13 @@ loadOnlpSym()
 		return -1;
     }
 
+#if 0
     onlpSfpBitmapInit = dlsym(handle, "onlp_sfp_bitmap_init");
     if ((error = dlerror()) != NULL)  {
         printf(error, stderr);
 		return -1;
     }
+#endif
 
     onlpSfpBitmapGet = dlsym(handle, "onlp_sfp_bitmap_get");
     if ((error = dlerror()) != NULL)  {
@@ -267,9 +269,16 @@ GetSfpCnt()
     int rt;
     onlp_sfp_bitmap_t bMap;
 
-    rt = onlpSfpBitmapGet(&bMap);
+    return 32;
+    // TODO
+    memset(&bMap, 0, sizeof(onlp_sfp_bitmap_t));
+    if (onlpSfpBitmapGet == NULL) {
+		printf("onlpSfpBitmapGet NULL\n");
+		return 0;
+	}
+    rt = (*onlpSfpBitmapGet)(&bMap);
     if (rt < 0)
-        return rt;
+        return 0;
 
     return AIM_BITMAP_COUNT(&bMap);
 }
