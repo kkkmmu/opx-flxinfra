@@ -31,6 +31,7 @@ import (
 	"io/ioutil"
 	"models/events"
 	"time"
+	"utils/eventUtils"
 	"utils/logging"
 	"utils/ringBuffer"
 )
@@ -39,6 +40,7 @@ type FaultDetail struct {
 	RaiseFault       bool
 	ClearingEventId  int
 	ClearingDaemonId int
+	AlarmSeverity    string
 }
 
 type EventStruct struct {
@@ -83,6 +85,7 @@ type EvtDetail struct {
 	RaiseFault       bool
 	ClearingEventId  int
 	ClearingDaemonId int
+	AlarmSeverity    string
 }
 
 type FaultDataMap map[FaultObjKey]FaultData
@@ -99,16 +102,24 @@ type FaultDatabaseKey struct {
 	Description    string
 }
 
+type AlarmDatabaseKey struct {
+	FaultId  FaultId
+	FObjKey  FaultObjKey
+	FaultIdx int
+}
+
 type FMGRServer struct {
-	logger           *logging.Writer
-	dbHdl            redis.Conn
-	subHdl           redis.PubSubConn
-	FaultEventMap    map[FaultId]FaultDetail
-	NonFaultEventMap map[FaultId]NonFaultData
-	FaultDatabase    map[FaultId]FaultDataMap
-	FaultList        *ringBuffer.RingBuffer
-	FaultSeqNumber   uint64
-	InitDone         chan bool
+	logger                     logging.LoggerIntf
+	dbHdl                      redis.Conn
+	subHdl                     redis.PubSubConn
+	FaultEventMap              map[FaultId]FaultDetail
+	NonFaultEventMap           map[FaultId]NonFaultData
+	FaultDatabase              map[FaultId]FaultDataMap
+	FaultList                  *ringBuffer.RingBuffer
+	AlarmList                  *ringBuffer.RingBuffer
+	FaultSeqNumber             uint64
+	InitDone                   chan bool
+	FaultToAlarmTransitionTime time.Duration
 }
 
 func NewFMGRServer(logger *logging.Writer) *FMGRServer {
@@ -120,7 +131,10 @@ func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
 	fMgrServer.FaultList = new(ringBuffer.RingBuffer)
 	fMgrServer.FaultList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
+	fMgrServer.AlarmList = new(ringBuffer.RingBuffer)
+	fMgrServer.AlarmList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
 	fMgrServer.FaultSeqNumber = 0
+	fMgrServer.FaultToAlarmTransitionTime = time.Duration(3) * time.Second
 	return fMgrServer
 }
 
@@ -146,7 +160,7 @@ func (server *FMGRServer) Subscriber() {
 	for {
 		switch n := server.subHdl.Receive().(type) {
 		case redis.Message:
-			var evt events.Event
+			var evt eventUtils.Event
 			err := json.Unmarshal(n.Data, &evt)
 			if err != nil {
 				server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
@@ -224,12 +238,14 @@ func (server *FMGRServer) initFaultMgrDS() error {
 				evtEnt.RaiseFault = evt.Fault.RaiseFault
 				evtEnt.ClearingEventId = evt.Fault.ClearingEventId
 				evtEnt.ClearingDaemonId = evt.Fault.ClearingDaemonId
+				evtEnt.AlarmSeverity = evt.Fault.AlarmSeverity
 			} else {
 				evtEnt.IsFault = false
 				evtEnt.IsClearingEvent = false
 				evtEnt.RaiseFault = false
 				evtEnt.ClearingEventId = -1
 				evtEnt.ClearingDaemonId = -1
+				evtEnt.AlarmSeverity = ""
 			}
 			evtMap[fId] = evtEnt
 		}
@@ -258,6 +274,7 @@ func (server *FMGRServer) initFaultMgrDS() error {
 			evtEnt.RaiseFault = evt.RaiseFault
 			evtEnt.ClearingEventId = evt.ClearingEventId
 			evtEnt.ClearingDaemonId = evt.ClearingDaemonId
+			evtEnt.AlarmSeverity = evt.AlarmSeverity
 			server.FaultEventMap[fId] = evtEnt
 			cFId := FaultId{
 				DaemonId: evtEnt.ClearingDaemonId,
@@ -298,6 +315,7 @@ func (server *FMGRServer) InitServer(paramDir string) {
 
 	server.subHdl.Subscribe("ASICD")
 	server.subHdl.Subscribe("ARPD")
+	server.subHdl.Subscribe("OPTICD")
 	go server.Subscriber()
 
 }

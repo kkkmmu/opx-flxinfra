@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"models/events"
 	"time"
+	"utils/eventUtils"
 )
 
 type FaultObjKey string
@@ -41,6 +42,8 @@ type FaultData struct {
 	SrcObjKey      interface{}
 	FaultListIdx   int
 	FaultSeqNumber uint64
+	AlarmListIdx   int
+	AlarmTimer     *time.Timer
 }
 
 func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interface{}) FaultObjKey {
@@ -53,10 +56,10 @@ func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interfac
 		return ""
 	}
 	obj = srcObjKey
-	return FaultObjKey(fmt.Sprintf("%s %s", srcObjName, obj))
+	return FaultObjKey(fmt.Sprintf("%v %v", srcObjName, obj))
 }
 
-func (server *FMGRServer) processEvents(evt events.Event) error {
+func (server *FMGRServer) processEvents(evt eventUtils.Event) error {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -65,16 +68,17 @@ func (server *FMGRServer) processEvents(evt events.Event) error {
 	server.logger.Info("Process Events....")
 	if _, exist := server.FaultEventMap[fId]; exist {
 		err := server.processFaultEvents(evt)
-		//server.logger.Info(fmt.Sprintln("====1 Fault Database ====", server.FaultDatabase))
-		//server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+		server.logger.Info(fmt.Sprintln("====1 Fault Database ====", server.FaultDatabase))
+		server.logger.Info(fmt.Sprintln("====Fault Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+		server.logger.Info(fmt.Sprintln("====Alarm Ring Buffer Size===", server.AlarmList.GetListOfEntriesFromRingBuffer()))
 		return err
 	}
 
 	if ent, exist := server.NonFaultEventMap[fId]; exist {
 		if ent.IsClearingEvent == true {
 			err := server.processFaultClearingEvents(evt)
-			//server.logger.Info(fmt.Sprintln("====2 Fault Database ====", server.FaultDatabase))
-			//server.logger.Info(fmt.Sprintln("====Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+			server.logger.Info(fmt.Sprintln("====Fault Ring Buffer Size===", server.FaultList.GetListOfEntriesFromRingBuffer()))
+			server.logger.Info(fmt.Sprintln("====Alarm Ring Buffer Size===", server.AlarmList.GetListOfEntriesFromRingBuffer()))
 			return err
 		}
 	}
@@ -82,19 +86,19 @@ func (server *FMGRServer) processEvents(evt events.Event) error {
 	return nil
 }
 
-func (server *FMGRServer) processFaultEvents(evt events.Event) error {
+func (server *FMGRServer) processFaultEvents(evt eventUtils.Event) error {
 	server.logger.Info(fmt.Sprintln("Processing Fault Events: ", evt))
 	server.CreateEntryInFaultDatabase(evt)
 	return nil
 }
 
-func (server *FMGRServer) processFaultClearingEvents(evt events.Event) error {
+func (server *FMGRServer) processFaultClearingEvents(evt eventUtils.Event) error {
 	server.logger.Info(fmt.Sprintln("Processing Non Fault Events: ", evt))
 	server.DeleteEntryFromFaultDatabase(evt)
 	return nil
 }
 
-func (server *FMGRServer) AddFaultEntryInList(evt events.Event) int {
+func (server *FMGRServer) AddFaultEntryInList(evt eventUtils.Event) int {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -116,7 +120,17 @@ func (server *FMGRServer) AddFaultEntryInList(evt events.Event) int {
 	return server.FaultList.InsertIntoRingBuffer(fDBKey)
 }
 
-func (server *FMGRServer) CreateEntryInFaultDatabase(evt events.Event) error {
+func (server *FMGRServer) AddAlarmEntryInList(fId FaultId, fObjKey FaultObjKey, faultIdx int) int {
+	alarmDBKey := AlarmDatabaseKey{
+		FaultId:  fId,
+		FObjKey:  fObjKey,
+		FaultIdx: faultIdx,
+	}
+
+	return server.AlarmList.InsertIntoRingBuffer(alarmDBKey)
+}
+
+func (server *FMGRServer) CreateEntryInFaultDatabase(evt eventUtils.Event) error {
 	fId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -151,12 +165,31 @@ func (server *FMGRServer) CreateEntryInFaultDatabase(evt events.Event) error {
 	fDataEnt.FaultListIdx = idx
 	fDataEnt.FaultSeqNumber = server.FaultSeqNumber
 	server.FaultSeqNumber++
+	//Start Alarm timer
+	alarmFunc := func() {
+		if server.FaultDatabase[fId] == nil {
+			server.logger.Err("Fault Database doesnot exist, hence skipping alarm generation, something wrong")
+			return
+		}
+		fDbEnt, _ := server.FaultDatabase[fId]
+		fDataEnt, exist := fDbEnt[fObjKey]
+		if !exist {
+			server.logger.Info("Fault is already cleared")
+			return
+		}
+		alarmListIdx := server.AddAlarmEntryInList(fId, fObjKey, idx)
+		fDataEnt.AlarmListIdx = alarmListIdx
+		fDbEnt[fObjKey] = fDataEnt
+		server.FaultDatabase[fId] = fDbEnt
+	}
+	alarmTimer := time.AfterFunc(server.FaultToAlarmTransitionTime, alarmFunc)
+	fDataEnt.AlarmTimer = alarmTimer
 	fDbEnt[fObjKey] = fDataEnt
 	server.FaultDatabase[fId] = fDbEnt
 	return nil
 }
 
-func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt events.Event) error {
+func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt eventUtils.Event) error {
 	cFId := FaultId{
 		DaemonId: int(evt.OwnerId),
 		EventId:  int(evt.EvtId),
@@ -191,6 +224,12 @@ func (server *FMGRServer) DeleteEntryFromFaultDatabase(evt events.Event) error {
 			fDBKey.Resolved = true
 			fDBKey.ResolutionTime = evt.TimeStamp
 			server.FaultList.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
+		}
+		// If timer is not stopped, stop the timer
+		// Else clear the Alarm
+		ret := fDataEnt.AlarmTimer.Stop()
+		if ret == true {
+			server.logger.Info(fmt.Sprintln("Alarm time is stopped for", evt))
 		}
 		delete(fDbEnt, fObjKey)
 	}

@@ -261,6 +261,19 @@ GetPlatformState(sys_info_t *info_p)
     return ret;
 }
 
+int
+GetSfpCnt()
+{
+    int rt;
+    onlp_sfp_bitmap_t bMap;
+
+    rt = onlpSfpBitmapGet(&bMap);
+    if (rt < 0)
+        return rt;
+
+    return AIM_BITMAP_COUNT(&bMap);
+}
+
 SFP_RET
 GetSfpState(sfp_info_t *sfpInfo, int sfpId)
 {
@@ -281,7 +294,6 @@ GetSfpState(sfp_info_t *sfpInfo, int sfpId)
     sfpInfo->sfp_present = 1;
 
     /* RX LOS */
-
     rt = (*onlpSfpControlGet)(sfpId, ONLP_SFP_CONTROL_RX_LOS, &rval);
     if (rt < 0) {
 		printf("%s :(%d) RX LOS detect failed for SFP(%d)\n",__FUNCTION__, rt, sfpId);

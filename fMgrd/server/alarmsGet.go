@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-type FaultState struct {
+type AlarmState struct {
 	OwnerId        int
 	EventId        int
 	OwnerName      string
@@ -38,21 +38,25 @@ type FaultState struct {
 	OccuranceTime  string
 	ResolutionTime string
 	SrcObjKey      string
+	Severity       string
 }
 
-func (server *FMGRServer) GetBulkFault(fromIdx int, cnt int) (int, int, []FaultState) {
-	server.logger.Info("Inside Get Bulk Fault function ...")
+func (server *FMGRServer) GetBulkAlarm(fromIdx int, cnt int) (int, int, []AlarmState) {
+	server.logger.Info("Inside Get Bulk alarm function ...")
 	var nextIdx int
 	var count int
 
+	alarms := server.AlarmList.GetListOfEntriesFromRingBuffer()
 	faults := server.FaultList.GetListOfEntriesFromRingBuffer()
-	length := len(faults)
-	result := make([]FaultState, cnt)
+	length := len(alarms)
+	result := make([]AlarmState, cnt)
 	var i int
 	var j int
 	for i, j = 0, fromIdx; i < cnt && j < length; j++ {
-		intf := faults[length-j-1]
-		fault := intf.(FaultDatabaseKey)
+		alarmIntf := alarms[length-j-1]
+		alarm := alarmIntf.(AlarmDatabaseKey)
+		faultIntf := faults[alarm.FaultIdx]
+		fault := faultIntf.(FaultDatabaseKey)
 		result[i].OwnerId = fault.FaultId.DaemonId
 		result[i].EventId = fault.FaultId.EventId
 		result[i].OwnerName = fault.OwnerName
@@ -68,6 +72,8 @@ func (server *FMGRServer) GetBulkFault(fromIdx int, cnt int) (int, int, []FaultS
 		} else {
 			result[i].ResolutionTime = fault.ResolutionTime.String()
 		}
+		flt := server.FaultEventMap[alarm.FaultId]
+		result[i].Severity = flt.AlarmSeverity
 		i++
 	}
 	if j == length {
