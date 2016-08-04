@@ -96,7 +96,6 @@ func (sfpMgr *SfpManager) GetSfpState(sfpId int32) (*objects.SfpState, error) {
 	}
 
 	sfpState, err := sfpMgr.plugin.GetSfpState(sfpId)
-
 	if err != nil {
 		return &obj, err
 	}
@@ -130,10 +129,9 @@ func (sfpMgr *SfpManager) GetBulkSfpState(fromIdx, cnt int) (*objects.SfpStateGe
 		retObj.Count = len(sfpMgr.sfpIdList) - retObj.EndIdx + 1
 	}
 	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
-		sfpId := int32(sfpMgr.sfpIdList[idx])
-		obj, err := sfpMgr.GetSfpState(sfpId)
+		obj, err := sfpMgr.GetSfpState(int32(idx))
 		if err != nil {
-			sfpMgr.logger.Err("Error getting the SFP state for sfpId:", sfpId)
+			sfpMgr.logger.Err("Error getting the SFP state for sfpId:", idx)
 		}
 		retObj.List = append(retObj.List, obj)
 	}
