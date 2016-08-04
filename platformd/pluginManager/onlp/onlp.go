@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"strconv"
 	"utils/logging"
 )
 
@@ -184,11 +185,7 @@ func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error
 	}
 
 	if int(rt) > 0 {
-		return retObj, errors.New(fmt.Sprintln("SFP MISSING"))
-	}
-
-	retObj.SfpId = int32(sfpInfo.sfp_id)
-	if int(sfpInfo.sfp_present) == 0 {
+		retObj.SfpId = sfpId
 		retObj.SfpPresent = "SfpNotPresent"
 		return retObj, nil
 	}
@@ -201,7 +198,8 @@ func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error
 	}
 
 	retObj.SerialNum = C.GoString(&sfpInfo.serial_number[0])
-	retObj.EEPROM = C.GoString(&sfpInfo.eeprom[0])
+	q := strconv.Quote(C.GoStringN(&sfpInfo.eeprom[0], 256))
+	retObj.EEPROM = q
 
 	return retObj, nil
 }
@@ -221,7 +219,6 @@ func (driver *onlpDriver) GetAllSfpState(states []pluginCommon.SfpState, cnt int
 func (driver *onlpDriver) GetSfpConfig(sfpId int32) (*objects.SfpConfig, error) {
 	var retObj objects.SfpConfig
 
-	// TODO
 	retObj.SfpId = sfpId
 	return &retObj, nil
 }

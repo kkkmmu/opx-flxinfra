@@ -303,20 +303,15 @@ GetSfpState(sfp_info_t *sfpInfo, int sfpId)
     sfpInfo->sfp_present = 1;
 
     /* RX LOS */
-    rt = (*onlpSfpControlGet)(sfpId, ONLP_SFP_CONTROL_RX_LOS, &rval);
-    if (rt < 0) {
-		printf("%s :(%d) RX LOS detect failed for SFP(%d)\n",__FUNCTION__, rt, sfpId);
-		return SFP_ERROR;
-    }
+    (*onlpSfpControlGet)(sfpId, ONLP_SFP_CONTROL_RX_LOS, &rval);
     sfpInfo->sfp_los = rval?1:0;
 
     rt = (*onlpSfpEepromRead)(sfpId, &eeprom_p);
-    if ((rt < 0) && (!eeprom_p)) {
+    if (rt < 0) {
 		printf("%s :(%d) Eeprom read failed for SFP(%d)\n",__FUNCTION__, rt, sfpId);
 		return SFP_ERROR;
     }
     memcpy(sfpInfo->eeprom, eeprom_p, 256);
-
     return SFP_OK;
 }
 
