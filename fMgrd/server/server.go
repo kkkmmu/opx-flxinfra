@@ -119,12 +119,15 @@ type FMGRServer struct {
 	AlarmList                  *ringBuffer.RingBuffer
 	FaultSeqNumber             uint64
 	InitDone                   chan bool
+	daemonList                 []string
+	eventProcessCh             chan []byte
 	FaultToAlarmTransitionTime time.Duration
 }
 
 func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer := &FMGRServer{}
 	fMgrServer.logger = logger
+	fMgrServer.eventProcessCh = make(chan []byte, 1000)
 	fMgrServer.InitDone = make(chan bool)
 	fMgrServer.FaultEventMap = make(map[FaultId]FaultDetail)
 	fMgrServer.NonFaultEventMap = make(map[FaultId]NonFaultData)
@@ -156,38 +159,44 @@ func (server *FMGRServer) dial() (redis.Conn, error) {
 	return nil, err
 }
 
+func (server *FMGRServer) EventProcessor() {
+	for {
+		msg := <-server.eventProcessCh
+		var evt eventUtils.Event
+		err := json.Unmarshal(msg, &evt)
+		if err != nil {
+			server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
+			continue
+		}
+		//server.logger.Info(fmt.Sprintln("OwnerId:", evt.OwnerId))
+		//server.logger.Info(fmt.Sprintln("OwnerName:", evt.OwnerName))
+		//server.logger.Info(fmt.Sprintln("EvtId:", evt.EvtId))
+		//server.logger.Info(fmt.Sprintln("EventName:", evt.EventName))
+		//server.logger.Info(fmt.Sprintln("Timestamp:", evt.TimeStamp))
+		//server.logger.Info(fmt.Sprintln("Description:", evt.Description))
+		//server.logger.Info(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
+		keyMap, exist := events.EventKeyMap[evt.OwnerName]
+		if !exist {
+			server.logger.Info("Key map not found given Event")
+			continue
+		}
+		obj, exist := keyMap[evt.SrcObjName]
+		if !exist {
+			server.logger.Info("Src Object Name not found in Event Key Map")
+			continue
+		}
+		obj = evt.SrcObjKey
+		server.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
+
+		server.processEvents(evt)
+	}
+}
+
 func (server *FMGRServer) Subscriber() {
 	for {
 		switch n := server.subHdl.Receive().(type) {
 		case redis.Message:
-			var evt eventUtils.Event
-			err := json.Unmarshal(n.Data, &evt)
-			if err != nil {
-				server.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
-				continue
-			}
-			//server.logger.Info(fmt.Sprintln("OwnerId:", evt.OwnerId))
-			//server.logger.Info(fmt.Sprintln("OwnerName:", evt.OwnerName))
-			//server.logger.Info(fmt.Sprintln("EvtId:", evt.EvtId))
-			//server.logger.Info(fmt.Sprintln("EventName:", evt.EventName))
-			//server.logger.Info(fmt.Sprintln("Timestamp:", evt.TimeStamp))
-			//server.logger.Info(fmt.Sprintln("Description:", evt.Description))
-			//server.logger.Info(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
-			keyMap, exist := events.EventKeyMap[evt.OwnerName]
-			if !exist {
-				server.logger.Info("Key map not found given Event")
-				continue
-			}
-			obj, exist := keyMap[evt.SrcObjName]
-			if !exist {
-				server.logger.Info("Src Object Name not found in Event Key Map")
-				continue
-			}
-			obj = evt.SrcObjKey
-			server.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
-
-			server.processEvents(evt)
-
+			server.eventProcessCh <- n.Data
 		case redis.Subscription:
 			if n.Count == 0 {
 				return
@@ -222,6 +231,7 @@ func (server *FMGRServer) initFaultMgrDS() error {
 	server.logger.Info(fmt.Sprintln("evtJson:", evtJson))
 	for _, daemon := range evtJson.DaemonEvents {
 		server.logger.Info(fmt.Sprintln("daemon.DaemonName:", daemon.DaemonName))
+		server.daemonList = append(server.daemonList, daemon.DaemonName)
 		for _, evt := range daemon.EventList {
 			fId := FaultId{
 				DaemonId: int(daemon.DaemonId),
@@ -293,6 +303,22 @@ func (server *FMGRServer) initFaultMgrDS() error {
 	return nil
 }
 
+func (server *FMGRServer) InitSubscriber() error {
+	var errMsg string
+	for _, daemon := range server.daemonList {
+		err := server.subHdl.Subscribe(daemon)
+		if err != nil {
+			errMsg = fmt.Sprintf("%s : %s", errMsg, err)
+		}
+	}
+
+	if errMsg == "" {
+		return nil
+	}
+
+	return errors.New(fmt.Sprintln("Error Initializing Subscriber:", errMsg))
+}
+
 func (server *FMGRServer) InitServer(paramDir string) {
 	var err error
 
@@ -313,9 +339,14 @@ func (server *FMGRServer) InitServer(paramDir string) {
 	//defer server.dbHdl.Close()
 	server.subHdl = redis.PubSubConn{Conn: server.dbHdl}
 
-	server.subHdl.Subscribe("ASICD")
-	server.subHdl.Subscribe("ARPD")
-	server.subHdl.Subscribe("OPTICD")
+	err = server.InitSubscriber()
+	if err != nil {
+		server.logger.Err(fmt.Sprintln("Error in Initializing Subscriber", err))
+	}
+	//server.subHdl.Subscribe("ASICD")
+	//server.subHdl.Subscribe("ARPD")
+	//server.subHdl.Subscribe("OPTICD")
+	go server.EventProcessor()
 	go server.Subscriber()
 
 }
