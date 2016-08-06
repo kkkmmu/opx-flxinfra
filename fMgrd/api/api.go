@@ -21,39 +21,49 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package api
 
 import (
-	"fMgrd"
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"utils/logging"
+	"errors"
+	"infra/fMgrd/objects"
+	"infra/fMgrd/server"
 )
 
-type rpcServiceHandler struct {
-	logger logging.LoggerIntf
+var svr *server.FMGRServer
+
+func InitApiLayer(server *server.FMGRServer) {
+	svr = server
+	svr.Logger.Info("Initializing API Layer")
 }
 
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-	return &rpcServiceHandler{
-		logger: logger,
+func GetBulkFault(fromIdx, count int) (*objects.FaultStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_FAULT_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkFaultStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response recevied from server during GetBulkFaultState")
 	}
 }
 
-type RPCServer struct {
-	*thrift.TSimpleServer
-}
-
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
-	transport, err := thrift.NewTServerSocket(rpcAddr)
-	if err != nil {
-		panic(err)
+func GetBulkAlarm(fromIdx, count int) (*objects.AlarmStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_ALARM_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
 	}
-	handler := newRPCServiceHandler(logger)
-	processor := fMgrd.NewFMGRDServicesProcessor(handler)
-	transportFactory := thrift.NewTBufferedTransportFactory(8192)
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
-	return &RPCServer{
-		TSimpleServer: server,
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkAlarmStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response recevied from server during GetBulkFaultState")
 	}
 }

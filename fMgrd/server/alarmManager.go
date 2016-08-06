@@ -21,39 +21,13 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package server
 
 import (
-	"fMgrd"
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"utils/logging"
+	"infra/fMgrd/objects"
 )
 
-type rpcServiceHandler struct {
-	logger logging.LoggerIntf
-}
-
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-	return &rpcServiceHandler{
-		logger: logger,
-	}
-}
-
-type RPCServer struct {
-	*thrift.TSimpleServer
-}
-
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
-	transport, err := thrift.NewTServerSocket(rpcAddr)
-	if err != nil {
-		panic(err)
-	}
-	handler := newRPCServiceHandler(logger)
-	processor := fMgrd.NewFMGRDServicesProcessor(handler)
-	transportFactory := thrift.NewTBufferedTransportFactory(8192)
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
-	return &RPCServer{
-		TSimpleServer: server,
-	}
+func (svr *FMGRServer) getBulkAlarmState(fromIdx int, count int) (*objects.AlarmStateGetInfo, error) {
+	retObj, err := svr.fMgr.GetBulkAlarmState(fromIdx, count)
+	return retObj, err
 }
