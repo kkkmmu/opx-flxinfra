@@ -100,7 +100,10 @@ func (fMgr *FaultManager) processEvents(evt eventUtils.Event) error {
 		EventId:  int(evt.EvtId),
 	}
 
-	if _, exist := fMgr.FaultEventMap[evtKey]; exist {
+	if fEnt, exist := fMgr.FaultEventMap[evtKey]; exist {
+		if fEnt.RaiseFault == false {
+			return nil
+		}
 		err := fMgr.ProcessFaultyEvents(evt)
 		fMgr.logger.Debug(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
 		fMgr.logger.Debug(fmt.Sprintln("Alarm Database:", fMgr.AlarmMap))
@@ -227,6 +230,13 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 		EventId:  cFEnt.FaultEventId,
 	}
 
+	if fEnt, exist := fMgr.FaultEventMap[fEvtKey]; exist {
+		if fEnt.RaiseFault == false {
+			return nil
+		}
+	} else {
+		return errors.New("Unbale to find the corresponding fault Event")
+	}
 	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 	if fObjKey == "" {
 		return errors.New("Error generating fault object key")
