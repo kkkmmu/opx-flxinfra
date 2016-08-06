@@ -21,65 +21,49 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package main
+package api
 
 import (
-	"infra/fMgrd/api"
-	"infra/fMgrd/rpc"
+	"errors"
+	"infra/fMgrd/objects"
 	"infra/fMgrd/server"
-	"strconv"
-	"utils/dmnBase"
 )
 
-const (
-	DMN_NAME = "fMgrd"
-)
+var svr *server.FMGRServer
 
-type fMgrDaemon struct {
-	*dmnBase.FSBaseDmn
-	server    *server.FMGRServer
-	rpcServer *rpc.RPCServer
+func InitApiLayer(server *server.FMGRServer) {
+	svr = server
+	svr.Logger.Info("Initializing API Layer")
 }
 
-var dmn fMgrDaemon
-
-func main() {
-	// Get base daemon handle and initialize
-	dmn.FSBaseDmn = dmnBase.NewBaseDmn(DMN_NAME, DMN_NAME)
-	ok := dmn.Init()
-	if ok == false {
-		panic("Fault Manager Daemon: Base Daemon Initialization failed")
+func GetBulkFault(fromIdx, count int) (*objects.FaultStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_FAULT_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
 	}
-
-	// Get server handle and start server
-	dmn.server = server.NewFMGRServer(dmn.FSBaseDmn.Logger)
-	go dmn.server.StartServer()
-
-	//Initialize API layer
-	api.InitApiLayer(dmn.server)
-
-	//Get RPC server handle
-	var rpcServerAddr string
-	for _, value := range dmn.FSBaseDmn.ClientsList {
-		if value.Name == "fMgrd" {
-			rpcServerAddr = "localhost:" + strconv.Itoa(value.Port)
-			break
-		}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkFaultStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response recevied from server during GetBulkFaultState")
 	}
+}
 
-	if rpcServerAddr == "" {
-		panic("Fault Manager Daemon is not part of system profile")
+func GetBulkAlarm(fromIdx, count int) (*objects.AlarmStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_ALARM_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
 	}
-
-	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger)
-
-	// Start Keep Alive for watchdog
-	dmn.StartKeepAlive()
-
-	_ = <-dmn.server.InitDone
-
-	//Start RPC server
-	dmn.FSBaseDmn.Logger.Info("Fault Manager Daemon server started")
-	dmn.rpcServer.Serve()
-	panic("Fault Manager Daemon RPC server terminated")
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkAlarmStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response recevied from server during GetBulkFaultState")
+	}
 }

@@ -21,60 +21,23 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package server
-
-import (
-	//"fmt"
-	"strings"
-)
+package objects
 
 type FaultState struct {
-	OwnerId        int
-	EventId        int
+	OwnerId        int32
+	EventId        int32
 	OwnerName      string
 	EventName      string
 	SrcObjName     string
 	Description    string
 	OccuranceTime  string
-	ResolutionTime string
 	SrcObjKey      string
+	ResolutionTime string
 }
 
-func (server *FMGRServer) GetBulkFault(fromIdx int, cnt int) (int, int, []FaultState) {
-	server.logger.Info("Inside Get Bulk Fault function ...")
-	var nextIdx int
-	var count int
-
-	faults := server.FaultList.GetListOfEntriesFromRingBuffer()
-	length := len(faults)
-	result := make([]FaultState, cnt)
-	var i int
-	var j int
-	for i, j = 0, fromIdx; i < cnt && j < length; j++ {
-		intf := faults[length-j-1]
-		fault := intf.(FaultDatabaseKey)
-		result[i].OwnerId = fault.FaultId.DaemonId
-		result[i].EventId = fault.FaultId.EventId
-		result[i].OwnerName = fault.OwnerName
-		result[i].EventName = fault.EventName
-		str := strings.Split(string(fault.FObjKey), " map[")
-		result[i].SrcObjName = str[0]
-		result[i].Description = fault.Description
-		str = strings.Split(str[1], "]")
-		result[i].OccuranceTime = fault.OccuranceTime.String()
-		result[i].SrcObjKey = str[0]
-		if fault.Resolved == false {
-			result[i].ResolutionTime = "N/A"
-		} else {
-			result[i].ResolutionTime = fault.ResolutionTime.String()
-		}
-		i++
-	}
-	if j == length {
-		nextIdx = 0
-	}
-
-	count = i
-
-	return nextIdx, count, result
+type FaultStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []FaultState
 }
