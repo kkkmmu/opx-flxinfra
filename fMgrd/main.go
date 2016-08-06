@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	DMN_NAME = "FMGRD"
+	DMN_NAME = "fMgrd"
 )
 
 type fMgrDaemon struct {
@@ -44,35 +44,6 @@ type fMgrDaemon struct {
 var dmn fMgrDaemon
 
 func main() {
-	/*
-		fmt.Println("Starting fMgr daemon")
-		paramsDir := flag.String("params", "./params", "Params directory")
-		flag.Parse()
-		fileName := *paramsDir
-		if fileName[len(fileName)-1] != '/' {
-			fileName = fileName + "/"
-		}
-
-		fmt.Println("Start logger")
-		logger, err := logging.NewLogger("fMgrd", "FAULTMGR", true)
-		if err != nil {
-			fmt.Println("Failed to start the logger. Nothing will be logged...")
-		}
-		logger.Info("Started the logger successfully.")
-
-		// Start keepalive routine
-		go keepalive.InitKeepAlive("fMgrd", fileName)
-
-		logger.Info("Starting Fault Manager server...")
-		fMgrServer := server.NewFMGRServer(logger)
-		go fMgrServer.StartServer(*paramsDir)
-
-		<-fMgrServer.InitDone
-
-		logger.Info(fmt.Sprintln("Starting Config listener..."))
-		confIface := rpc.NewFMGRHandler(fMgrServer, logger)
-		rpc.StartServer(logger, confIface, *paramsDir)
-	*/
 	// Get base daemon handle and initialize
 	dmn.FSBaseDmn = dmnBase.NewBaseDmn(DMN_NAME, DMN_NAME)
 	ok := dmn.Init()

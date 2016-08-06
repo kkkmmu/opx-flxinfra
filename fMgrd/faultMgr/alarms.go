@@ -25,17 +25,17 @@ package faultMgr
 
 import (
 	"fmt"
-	//"errors"
 	"infra/fMgrd/objects"
 	"time"
 	"utils/eventUtils"
 )
 
 func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.AlarmStateGetInfo, error) {
-	fMgr.logger.Info("Inside GetBulkAlarmState ...")
 	var retObj objects.AlarmStateGetInfo
 
+	fMgr.ARBRWMutex.RLock()
 	alarms := fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()
+	fMgr.ARBRWMutex.RUnlock()
 	length := len(alarms)
 	aState := make([]objects.AlarmState, count)
 
@@ -89,20 +89,23 @@ func (fMgr *FaultManager) StartAlarmTimer(evt eventUtils.Event) *time.Timer {
 	}
 
 	alarmFunc := func() {
+		fMgr.AMapRWMutex.Lock()
 		if fMgr.AlarmMap[evtKey] == nil {
-			fMgr.logger.Info("Alarm Database does not exist, hence skipping alarm generation")
+			fMgr.logger.Debug("Alarm Database does not exist, hence creating one")
 			fMgr.AlarmMap[evtKey] = make(map[FaultObjKey]AlarmData)
 		}
 
 		aDataMapEnt, _ := fMgr.AlarmMap[evtKey]
 		fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 		if fObjKey == "" {
-			fMgr.logger.Info("Fault Obj key, hence skipping alarm generation")
+			fMgr.logger.Err("Fault Obj key, hence skipping alarm generation")
+			fMgr.AMapRWMutex.Unlock()
 			return
 		}
 		aDataEnt, exist := aDataMapEnt[fObjKey]
 		if exist {
-			fMgr.logger.Info("Alarm Data entry already exist, hence skipping this")
+			fMgr.logger.Err("Alarm Data entry already exist, hence skipping this")
+			fMgr.AMapRWMutex.Unlock()
 			return
 		}
 		aDataEnt.AlarmListIdx = fMgr.AddAlarmEntryInRB(evt)
@@ -110,6 +113,7 @@ func (fMgr *FaultManager) StartAlarmTimer(evt eventUtils.Event) *time.Timer {
 		fMgr.AlarmSeqNumber++
 		aDataMapEnt[fObjKey] = aDataEnt
 		fMgr.AlarmMap[evtKey] = aDataMapEnt
+		fMgr.AMapRWMutex.Unlock()
 	}
 
 	return time.AfterFunc(fMgr.FaultToAlarmTransitionTime, alarmFunc)
@@ -125,7 +129,10 @@ func (fMgr *FaultManager) AddAlarmEntryInRB(evt eventUtils.Event) int {
 		Description:    evt.Description,
 	}
 
-	return fMgr.AlarmRB.InsertIntoRingBuffer(aRBEnt)
+	fMgr.ARBRWMutex.Lock()
+	idx := fMgr.AlarmRB.InsertIntoRingBuffer(aRBEnt)
+	fMgr.ARBRWMutex.Unlock()
+	return idx
 }
 
 func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event) *time.Timer {
@@ -136,7 +143,7 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event) *time.Time
 
 	cFEnt, exist := fMgr.NonFaultEventMap[evtKey]
 	if !exist {
-		fMgr.logger.Info("Error finding the fault for fault clearing event")
+		fMgr.logger.Err("Error finding the fault for fault clearing event")
 		return nil
 	}
 	fEvtKey := EventKey{
@@ -146,24 +153,28 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event) *time.Time
 
 	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 	if fObjKey == "" {
-		fMgr.logger.Info("Error generating fault object key")
+		fMgr.logger.Err("Error generating fault object key")
 		return nil
 	}
 
 	alarmFunc := func() {
+		fMgr.AMapRWMutex.Lock()
 		aDataMapEnt, exist := fMgr.AlarmMap[fEvtKey]
 		if !exist {
-			fMgr.logger.Info("Alarm Database does not exist, hence skipping removal of Alarm")
+			fMgr.logger.Err("Alarm Database does not exist, hence skipping removal of Alarm")
+			fMgr.AMapRWMutex.Unlock()
 			return
 		}
 		fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 		if fObjKey == "" {
-			fMgr.logger.Info("Fault Obj key, hence skipping alarm removal")
+			fMgr.logger.Err("Fault Obj key, hence skipping alarm removal")
+			fMgr.AMapRWMutex.Unlock()
 			return
 		}
 		aDataEnt, exist := aDataMapEnt[fObjKey]
 		if !exist {
-			fMgr.logger.Info("Alarm Data entry doesnot exist, hence skipping this")
+			fMgr.logger.Err("Alarm Data entry doesnot exist, hence skipping this")
+			fMgr.AMapRWMutex.Unlock()
 			return
 		}
 		aIntf := fMgr.AlarmRB.GetEntryFromRingBuffer(aDataEnt.AlarmListIdx)
@@ -171,10 +182,13 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event) *time.Time
 		if aRBData.AlarmSeqNumber == aDataEnt.AlarmSeqNumber {
 			aRBData.ResolutionTime = time.Now()
 			aRBData.Resolved = true
+			fMgr.ARBRWMutex.Lock()
 			fMgr.AlarmRB.UpdateEntryInRingBuffer(aRBData, aDataEnt.AlarmListIdx)
+			fMgr.ARBRWMutex.Unlock()
 			delete(aDataMapEnt, fObjKey)
 			fMgr.AlarmMap[fEvtKey] = aDataMapEnt
 		}
+		fMgr.AMapRWMutex.Unlock()
 	}
 
 	return time.AfterFunc(fMgr.AlarmTransitionTime, alarmFunc)

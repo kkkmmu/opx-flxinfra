@@ -45,10 +45,11 @@ func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interfac
 }
 
 func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.FaultStateGetInfo, error) {
-	fMgr.logger.Info("Inside GetBulkFaultState ...")
 	var retObj objects.FaultStateGetInfo
 
+	fMgr.FRBRWMutex.RLock()
 	faults := fMgr.FaultRB.GetListOfEntriesFromRingBuffer()
+	fMgr.FRBRWMutex.RUnlock()
 	length := len(faults)
 	fState := make([]objects.FaultState, count)
 
@@ -101,17 +102,19 @@ func (fMgr *FaultManager) processEvents(evt eventUtils.Event) error {
 
 	if _, exist := fMgr.FaultEventMap[evtKey]; exist {
 		err := fMgr.ProcessFaultyEvents(evt)
-		fMgr.logger.Info(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
-		fMgr.logger.Info(fmt.Sprintln("Fault Ring Buffer:", fMgr.FaultRB.GetListOfEntriesFromRingBuffer()))
-		fMgr.logger.Info(fmt.Sprintln("Alarm Ring Buffer:", fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()))
+		fMgr.logger.Debug(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
+		fMgr.logger.Debug(fmt.Sprintln("Alarm Database:", fMgr.AlarmMap))
+		fMgr.logger.Debug(fmt.Sprintln("Fault Ring Buffer:", fMgr.FaultRB.GetListOfEntriesFromRingBuffer()))
+		fMgr.logger.Debug(fmt.Sprintln("Alarm Ring Buffer:", fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()))
 		return err
 	}
 	if ent, exist := fMgr.NonFaultEventMap[evtKey]; exist {
 		if ent.IsClearingEvent == true {
 			err := fMgr.ProcessFaultClearingEvents(evt)
-			fMgr.logger.Info(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
-			fMgr.logger.Info(fmt.Sprintln("Fault Ring Buffer:", fMgr.FaultRB.GetListOfEntriesFromRingBuffer()))
-			fMgr.logger.Info(fmt.Sprintln("Alarm Ring Buffer:", fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()))
+			fMgr.logger.Debug(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
+			fMgr.logger.Debug(fmt.Sprintln("Alarm Database:", fMgr.AlarmMap))
+			fMgr.logger.Debug(fmt.Sprintln("Fault Ring Buffer:", fMgr.FaultRB.GetListOfEntriesFromRingBuffer()))
+			fMgr.logger.Debug(fmt.Sprintln("Alarm Ring Buffer:", fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()))
 			return err
 		}
 		return nil
@@ -121,12 +124,12 @@ func (fMgr *FaultManager) processEvents(evt eventUtils.Event) error {
 }
 
 func (fMgr *FaultManager) ProcessFaultyEvents(evt eventUtils.Event) error {
-	fMgr.logger.Info(fmt.Sprintln("Processing Faulty Events:", evt))
+	fMgr.logger.Debug(fmt.Sprintln("Processing Faulty Events:", evt))
 	return fMgr.CreateEntryInFaultAlarmDB(evt)
 }
 
 func (fMgr *FaultManager) ProcessFaultClearingEvents(evt eventUtils.Event) error {
-	fMgr.logger.Info(fmt.Sprintln("Processing Faulty Events:", evt))
+	fMgr.logger.Debug(fmt.Sprintln("Processing Faulty Events:", evt))
 	return fMgr.DeleteEntryFromFaultAlarmDB(evt)
 }
 
@@ -140,7 +143,10 @@ func (fMgr *FaultManager) AddFaultEntryInRB(evt eventUtils.Event) int {
 		Description:    evt.Description,
 	}
 
-	return fMgr.FaultRB.InsertIntoRingBuffer(fRBEnt)
+	fMgr.FRBRWMutex.Lock()
+	idx := fMgr.FaultRB.InsertIntoRingBuffer(fRBEnt)
+	fMgr.FRBRWMutex.Unlock()
+	return idx
 }
 
 func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error {
@@ -149,6 +155,7 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 		EventId:  int(evt.EvtId),
 	}
 
+	fMgr.FMapRWMutex.Lock()
 	if fMgr.FaultMap[evtKey] == nil {
 		fMgr.FaultMap[evtKey] = make(map[FaultObjKey]FaultData)
 	}
@@ -156,17 +163,20 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 	fDataMapEnt, _ := fMgr.FaultMap[evtKey]
 	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 	if fObjKey == "" {
+		fMgr.FMapRWMutex.Unlock()
 		return errors.New("Error generating fault object key")
 	}
 
 	fDataEnt, exist := fDataMapEnt[fObjKey]
 	if exist {
+		fMgr.FMapRWMutex.Unlock()
 		fMgr.logger.Info("Already have corresponding fault in fault database")
 		return nil
 	}
 
 	faultIdx := fMgr.AddFaultEntryInRB(evt)
 	if faultIdx == -1 {
+		fMgr.FMapRWMutex.Unlock()
 		return errors.New("Unable to add entry in fault database")
 	}
 
@@ -176,6 +186,7 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 
 	//if alarm doen't exist for given Fault Start Alarm Timer
 	// else stop the Alarm Removing Timer
+	fMgr.AMapRWMutex.Lock()
 	aDataMapEnt, exist := fMgr.AlarmMap[evtKey]
 	if exist == false {
 		fDataEnt.CreateAlarmTimer = fMgr.StartAlarmTimer(evt)
@@ -186,14 +197,18 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 		} else {
 			ret := aDataEnt.RemoveAlarmTimer.Stop()
 			if ret == true {
-				fMgr.logger.Info("Alarm corresponding to event cannot be removed as we received a fault again")
+				fMgr.logger.Debug("Alarm corresponding to event cannot be removed as we received a fault again")
+				aDataMapEnt[fObjKey] = aDataEnt
+				fMgr.AlarmMap[evtKey] = aDataMapEnt
 			} else {
-				fMgr.logger.Info("Either alarm removal timer doesnot exist or it cannot be stopped")
+				fMgr.logger.Debug("Either alarm removal timer doesnot exist or it cannot be stopped")
 			}
 		}
 	}
+	fMgr.AMapRWMutex.Unlock()
 	fDataMapEnt[fObjKey] = fDataEnt
 	fMgr.FaultMap[evtKey] = fDataMapEnt
+	fMgr.FMapRWMutex.Unlock()
 	return nil
 }
 
@@ -217,31 +232,54 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 		return errors.New("Error generating fault object key")
 	}
 
+	fMgr.FMapRWMutex.Lock()
 	fDataMapEnt, exist := fMgr.FaultMap[fEvtKey]
 	if !exist {
-		fMgr.logger.Info(fmt.Sprintln("No such fault occured to be cleared, no entry faound in fault database", evt))
+		fMgr.logger.Debug(fmt.Sprintln("No such fault occured to be cleared, no entry faound in fault database", evt))
+		fMgr.FMapRWMutex.Unlock()
 		return nil
 	}
 
 	fDataEnt, exist := fDataMapEnt[fObjKey]
 	if !exist {
-		fMgr.logger.Info(fmt.Sprintln("No such fault occured to be cleared, no entry faound in fault data", evt))
+		fMgr.logger.Debug(fmt.Sprintln("No such fault occured to be cleared, no entry faound in fault data", evt))
+		fMgr.FMapRWMutex.Unlock()
 		return nil
 	}
+	fMgr.FRBRWMutex.RLock()
 	fIntf := fMgr.FaultRB.GetEntryFromRingBuffer(fDataEnt.FaultListIdx)
+	fMgr.FRBRWMutex.RUnlock()
 	fDBKey := fIntf.(FaultRBEntry)
 	if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
 		fDBKey.ResolutionTime = evt.TimeStamp
 		fDBKey.Resolved = true
+		fMgr.FRBRWMutex.Lock()
 		fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
-		ret := fDataEnt.CreateAlarmTimer.Stop()
-		if ret == true {
-			fMgr.logger.Info(fmt.Sprintln("Alarm timer is stopped for", evt))
+		fMgr.FRBRWMutex.Unlock()
+		fMgr.AMapRWMutex.Lock()
+		aDataMapEnt, exist := fMgr.AlarmMap[fEvtKey]
+		if !exist {
+			ret := fDataEnt.CreateAlarmTimer.Stop()
+			if ret == true {
+				fMgr.logger.Debug(fmt.Sprintln("Alarm timer is stopped for", evt))
+			}
 		} else {
-			fMgr.StartAlarmRemoveTimer(evt)
+			aDataEnt, exist := aDataMapEnt[fObjKey]
+			if !exist {
+				ret := fDataEnt.CreateAlarmTimer.Stop()
+				if ret == true {
+					fMgr.logger.Debug(fmt.Sprintln("Alarm timer is stopped for", evt))
+				}
+			} else {
+				aDataEnt.RemoveAlarmTimer = fMgr.StartAlarmRemoveTimer(evt)
+				aDataMapEnt[fObjKey] = aDataEnt
+				fMgr.AlarmMap[fEvtKey] = aDataMapEnt
+			}
 		}
+		fMgr.AMapRWMutex.Unlock()
 		delete(fDataMapEnt, fObjKey)
 		fMgr.FaultMap[fEvtKey] = fDataMapEnt
 	}
+	fMgr.FMapRWMutex.Unlock()
 	return nil
 }

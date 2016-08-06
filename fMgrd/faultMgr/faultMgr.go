@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"models/events"
+	"sync"
 	"time"
 	"utils/eventUtils"
 	"utils/logging"
@@ -97,8 +98,8 @@ type FaultData struct {
 
 type AlarmData struct {
 	AlarmListIdx     int
-	RemoveAlarmTimer *time.Timer
 	AlarmSeqNumber   uint64
+	RemoveAlarmTimer *time.Timer
 }
 
 type FaultObjKey string
@@ -110,9 +111,13 @@ type FaultManager struct {
 	EventCh                    chan []byte
 	FaultEventMap              map[EventKey]FaultDetail
 	NonFaultEventMap           map[EventKey]NonFaultDetail
+	FMapRWMutex                sync.RWMutex
 	FaultMap                   map[EventKey]FaultDataMap
+	AMapRWMutex                sync.RWMutex
 	AlarmMap                   map[EventKey]AlarmDataMap
+	FRBRWMutex                 sync.RWMutex
 	FaultRB                    *ringBuffer.RingBuffer
+	ARBRWMutex                 sync.RWMutex
 	AlarmRB                    *ringBuffer.RingBuffer
 	DaemonList                 []string
 	FaultSeqNumber             uint64
@@ -159,25 +164,25 @@ func (fMgr *FaultManager) EventProcessor() {
 			fMgr.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
 			continue
 		}
-		fMgr.logger.Info(fmt.Sprintln("OwnerId:", evt.OwnerId))
-		fMgr.logger.Info(fmt.Sprintln("OwnerName:", evt.OwnerName))
-		fMgr.logger.Info(fmt.Sprintln("EvtId:", evt.EvtId))
-		fMgr.logger.Info(fmt.Sprintln("EventName:", evt.EventName))
-		fMgr.logger.Info(fmt.Sprintln("Timestamp:", evt.TimeStamp))
-		fMgr.logger.Info(fmt.Sprintln("Description:", evt.Description))
-		fMgr.logger.Info(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
+		fMgr.logger.Debug(fmt.Sprintln("OwnerId:", evt.OwnerId))
+		fMgr.logger.Debug(fmt.Sprintln("OwnerName:", evt.OwnerName))
+		fMgr.logger.Debug(fmt.Sprintln("EvtId:", evt.EvtId))
+		fMgr.logger.Debug(fmt.Sprintln("EventName:", evt.EventName))
+		fMgr.logger.Debug(fmt.Sprintln("Timestamp:", evt.TimeStamp))
+		fMgr.logger.Debug(fmt.Sprintln("Description:", evt.Description))
+		fMgr.logger.Debug(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
 		keyMap, exist := events.EventKeyMap[evt.OwnerName]
 		if !exist {
-			fMgr.logger.Info("Key map not found given Event")
+			fMgr.logger.Err("Key map not found given Event")
 			continue
 		}
 		obj, exist := keyMap[evt.SrcObjName]
 		if !exist {
-			fMgr.logger.Info("Src Object Name not found in Event Key Map")
+			fMgr.logger.Err("Src Object Name not found in Event Key Map")
 			continue
 		}
 		obj = evt.SrcObjKey
-		fMgr.logger.Info(fmt.Sprintln("Src Obj Key", obj))
+		fMgr.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
 
 		fMgr.processEvents(evt)
 	}
@@ -191,7 +196,7 @@ func (fMgr *FaultManager) initFMgrDS() error {
 		return err
 	}
 	for _, daemon := range evtJson.DaemonEvents {
-		fMgr.logger.Info(fmt.Sprintln("daemon.DaemonName:", daemon.DaemonName))
+		fMgr.logger.Debug(fmt.Sprintln("daemon.DaemonName:", daemon.DaemonName))
 		fMgr.DaemonList = append(fMgr.DaemonList, daemon.DaemonName)
 		for _, evt := range daemon.EventList {
 			fId := EventKey{

@@ -24,56 +24,20 @@
 package server
 
 import (
-	//	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	//	"io/ioutil"
-	//	"models/events"
-	"time"
-	//	"utils/eventUtils"
-	"utils/logging"
-	//	"utils/ringBuffer"
 	"infra/fMgrd/faultMgr"
+	"time"
+	"utils/logging"
 )
 
-//type FaultDataMap map[FaultObjKey]FaultData
-
-/* ---Ashu
-type FaultDatabaseKey struct {
-	FaultId        FaultId
-	FObjKey        FaultObjKey
-	Resolved       bool
-	FaultSeqNumber uint64
-	OwnerName      string
-	EventName      string
-	OccuranceTime  time.Time
-	ResolutionTime time.Time
-	Description    string
-}
-
-type AlarmDatabaseKey struct {
-	FaultId  FaultId
-	FObjKey  FaultObjKey
-	FaultIdx int
-}
-*/
-
 type FMGRServer struct {
-	Logger logging.LoggerIntf
-	dbHdl  redis.Conn
-	subHdl redis.PubSubConn
-	fMgr   *faultMgr.FaultManager
-	//	FaultEventMap              map[FaultId]FaultDetail
-	//	NonFaultEventMap           map[FaultId]NonFaultData
-	//FaultDatabase  map[FaultId]FaultDataMap
-	//FaultList      *ringBuffer.RingBuffer
-	//AlarmList      *ringBuffer.RingBuffer
-	//FaultSeqNumber uint64
-	InitDone chan bool
-	//daemonList     []string
-	//	eventProcessCh             chan []byte
-	//FaultToAlarmTransitionTime time.Duration
+	Logger    logging.LoggerIntf
+	dbHdl     redis.Conn
+	subHdl    redis.PubSubConn
+	fMgr      *faultMgr.FaultManager
+	InitDone  chan bool
 	ReqChan   chan *ServerRequest
 	ReplyChan chan interface{}
 }
@@ -84,13 +48,6 @@ func NewFMGRServer(logger *logging.Writer) *FMGRServer {
 	fMgrServer.InitDone = make(chan bool)
 	fMgrServer.ReqChan = make(chan *ServerRequest)
 	fMgrServer.ReplyChan = make(chan interface{})
-	//fMgrServer.FaultDatabase = make(map[FaultId]FaultDataMap)
-	//fMgrServer.FaultList = new(ringBuffer.RingBuffer)
-	//fMgrServer.FaultList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
-	//fMgrServer.AlarmList = new(ringBuffer.RingBuffer)
-	//fMgrServer.AlarmList.SetRingBufferCapacity(100000) //Max 100000 entries in fault database
-	//fMgrServer.FaultSeqNumber = 0
-	//fMgrServer.FaultToAlarmTransitionTime = time.Duration(3) * time.Second
 	return fMgrServer
 }
 
@@ -171,7 +128,7 @@ func (server *FMGRServer) InitServer() error {
 }
 
 func (server *FMGRServer) handleRPCRequest(req *ServerRequest) {
-	server.Logger.Info(fmt.Sprintln("Calling handle RPC Request for:", *req))
+	server.Logger.Debug(fmt.Sprintln("Calling handle RPC Request for:", *req))
 	switch req.Op {
 	case GET_BULK_FAULT_STATE:
 		var retObj GetBulkFaultStateOutArgs
