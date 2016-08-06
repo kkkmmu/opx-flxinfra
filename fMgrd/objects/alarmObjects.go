@@ -21,39 +21,24 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package objects
 
-import (
-	"fMgrd"
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"utils/logging"
-)
-
-type rpcServiceHandler struct {
-	logger logging.LoggerIntf
+type AlarmState struct {
+	OwnerId        int32
+	EventId        int32
+	OwnerName      string
+	EventName      string
+	SrcObjName     string
+	Severity       string
+	Description    string
+	OccuranceTime  string
+	SrcObjKey      string
+	ResolutionTime string
 }
 
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-	return &rpcServiceHandler{
-		logger: logger,
-	}
-}
-
-type RPCServer struct {
-	*thrift.TSimpleServer
-}
-
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
-	transport, err := thrift.NewTServerSocket(rpcAddr)
-	if err != nil {
-		panic(err)
-	}
-	handler := newRPCServiceHandler(logger)
-	processor := fMgrd.NewFMGRDServicesProcessor(handler)
-	transportFactory := thrift.NewTBufferedTransportFactory(8192)
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
-	return &RPCServer{
-		TSimpleServer: server,
-	}
+type AlarmStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []AlarmState
 }
