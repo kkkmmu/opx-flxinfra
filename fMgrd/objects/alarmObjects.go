@@ -21,65 +21,25 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package main
+package objects
 
-import (
-	"infra/fMgrd/api"
-	"infra/fMgrd/rpc"
-	"infra/fMgrd/server"
-	"strconv"
-	"utils/dmnBase"
-)
-
-const (
-	DMN_NAME = "fMgrd"
-)
-
-type fMgrDaemon struct {
-	*dmnBase.FSBaseDmn
-	server    *server.FMGRServer
-	rpcServer *rpc.RPCServer
+type AlarmState struct {
+	OwnerId          int32
+	EventId          int32
+	OwnerName        string
+	EventName        string
+	SrcObjName       string
+	Severity         string
+	Description      string
+	OccuranceTime    string
+	SrcObjKey        string
+	ResolutionTime   string
+	ResolutionReason string
 }
 
-var dmn fMgrDaemon
-
-func main() {
-	// Get base daemon handle and initialize
-	dmn.FSBaseDmn = dmnBase.NewBaseDmn(DMN_NAME, DMN_NAME)
-	ok := dmn.Init()
-	if ok == false {
-		panic("Fault Manager Daemon: Base Daemon Initialization failed")
-	}
-
-	// Get server handle and start server
-	dmn.server = server.NewFMGRServer(dmn.FSBaseDmn.Logger)
-	go dmn.server.StartServer()
-
-	//Initialize API layer
-	api.InitApiLayer(dmn.server)
-
-	//Get RPC server handle
-	var rpcServerAddr string
-	for _, value := range dmn.FSBaseDmn.ClientsList {
-		if value.Name == "fMgrd" {
-			rpcServerAddr = "localhost:" + strconv.Itoa(value.Port)
-			break
-		}
-	}
-
-	if rpcServerAddr == "" {
-		panic("Fault Manager Daemon is not part of system profile")
-	}
-
-	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger)
-
-	// Start Keep Alive for watchdog
-	dmn.StartKeepAlive()
-
-	_ = <-dmn.server.InitDone
-
-	//Start RPC server
-	dmn.FSBaseDmn.Logger.Info("Fault Manager Daemon server started")
-	dmn.rpcServer.Serve()
-	panic("Fault Manager Daemon RPC server terminated")
+type AlarmStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []AlarmState
 }
