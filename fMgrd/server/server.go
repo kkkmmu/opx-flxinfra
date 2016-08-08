@@ -142,6 +142,12 @@ func (server *FMGRServer) handleRPCRequest(req *ServerRequest) {
 			retObj.BulkInfo, retObj.Err = server.getBulkAlarmState(val.FromIdx, val.Count)
 		}
 		server.ReplyChan <- interface{}(&retObj)
+	case FAULT_ENABLE_ACTION:
+		var retObj FaultEnableActionOutArgs
+		if val, ok := req.Data.(*FaultEnableActionInArgs); ok {
+			retObj.RetVal, retObj.Err = server.faultEnableAction(val.Config)
+		}
+		server.ReplyChan <- interface{}(&retObj)
 	default:
 		server.Logger.Err(fmt.Sprintln("Error: Server received unrecognized request - ", req.Op))
 	}

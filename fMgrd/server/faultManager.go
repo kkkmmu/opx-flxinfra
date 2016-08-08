@@ -31,3 +31,8 @@ func (svr *FMGRServer) getBulkFaultState(fromIdx int, count int) (*objects.Fault
 	retObj, err := svr.fMgr.GetBulkFaultState(fromIdx, count)
 	return retObj, err
 }
+
+func (svr *FMGRServer) faultEnableAction(config *objects.FaultEnable) (bool, error) {
+	retObj, err := svr.fMgr.FaultEnableAction(config)
+	return retObj, err
+}

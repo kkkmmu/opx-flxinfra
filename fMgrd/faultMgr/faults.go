@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"infra/fMgrd/objects"
 	"models/events"
+	"time"
 	"utils/eventUtils"
 )
 
@@ -79,8 +80,16 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 		fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
 		if fault.Resolved == true {
 			fObj.ResolutionTime = fault.ResolutionTime.String()
+			if fault.ResolutionReason == CLEARED {
+				fObj.ResolutionReason = "CLEARED"
+			} else if fault.ResolutionReason == DISABLED {
+				fObj.ResolutionReason = "DISABLED"
+			} else {
+				fObj.ResolutionReason = "UNKNOWN"
+			}
 		} else {
 			fObj.ResolutionTime = "N/A"
+			fObj.ResolutionReason = "N/A"
 		}
 		fState[i] = fObj
 		i++
@@ -100,7 +109,10 @@ func (fMgr *FaultManager) processEvents(evt eventUtils.Event) error {
 		EventId:  int(evt.EvtId),
 	}
 
-	if _, exist := fMgr.FaultEventMap[evtKey]; exist {
+	if fEnt, exist := fMgr.FaultEventMap[evtKey]; exist {
+		if fEnt.RaiseFault == false {
+			return nil
+		}
 		err := fMgr.ProcessFaultyEvents(evt)
 		fMgr.logger.Debug(fmt.Sprintln("Fault Database:", fMgr.FaultMap))
 		fMgr.logger.Debug(fmt.Sprintln("Alarm Database:", fMgr.AlarmMap))
@@ -227,6 +239,13 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 		EventId:  cFEnt.FaultEventId,
 	}
 
+	if fEnt, exist := fMgr.FaultEventMap[fEvtKey]; exist {
+		if fEnt.RaiseFault == false {
+			return nil
+		}
+	} else {
+		return errors.New("Unbale to find the corresponding fault Event")
+	}
 	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
 	if fObjKey == "" {
 		return errors.New("Error generating fault object key")
@@ -253,6 +272,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 	if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
 		fDBKey.ResolutionTime = evt.TimeStamp
 		fDBKey.Resolved = true
+		fDBKey.ResolutionReason = CLEARED
 		fMgr.FRBRWMutex.Lock()
 		fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
 		fMgr.FRBRWMutex.Unlock()
@@ -271,7 +291,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 					fMgr.logger.Debug(fmt.Sprintln("Alarm timer is stopped for", evt))
 				}
 			} else {
-				aDataEnt.RemoveAlarmTimer = fMgr.StartAlarmRemoveTimer(evt)
+				aDataEnt.RemoveAlarmTimer = fMgr.StartAlarmRemoveTimer(evt, CLEARED)
 				aDataMapEnt[fObjKey] = aDataEnt
 				fMgr.AlarmMap[fEvtKey] = aDataMapEnt
 			}
@@ -282,4 +302,31 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 	}
 	fMgr.FMapRWMutex.Unlock()
 	return nil
+}
+
+func (fMgr *FaultManager) ClearExistingFaults(evtKey EventKey) {
+	fMgr.FMapRWMutex.Lock()
+	fDataMapEnt, exist := fMgr.FaultMap[evtKey]
+	if !exist {
+		fMgr.FMapRWMutex.Unlock()
+		return
+	}
+
+	for _, fDataEnt := range fDataMapEnt {
+		fMgr.FRBRWMutex.Lock()
+		fIntf := fMgr.FaultRB.GetEntryFromRingBuffer(fDataEnt.FaultListIdx)
+		fDBKey := fIntf.(FaultRBEntry)
+		if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
+			fDBKey.ResolutionReason = DISABLED
+			fDBKey.ResolutionTime = time.Now()
+			fDBKey.Resolved = true
+			fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
+			if fDataEnt.CreateAlarmTimer != nil {
+				fDataEnt.CreateAlarmTimer.Stop()
+			}
+		}
+		fMgr.FRBRWMutex.Unlock()
+	}
+	delete(fMgr.FaultMap, evtKey)
+	fMgr.FMapRWMutex.Unlock()
 }
