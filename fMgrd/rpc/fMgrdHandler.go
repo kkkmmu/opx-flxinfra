@@ -85,3 +85,9 @@ func (h *rpcServiceHandler) GetBulkAlarmState(fromIndex fMgrd.Int, count fMgrd.I
 func (h *rpcServiceHandler) GetAlarmState(ownerId int32, eventId int32, ownerName string, eventName string, srcObjName string) (*fMgrd.AlarmState, error) {
 	return nil, nil
 }
+
+func (h *rpcServiceHandler) ExecuteActionFaultEnable(config *fMgrd.FaultEnable) (bool, error) {
+	h.logger.Info(fmt.Sprintln("ExecuteActionFaultEnable ", config))
+
+	return api.FaultEnableAction(convertToObjFmtFaultEnable(config))
+}

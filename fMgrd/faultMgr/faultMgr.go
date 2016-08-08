@@ -25,7 +25,9 @@ package faultMgr
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"infra/fMgrd/objects"
 	"models/events"
 	"sync"
 	"time"
@@ -37,6 +39,11 @@ import (
 type EventKey struct {
 	DaemonId int
 	EventId  int
+}
+
+type EventKeyStr struct {
+	OwnerName string
+	EventName string
 }
 
 type NonFaultDetail struct {
@@ -67,26 +74,35 @@ type EvtDetail struct {
 	SrcObjName       string
 }
 
+type Reason uint8
+
+const (
+	CLEARED  Reason = 0
+	DISABLED Reason = 1
+)
+
 type FaultRBEntry struct {
-	OwnerId        int
-	EventId        int
-	ResolutionTime time.Time
-	OccuranceTime  time.Time
-	SrcObjKey      interface{}
-	FaultSeqNumber uint64
-	Description    string
-	Resolved       bool
+	OwnerId          int
+	EventId          int
+	ResolutionTime   time.Time
+	OccuranceTime    time.Time
+	SrcObjKey        interface{}
+	FaultSeqNumber   uint64
+	Description      string
+	Resolved         bool
+	ResolutionReason Reason
 }
 
 type AlarmRBEntry struct {
-	OwnerId        int
-	EventId        int
-	ResolutionTime time.Time
-	OccuranceTime  time.Time
-	SrcObjKey      interface{}
-	AlarmSeqNumber uint64
-	Description    string
-	Resolved       bool
+	OwnerId          int
+	EventId          int
+	ResolutionTime   time.Time
+	OccuranceTime    time.Time
+	SrcObjKey        interface{}
+	AlarmSeqNumber   uint64
+	Description      string
+	Resolved         bool
+	ResolutionReason Reason
 }
 
 type FaultData struct {
@@ -109,8 +125,11 @@ type AlarmDataMap map[FaultObjKey]AlarmData
 type FaultManager struct {
 	logger                     logging.LoggerIntf
 	EventCh                    chan []byte
+	PauseEventProcessCh        chan bool
+	PauseEventProcessAckCh     chan bool
 	FaultEventMap              map[EventKey]FaultDetail
 	NonFaultEventMap           map[EventKey]NonFaultDetail
+	OwnerEventNameMap          map[EventKeyStr]EventKey
 	FMapRWMutex                sync.RWMutex
 	FaultMap                   map[EventKey]FaultDataMap
 	AMapRWMutex                sync.RWMutex
@@ -130,8 +149,11 @@ func NewFaultManager(logger logging.LoggerIntf) *FaultManager {
 	fMgr := &FaultManager{}
 	fMgr.logger = logger
 	fMgr.EventCh = make(chan []byte, 1000)
+	fMgr.PauseEventProcessCh = make(chan bool, 1)
+	fMgr.PauseEventProcessAckCh = make(chan bool, 1)
 	fMgr.FaultEventMap = make(map[EventKey]FaultDetail)
 	fMgr.NonFaultEventMap = make(map[EventKey]NonFaultDetail)
+	fMgr.OwnerEventNameMap = make(map[EventKeyStr]EventKey)
 	fMgr.FaultMap = make(map[EventKey]FaultDataMap) //Existing Faults
 	fMgr.AlarmMap = make(map[EventKey]AlarmDataMap) //Existing Alarm
 	fMgr.FaultRB = new(ringBuffer.RingBuffer)
@@ -157,34 +179,39 @@ func (fMgr *FaultManager) InitFaultManager() error {
 
 func (fMgr *FaultManager) EventProcessor() {
 	for {
-		msg := <-fMgr.EventCh
-		var evt eventUtils.Event
-		err := json.Unmarshal(msg, &evt)
-		if err != nil {
-			fMgr.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
-			continue
-		}
-		fMgr.logger.Debug(fmt.Sprintln("OwnerId:", evt.OwnerId))
-		fMgr.logger.Debug(fmt.Sprintln("OwnerName:", evt.OwnerName))
-		fMgr.logger.Debug(fmt.Sprintln("EvtId:", evt.EvtId))
-		fMgr.logger.Debug(fmt.Sprintln("EventName:", evt.EventName))
-		fMgr.logger.Debug(fmt.Sprintln("Timestamp:", evt.TimeStamp))
-		fMgr.logger.Debug(fmt.Sprintln("Description:", evt.Description))
-		fMgr.logger.Debug(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
-		keyMap, exist := events.EventKeyMap[evt.OwnerName]
-		if !exist {
-			fMgr.logger.Err("Key map not found given Event")
-			continue
-		}
-		obj, exist := keyMap[evt.SrcObjName]
-		if !exist {
-			fMgr.logger.Err("Src Object Name not found in Event Key Map")
-			continue
-		}
-		obj = evt.SrcObjKey
-		fMgr.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
+		select {
+		case msg := <-fMgr.EventCh:
+			var evt eventUtils.Event
+			err := json.Unmarshal(msg, &evt)
+			if err != nil {
+				fMgr.logger.Err(fmt.Sprintln("Unable to Unmarshal the byte stream", err))
+				continue
+			}
+			fMgr.logger.Debug(fmt.Sprintln("OwnerId:", evt.OwnerId))
+			fMgr.logger.Debug(fmt.Sprintln("OwnerName:", evt.OwnerName))
+			fMgr.logger.Debug(fmt.Sprintln("EvtId:", evt.EvtId))
+			fMgr.logger.Debug(fmt.Sprintln("EventName:", evt.EventName))
+			fMgr.logger.Debug(fmt.Sprintln("Timestamp:", evt.TimeStamp))
+			fMgr.logger.Debug(fmt.Sprintln("Description:", evt.Description))
+			fMgr.logger.Debug(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
+			keyMap, exist := events.EventKeyMap[evt.OwnerName]
+			if !exist {
+				fMgr.logger.Err("Key map not found given Event")
+				continue
+			}
+			obj, exist := keyMap[evt.SrcObjName]
+			if !exist {
+				fMgr.logger.Err("Src Object Name not found in Event Key Map")
+				continue
+			}
+			obj = evt.SrcObjKey
+			fMgr.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
 
-		fMgr.processEvents(evt)
+			fMgr.processEvents(evt)
+		case _ = <-fMgr.PauseEventProcessCh:
+			fMgr.PauseEventProcessAckCh <- true
+			<-fMgr.PauseEventProcessCh
+		}
 	}
 }
 
@@ -203,6 +230,11 @@ func (fMgr *FaultManager) initFMgrDS() error {
 				DaemonId: int(daemon.DaemonId),
 				EventId:  int(evt.EventId),
 			}
+			fName := EventKeyStr{
+				OwnerName: daemon.DaemonName,
+				EventName: evt.EventName,
+			}
+			fMgr.OwnerEventNameMap[fName] = fId
 			evtEnt, exist := evtMap[fId]
 			if exist {
 				fMgr.logger.Err(fmt.Sprintln("Duplicate entry found"))
@@ -275,5 +307,62 @@ func (fMgr *FaultManager) initFMgrDS() error {
 			fMgr.NonFaultEventMap[fId] = evtEnt
 		}
 	}
+	return nil
+}
+
+func (fMgr *FaultManager) FaultEnableAction(config *objects.FaultEnable) (retVal bool, err error) {
+	fMgr.PauseEventProcessCh <- true
+	<-fMgr.PauseEventProcessAckCh
+	evtKeyStr := EventKeyStr{
+		OwnerName: config.OwnerName,
+		EventName: config.EventName,
+	}
+	evtKey, exist := fMgr.OwnerEventNameMap[evtKeyStr]
+	if !exist {
+		retVal = false
+		err = errors.New("Unable to find the corresponding event")
+	} else {
+		_, exist := fMgr.FaultEventMap[evtKey]
+		if !exist {
+			retVal = false
+			err = errors.New("Unable to find the corresponding faulty event")
+		} else {
+			if config.Enable == false {
+				err = fMgr.DisableFaults(evtKey)
+				if err != nil {
+					retVal = false
+				}
+				fMgr.ClearExistingFaults(evtKey)
+				fMgr.ClearExistingAlarms(evtKey)
+			} else {
+				err = fMgr.EnableFaults(evtKey)
+				if err != nil {
+					retVal = false
+				}
+				retVal = true
+			}
+		}
+	}
+	fMgr.PauseEventProcessCh <- true
+	return retVal, err
+}
+
+func (fMgr *FaultManager) DisableFaults(evtKey EventKey) error {
+	fEnt, _ := fMgr.FaultEventMap[evtKey]
+	if fEnt.RaiseFault == false {
+		return errors.New("Fault is already enabled")
+	}
+	fEnt.RaiseFault = false
+	fMgr.FaultEventMap[evtKey] = fEnt
+	return nil
+}
+
+func (fMgr *FaultManager) EnableFaults(evtKey EventKey) error {
+	fEnt, _ := fMgr.FaultEventMap[evtKey]
+	if fEnt.RaiseFault == true {
+		return errors.New("Fault is already enabled")
+	}
+	fEnt.RaiseFault = true
+	fMgr.FaultEventMap[evtKey] = fEnt
 	return nil
 }

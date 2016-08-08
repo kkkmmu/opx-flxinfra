@@ -24,16 +24,17 @@
 package objects
 
 type AlarmState struct {
-	OwnerId        int32
-	EventId        int32
-	OwnerName      string
-	EventName      string
-	SrcObjName     string
-	Severity       string
-	Description    string
-	OccuranceTime  string
-	SrcObjKey      string
-	ResolutionTime string
+	OwnerId          int32
+	EventId          int32
+	OwnerName        string
+	EventName        string
+	SrcObjName       string
+	Severity         string
+	Description      string
+	OccuranceTime    string
+	SrcObjKey        string
+	ResolutionTime   string
+	ResolutionReason string
 }
 
 type AlarmStateGetInfo struct {

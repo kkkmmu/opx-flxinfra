@@ -32,6 +32,7 @@ type ServerOpId int
 const (
 	GET_BULK_FAULT_STATE ServerOpId = iota
 	GET_BULK_ALARM_STATE
+	FAULT_ENABLE_ACTION
 )
 
 type ServerRequest struct {
@@ -52,4 +53,13 @@ type GetBulkFaultStateOutArgs struct {
 type GetBulkAlarmStateOutArgs struct {
 	BulkInfo *objects.AlarmStateGetInfo
 	Err      error
+}
+
+type FaultEnableActionInArgs struct {
+	Config *objects.FaultEnable
+}
+
+type FaultEnableActionOutArgs struct {
+	RetVal bool
+	Err    error
 }

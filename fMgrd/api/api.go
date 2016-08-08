@@ -67,3 +67,20 @@ func GetBulkAlarm(fromIdx, count int) (*objects.AlarmStateGetInfo, error) {
 		return nil, errors.New("Error: Invalid response recevied from server during GetBulkFaultState")
 	}
 }
+
+func FaultEnableAction(cfg *objects.FaultEnable) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.FAULT_ENABLE_ACTION,
+		Data: interface{}(&server.FaultEnableActionInArgs{
+			Config: cfg,
+		}),
+	}
+
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.FaultEnableActionOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	} else {
+		return false, errors.New("Error: Invalid response recevied from server during Executing Fault Enable Action")
+	}
+
+}
