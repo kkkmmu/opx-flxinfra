@@ -38,6 +38,7 @@ func convertToRPCFmtFaultState(obj objects.FaultState) *fMgrd.FaultState {
 		Description:      obj.Description,
 		OccuranceTime:    obj.OccuranceTime,
 		SrcObjKey:        obj.SrcObjKey,
+		SrcObjUUID:       obj.SrcObjUUID,
 		ResolutionTime:   obj.ResolutionTime,
 		ResolutionReason: obj.ResolutionReason,
 	}
@@ -53,6 +54,7 @@ func convertToRPCFmtAlarmState(obj objects.AlarmState) *fMgrd.AlarmState {
 		Description:      obj.Description,
 		OccuranceTime:    obj.OccuranceTime,
 		SrcObjKey:        obj.SrcObjKey,
+		SrcObjUUID:       obj.SrcObjUUID,
 		ResolutionTime:   obj.ResolutionTime,
 		Severity:         obj.Severity,
 		ResolutionReason: obj.ResolutionReason,
