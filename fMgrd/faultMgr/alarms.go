@@ -24,7 +24,7 @@
 package faultMgr
 
 import (
-	"fmt"
+	//	"fmt"
 	"infra/fMgrd/objects"
 	"strings"
 	"time"
@@ -33,7 +33,6 @@ import (
 
 func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.AlarmStateGetInfo, error) {
 	var retObj objects.AlarmStateGetInfo
-	var err error
 
 	fMgr.ARBRWMutex.RLock()
 	alarms := fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()
@@ -65,13 +64,17 @@ func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.Al
 		aObj.Description = alarm.Description
 		aObj.OccuranceTime = alarm.OccuranceTime.String()
 		//aObj.SrcObjKey = fmt.Sprintf("%v", alarm.SrcObjKey)
-		str := strings.Split(fmt.Sprintf("%v", alarm.SrcObjKey), "map[")
-		aObj.SrcObjKey = strings.Split(str[1], "]")[0]
-		aObj.SrcObjUUID, err = fMgr.getUUID(aObj.SrcObjName, aObj.SrcObjKey)
-		if err != nil {
-			fMgr.logger.Err("Unable to find the UUID of", aObj.SrcObjName, aObj.SrcObjKey)
-			continue
-		}
+		/*
+			str := strings.Split(fmt.Sprintf("%v", alarm.SrcObjKey), "map[")
+			aObj.SrcObjKey = strings.Split(str[1], "]")[0]
+			aObj.SrcObjUUID, err = fMgr.getUUID(aObj.SrcObjName, aObj.SrcObjKey)
+			if err != nil {
+				fMgr.logger.Err("Unable to find the UUID of", aObj.SrcObjName, aObj.SrcObjKey)
+				continue
+			}
+		*/
+		aObj.SrcObjKey = alarm.SrcObjKey
+		aObj.SrcObjUUID = alarm.SrcObjUUID
 
 		if alarm.Resolved == true {
 			aObj.ResolutionTime = alarm.ResolutionTime.String()
@@ -113,19 +116,23 @@ func (fMgr *FaultManager) StartAlarmTimer(evt eventUtils.Event) *time.Timer {
 		}
 
 		aDataMapEnt, _ := fMgr.AlarmMap[evtKey]
-		fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-		if fObjKey == "" {
+		fObjKey, err := fMgr.generateFaultObjKey(evt.SrcObjName, evt.SrcObjKey)
+		if err != nil {
 			fMgr.logger.Err("Fault Obj key, hence skipping alarm generation")
 			fMgr.AMapRWMutex.Unlock()
 			return
 		}
+		str := strings.Split(string(fObjKey), "#")
+		fObjKeyUUId := str[2]
+		objKey := str[1]
+
 		aDataEnt, exist := aDataMapEnt[fObjKey]
 		if exist {
 			fMgr.logger.Err("Alarm Data entry already exist, hence skipping this")
 			fMgr.AMapRWMutex.Unlock()
 			return
 		}
-		aDataEnt.AlarmListIdx = fMgr.AddAlarmEntryInRB(evt)
+		aDataEnt.AlarmListIdx = fMgr.AddAlarmEntryInRB(evt, objKey, fObjKeyUUId)
 		aDataEnt.AlarmSeqNumber = fMgr.AlarmSeqNumber
 		fMgr.AlarmSeqNumber++
 		aDataMapEnt[fObjKey] = aDataEnt
@@ -136,12 +143,13 @@ func (fMgr *FaultManager) StartAlarmTimer(evt eventUtils.Event) *time.Timer {
 	return time.AfterFunc(fMgr.FaultToAlarmTransitionTime, alarmFunc)
 }
 
-func (fMgr *FaultManager) AddAlarmEntryInRB(evt eventUtils.Event) int {
+func (fMgr *FaultManager) AddAlarmEntryInRB(evt eventUtils.Event, objKey, uuid string) int {
 	aRBEnt := AlarmRBEntry{
 		OwnerId:        int(evt.OwnerId),
 		EventId:        int(evt.EvtId),
 		OccuranceTime:  time.Now(),
-		SrcObjKey:      evt.SrcObjKey,
+		SrcObjKey:      objKey,
+		SrcObjUUID:     uuid,
 		AlarmSeqNumber: fMgr.AlarmSeqNumber,
 		Description:    evt.Description,
 	}
@@ -168,8 +176,8 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event, reason Rea
 		EventId:  cFEnt.FaultEventId,
 	}
 
-	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-	if fObjKey == "" {
+	fObjKey, err := fMgr.generateFaultObjKey(evt.SrcObjName, evt.SrcObjKey)
+	if err != nil {
 		fMgr.logger.Err("Error generating fault object key")
 		return nil
 	}
@@ -182,12 +190,14 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event, reason Rea
 			fMgr.AMapRWMutex.Unlock()
 			return
 		}
-		fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-		if fObjKey == "" {
-			fMgr.logger.Err("Fault Obj key, hence skipping alarm removal")
-			fMgr.AMapRWMutex.Unlock()
-			return
-		}
+		/*
+			fObjKey, err := fMgr.generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
+			if err != nil {
+				fMgr.logger.Err("Fault Obj key, hence skipping alarm removal")
+				fMgr.AMapRWMutex.Unlock()
+				return
+			}
+		*/
 		aDataEnt, exist := aDataMapEnt[fObjKey]
 		if !exist {
 			fMgr.logger.Err("Alarm Data entry doesnot exist, hence skipping this")

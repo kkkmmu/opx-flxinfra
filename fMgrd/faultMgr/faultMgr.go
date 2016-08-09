@@ -87,11 +87,12 @@ type FaultRBEntry struct {
 	EventId          int
 	ResolutionTime   time.Time
 	OccuranceTime    time.Time
-	SrcObjKey        interface{}
+	SrcObjKey        string
 	FaultSeqNumber   uint64
 	Description      string
 	Resolved         bool
 	ResolutionReason Reason
+	SrcObjUUID       string
 }
 
 type AlarmRBEntry struct {
@@ -99,11 +100,12 @@ type AlarmRBEntry struct {
 	EventId          int
 	ResolutionTime   time.Time
 	OccuranceTime    time.Time
-	SrcObjKey        interface{}
+	SrcObjKey        string
 	AlarmSeqNumber   uint64
 	Description      string
 	Resolved         bool
 	ResolutionReason Reason
+	SrcObjUUID       string
 }
 
 type FaultData struct {

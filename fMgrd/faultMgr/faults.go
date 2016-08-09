@@ -27,23 +27,33 @@ import (
 	"errors"
 	"fmt"
 	"infra/fMgrd/objects"
-	"models/events"
+	//"models/events"
 	"strings"
 	"time"
 	"utils/eventUtils"
 )
 
-func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interface{}) FaultObjKey {
-	keyMap, exist := events.EventKeyMap[ownerName]
-	if !exist {
-		return ""
+func (fMgr *FaultManager) generateFaultObjKey(srcObjName string, srcObjKey interface{}) (FaultObjKey, error) {
+	/*
+		keyMap, exist := events.EventKeyMap[ownerName]
+		if !exist {
+			return ""
+		}
+		obj, exist := keyMap[srcObjName]
+		if !exist {
+			return ""
+		}
+		obj = srcObjKey
+	*/
+	key := fmt.Sprintf("%v", srcObjKey)
+	str := strings.Split(fmt.Sprintf("%v", key), "map[")
+	key = strings.Split(str[1], "]")[0]
+	srcObjUUID, err := fMgr.getUUID(srcObjName, key)
+	if err != nil {
+		fMgr.logger.Err("Unable to find the UUID of", srcObjName, srcObjKey, err)
+		return "", errors.New(fmt.Sprintln("Unable to find the UUID of", srcObjName, srcObjKey, err))
 	}
-	obj, exist := keyMap[srcObjName]
-	if !exist {
-		return ""
-	}
-	obj = srcObjKey
-	return FaultObjKey(fmt.Sprintf("%v %v", srcObjName, obj))
+	return FaultObjKey(fmt.Sprintf("%s#%s#%s", srcObjName, key, srcObjUUID)), err
 }
 
 func getObjKey(srcObjName string, srcObjKey string) (str string) {
@@ -63,7 +73,6 @@ func (fMgr *FaultManager) getUUID(srcObjName, srcObjKey string) (uuid string, er
 
 func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.FaultStateGetInfo, error) {
 	var retObj objects.FaultStateGetInfo
-	var err error
 
 	fMgr.FRBRWMutex.RLock()
 	faults := fMgr.FaultRB.GetListOfEntriesFromRingBuffer()
@@ -93,14 +102,18 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 		fObj.SrcObjName = fEnt.FaultSrcObjName
 		fObj.Description = fault.Description
 		fObj.OccuranceTime = fault.OccuranceTime.String()
-		str := strings.Split(fmt.Sprintf("%v", fault.SrcObjKey), "map[")
-		//fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
-		fObj.SrcObjKey = strings.Split(str[1], "]")[0]
-		fObj.SrcObjUUID, err = fMgr.getUUID(fObj.SrcObjName, fObj.SrcObjKey)
-		if err != nil {
-			fMgr.logger.Err("Unable to find the UUID of", fObj.SrcObjName, fObj.SrcObjKey)
-			continue
-		}
+		/*
+			str := strings.Split(fmt.Sprintf("%v", fault.SrcObjKey), "map[")
+			//fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
+			fObj.SrcObjKey = strings.Split(str[1], "]")[0]
+			fObj.SrcObjUUID, err = fMgr.getUUID(fObj.SrcObjName, fObj.SrcObjKey)
+			if err != nil {
+				fMgr.logger.Err("Unable to find the UUID of", fObj.SrcObjName, fObj.SrcObjKey)
+				continue
+			}
+		*/
+		fObj.SrcObjKey = fault.SrcObjKey
+		fObj.SrcObjUUID = fault.SrcObjUUID
 		if fault.Resolved == true {
 			fObj.ResolutionTime = fault.ResolutionTime.String()
 			if fault.ResolutionReason == CLEARED {
@@ -168,14 +181,15 @@ func (fMgr *FaultManager) ProcessFaultClearingEvents(evt eventUtils.Event) error
 	return fMgr.DeleteEntryFromFaultAlarmDB(evt)
 }
 
-func (fMgr *FaultManager) AddFaultEntryInRB(evt eventUtils.Event) int {
+func (fMgr *FaultManager) AddFaultEntryInRB(evt eventUtils.Event, objKey, uuid string) int {
 	fRBEnt := FaultRBEntry{
 		OwnerId:        int(evt.OwnerId),
 		EventId:        int(evt.EvtId),
 		OccuranceTime:  evt.TimeStamp,
 		FaultSeqNumber: fMgr.FaultSeqNumber,
-		SrcObjKey:      evt.SrcObjKey,
+		SrcObjKey:      objKey,
 		Description:    evt.Description,
+		SrcObjUUID:     uuid,
 	}
 
 	fMgr.FRBRWMutex.Lock()
@@ -196,11 +210,15 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 	}
 
 	fDataMapEnt, _ := fMgr.FaultMap[evtKey]
-	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-	if fObjKey == "" {
+	fObjKey, err := fMgr.generateFaultObjKey(evt.SrcObjName, evt.SrcObjKey)
+	if err != nil {
 		fMgr.FMapRWMutex.Unlock()
 		return errors.New("Error generating fault object key")
 	}
+
+	str := strings.Split(string(fObjKey), "#")
+	fObjKeyUUId := str[2]
+	objKey := str[1]
 
 	fDataEnt, exist := fDataMapEnt[fObjKey]
 	if exist {
@@ -209,7 +227,7 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 		return nil
 	}
 
-	faultIdx := fMgr.AddFaultEntryInRB(evt)
+	faultIdx := fMgr.AddFaultEntryInRB(evt, objKey, fObjKeyUUId)
 	if faultIdx == -1 {
 		fMgr.FMapRWMutex.Unlock()
 		return errors.New("Unable to add entry in fault database")
@@ -269,8 +287,8 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 	} else {
 		return errors.New("Unbale to find the corresponding fault Event")
 	}
-	fObjKey := generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-	if fObjKey == "" {
+	fObjKey, err := fMgr.generateFaultObjKey(evt.SrcObjName, evt.SrcObjKey)
+	if err != nil {
 		return errors.New("Error generating fault object key")
 	}
 
