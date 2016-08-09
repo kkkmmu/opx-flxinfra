@@ -113,22 +113,26 @@ func (server *SYSDServer) StartWDRoutine() error {
 					server.DaemonMap[daemon] = daemonInfo
 				}
 				if daemonInfo.State == sysdCommonDefs.STOPPED {
-					go server.ToggleFlexswitchDaemon(daemon, true)
+					server.ToggleFlexswitchDaemon(daemon, true)
 					daemonInfo.State = sysdCommonDefs.STARTING
 					daemonInfo.Reason = REASON_COMING_UP
+					daemonInfo.Enable = true
+					daemonUpdated = true
+				} else {
+					server.logger.Info(fmt.Println("Daemon ", daemonConfig.Name, " is not in stopped state, ignoring enable command"))
 				}
-				daemonInfo.Enable = true
-				daemonUpdated = true
 			} else {
 				if exist {
-					if daemonInfo.State != sysdCommonDefs.STOPPED {
-						go server.ToggleFlexswitchDaemon(daemon, false)
+					if daemonInfo.State == sysdCommonDefs.UP {
+						server.ToggleFlexswitchDaemon(daemon, false)
 						daemonInfo.State = sysdCommonDefs.STOPPED
 						daemonInfo.Reason = REASON_DAEMON_STOPPED
 						server.PublishDaemonKANotification(daemon, daemonInfo.State)
+						daemonInfo.Enable = false
+						daemonUpdated = true
+					} else {
+						server.logger.Info(fmt.Println("Daemon ", daemonConfig.Name, " is not in up state, ignoring disable command"))
 					}
-					daemonInfo.Enable = false
-					daemonUpdated = true
 				} else {
 					server.logger.Info(fmt.Sprintln("Received call to stop unknown daemon ", daemon))
 				}
@@ -137,7 +141,7 @@ func (server *SYSDServer) StartWDRoutine() error {
 				server.UpdateDaemonStateInDb(daemon)
 			}
 		case daemon := <-server.DaemonRestartCh:
-			if server.DaemonMap[daemon].State != sysdCommonDefs.STOPPED {
+			if server.DaemonMap[daemon].State == sysdCommonDefs.UP {
 				go server.RestartFlexswitchDaemon(daemon)
 			}
 		case daemon := <-server.UpdateInfoInDbCh:
