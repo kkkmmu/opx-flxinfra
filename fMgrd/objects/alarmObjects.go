@@ -33,6 +33,7 @@ type AlarmState struct {
 	Description      string
 	OccuranceTime    string
 	SrcObjKey        string
+	SrcObjUUID       string
 	ResolutionTime   string
 	ResolutionReason string
 }

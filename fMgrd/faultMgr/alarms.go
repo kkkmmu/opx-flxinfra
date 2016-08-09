@@ -26,12 +26,14 @@ package faultMgr
 import (
 	"fmt"
 	"infra/fMgrd/objects"
+	"strings"
 	"time"
 	"utils/eventUtils"
 )
 
 func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.AlarmStateGetInfo, error) {
 	var retObj objects.AlarmStateGetInfo
+	var err error
 
 	fMgr.ARBRWMutex.RLock()
 	alarms := fMgr.AlarmRB.GetListOfEntriesFromRingBuffer()
@@ -54,7 +56,6 @@ func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.Al
 		}
 		fEnt, exist := fMgr.FaultEventMap[evtKey]
 		if !exist {
-			j--
 			continue
 		}
 		aObj.OwnerName = fEnt.FaultOwnerName
@@ -63,7 +64,15 @@ func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.Al
 		aObj.Severity = fEnt.AlarmSeverity
 		aObj.Description = alarm.Description
 		aObj.OccuranceTime = alarm.OccuranceTime.String()
-		aObj.SrcObjKey = fmt.Sprintf("%v", alarm.SrcObjKey)
+		//aObj.SrcObjKey = fmt.Sprintf("%v", alarm.SrcObjKey)
+		str := strings.Split(fmt.Sprintf("%v", alarm.SrcObjKey), "map[")
+		aObj.SrcObjKey = strings.Split(str[1], "]")[0]
+		aObj.SrcObjUUID, err = fMgr.getUUID(aObj.SrcObjName, aObj.SrcObjKey)
+		if err != nil {
+			fMgr.logger.Err("Unable to find the UUID of", aObj.SrcObjName, aObj.SrcObjKey)
+			continue
+		}
+
 		if alarm.Resolved == true {
 			aObj.ResolutionTime = alarm.ResolutionTime.String()
 			if alarm.ResolutionReason == CLEARED {

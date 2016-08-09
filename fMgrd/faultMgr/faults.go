@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"infra/fMgrd/objects"
 	"models/events"
+	"strings"
 	"time"
 	"utils/eventUtils"
 )
@@ -45,8 +46,24 @@ func generateFaultObjKey(ownerName string, srcObjName string, srcObjKey interfac
 	return FaultObjKey(fmt.Sprintf("%v %v", srcObjName, obj))
 }
 
+func getObjKey(srcObjName string, srcObjKey string) (str string) {
+	str = srcObjName
+	keyVal := strings.Split(srcObjKey, " ")
+	for _, kv := range keyVal {
+		val := strings.Split(strings.TrimSpace(kv), ":")[1]
+		str = str + "#" + val
+	}
+	return str
+}
+
+func (fMgr *FaultManager) getUUID(srcObjName, srcObjKey string) (uuid string, err error) {
+	objKey := getObjKey(srcObjName, srcObjKey)
+	return fMgr.dbHdl.GetUUIDFromObjKey(objKey)
+}
+
 func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.FaultStateGetInfo, error) {
 	var retObj objects.FaultStateGetInfo
+	var err error
 
 	fMgr.FRBRWMutex.RLock()
 	faults := fMgr.FaultRB.GetListOfEntriesFromRingBuffer()
@@ -69,7 +86,6 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 		}
 		fEnt, exist := fMgr.FaultEventMap[evtKey]
 		if !exist {
-			j--
 			continue
 		}
 		fObj.OwnerName = fEnt.FaultOwnerName
@@ -77,7 +93,14 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 		fObj.SrcObjName = fEnt.FaultSrcObjName
 		fObj.Description = fault.Description
 		fObj.OccuranceTime = fault.OccuranceTime.String()
-		fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
+		str := strings.Split(fmt.Sprintf("%v", fault.SrcObjKey), "map[")
+		//fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
+		fObj.SrcObjKey = strings.Split(str[1], "]")[0]
+		fObj.SrcObjUUID, err = fMgr.getUUID(fObj.SrcObjName, fObj.SrcObjKey)
+		if err != nil {
+			fMgr.logger.Err("Unable to find the UUID of", fObj.SrcObjName, fObj.SrcObjKey)
+			continue
+		}
 		if fault.Resolved == true {
 			fObj.ResolutionTime = fault.ResolutionTime.String()
 			if fault.ResolutionReason == CLEARED {
