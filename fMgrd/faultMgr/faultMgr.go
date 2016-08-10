@@ -331,27 +331,24 @@ func (fMgr *FaultManager) FaultEnableAction(config *objects.FaultEnable) (retVal
 	}
 	evtKey, exist := fMgr.OwnerEventNameMap[evtKeyStr]
 	if !exist {
-		retVal = false
 		err = errors.New("Unable to find the corresponding event")
 	} else {
 		_, exist := fMgr.FaultEventMap[evtKey]
 		if !exist {
-			retVal = false
 			err = errors.New("Unable to find the corresponding faulty event")
 		} else {
 			if config.Enable == false {
 				err = fMgr.DisableFaults(evtKey)
-				if err != nil {
-					retVal = false
+				if err == nil {
+					fMgr.ClearExistingFaults(evtKey, "")
+					fMgr.ClearExistingAlarms(evtKey, "")
+					retVal = true
 				}
-				fMgr.ClearExistingFaults(evtKey)
-				fMgr.ClearExistingAlarms(evtKey)
 			} else {
 				err = fMgr.EnableFaults(evtKey)
-				if err != nil {
-					retVal = false
+				if err == nil {
+					retVal = true
 				}
-				retVal = true
 			}
 		}
 	}
@@ -377,4 +374,32 @@ func (fMgr *FaultManager) EnableFaults(evtKey EventKey) error {
 	fEnt.RaiseFault = true
 	fMgr.FaultEventMap[evtKey] = fEnt
 	return nil
+}
+
+func (fMgr *FaultManager) FaultClearAction(config *objects.FaultClear) (retVal bool, err error) {
+	fMgr.PauseEventProcessCh <- true
+	<-fMgr.PauseEventProcessAckCh
+	evtKeyStr := EventKeyStr{
+		OwnerName: config.OwnerName,
+		EventName: config.EventName,
+	}
+	evtKey, exist := fMgr.OwnerEventNameMap[evtKeyStr]
+	if !exist {
+		err = errors.New("Unable to find the corresponding event")
+	} else {
+		fEnt, exist := fMgr.FaultEventMap[evtKey]
+		if !exist {
+			err = errors.New("Unable to find the corresponding faulty event")
+		} else {
+			if fEnt.RaiseFault == true {
+				fMgr.ClearExistingFaults(evtKey, config.SrcObjUUID)
+				fMgr.ClearExistingAlarms(evtKey, config.SrcObjUUID)
+				retVal = true
+			} else {
+				err = errors.New("Fault for this Event is already disabled, nothing to be cleared")
+			}
+		}
+	}
+	fMgr.PauseEventProcessCh <- true
+	return retVal, err
 }

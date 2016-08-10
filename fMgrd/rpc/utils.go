@@ -68,3 +68,11 @@ func convertToObjFmtFaultEnable(config *fMgrd.FaultEnable) *objects.FaultEnable 
 		Enable:    config.Enable,
 	}
 }
+
+func convertToObjFmtFaultClear(config *fMgrd.FaultClear) *objects.FaultClear {
+	return &objects.FaultClear{
+		OwnerName:  config.OwnerName,
+		EventName:  config.EventName,
+		SrcObjUUID: config.SrcObjUUID,
+	}
+}

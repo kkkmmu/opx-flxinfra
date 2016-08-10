@@ -222,28 +222,33 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event, reason Rea
 	return time.AfterFunc(fMgr.AlarmTransitionTime, alarmFunc)
 }
 
-func (fMgr *FaultManager) ClearExistingAlarms(evtKey EventKey) {
+func (fMgr *FaultManager) ClearExistingAlarms(evtKey EventKey, uuid string) {
 	fMgr.AMapRWMutex.Lock()
 	aDataMapEnt, exist := fMgr.AlarmMap[evtKey]
 	if !exist {
 		fMgr.AMapRWMutex.Unlock()
 		return
 	}
-	for _, aDataEnt := range aDataMapEnt {
+	for aDataKey, aDataEnt := range aDataMapEnt {
 		fMgr.ARBRWMutex.Lock()
 		aIntf := fMgr.AlarmRB.GetEntryFromRingBuffer(aDataEnt.AlarmListIdx)
 		aRBData := aIntf.(AlarmRBEntry)
 		if aRBData.AlarmSeqNumber == aDataEnt.AlarmSeqNumber {
-			aRBData.ResolutionTime = time.Now()
-			aRBData.ResolutionReason = DISABLED
-			aRBData.Resolved = true
-			fMgr.AlarmRB.UpdateEntryInRingBuffer(aRBData, aDataEnt.AlarmListIdx)
-			if aDataEnt.RemoveAlarmTimer != nil {
-				aDataEnt.RemoveAlarmTimer.Stop()
+			if uuid == "" || uuid == aRBData.SrcObjUUID {
+				aRBData.ResolutionTime = time.Now()
+				aRBData.ResolutionReason = DISABLED
+				aRBData.Resolved = true
+				fMgr.AlarmRB.UpdateEntryInRingBuffer(aRBData, aDataEnt.AlarmListIdx)
+				if aDataEnt.RemoveAlarmTimer != nil {
+					aDataEnt.RemoveAlarmTimer.Stop()
+				}
+				delete(aDataMapEnt, aDataKey)
 			}
 		}
 		fMgr.ARBRWMutex.Unlock()
 	}
-	delete(fMgr.AlarmMap, evtKey)
+	if len(aDataMapEnt) == 0 {
+		delete(fMgr.AlarmMap, evtKey)
+	}
 	fMgr.AMapRWMutex.Unlock()
 }

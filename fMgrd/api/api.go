@@ -79,8 +79,22 @@ func FaultEnableAction(cfg *objects.FaultEnable) (bool, error) {
 	ret := <-svr.ReplyChan
 	if retObj, ok := ret.(*server.FaultEnableActionOutArgs); ok {
 		return retObj.RetVal, retObj.Err
-	} else {
-		return false, errors.New("Error: Invalid response recevied from server during Executing Fault Enable Action")
+	}
+	return false, errors.New("Error: Invalid response recevied from server during Executing Fault Enable Action")
+
+}
+
+func FaultClearAction(cfg *objects.FaultClear) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.FAULT_CLEAR_ACTION,
+		Data: interface{}(&server.FaultClearActionInArgs{
+			Config: cfg,
+		}),
 	}
 
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.FaultClearActionOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	}
+	return false, errors.New("Error: Invalid response recevied from server during Executing Fault Clear Action")
 }
