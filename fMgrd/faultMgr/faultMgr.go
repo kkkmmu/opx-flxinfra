@@ -37,94 +37,6 @@ import (
 	"utils/ringBuffer"
 )
 
-type EventKey struct {
-	DaemonId int
-	EventId  int
-}
-
-type EventKeyStr struct {
-	OwnerName string
-	EventName string
-}
-
-type NonFaultDetail struct {
-	IsClearingEvent bool
-	FaultEventId    int
-	FaultOwnerId    int
-}
-
-type FaultDetail struct {
-	RaiseFault       bool
-	ClearingEventId  int
-	ClearingDaemonId int
-	AlarmSeverity    string
-	FaultOwnerName   string
-	FaultEventName   string
-	FaultSrcObjName  string
-}
-
-type EvtDetail struct {
-	IsClearingEvent  bool
-	IsFault          bool
-	RaiseFault       bool
-	ClearingEventId  int
-	ClearingDaemonId int
-	AlarmSeverity    string
-	OwnerName        string
-	EventName        string
-	SrcObjName       string
-}
-
-type Reason uint8
-
-const (
-	CLEARED  Reason = 0
-	DISABLED Reason = 1
-)
-
-type FaultRBEntry struct {
-	OwnerId          int
-	EventId          int
-	ResolutionTime   time.Time
-	OccuranceTime    time.Time
-	SrcObjKey        string
-	FaultSeqNumber   uint64
-	Description      string
-	Resolved         bool
-	ResolutionReason Reason
-	SrcObjUUID       string
-}
-
-type AlarmRBEntry struct {
-	OwnerId          int
-	EventId          int
-	ResolutionTime   time.Time
-	OccuranceTime    time.Time
-	SrcObjKey        string
-	AlarmSeqNumber   uint64
-	Description      string
-	Resolved         bool
-	ResolutionReason Reason
-	SrcObjUUID       string
-}
-
-type FaultData struct {
-	FaultListIdx int
-	//AlarmListIdx     int
-	CreateAlarmTimer *time.Timer
-	FaultSeqNumber   uint64
-}
-
-type AlarmData struct {
-	AlarmListIdx     int
-	AlarmSeqNumber   uint64
-	RemoveAlarmTimer *time.Timer
-}
-
-type FaultObjKey string
-type FaultDataMap map[FaultObjKey]FaultData
-type AlarmDataMap map[FaultObjKey]AlarmData
-
 type FaultManager struct {
 	logger                     logging.LoggerIntf
 	dbHdl                      dbutils.DBIntf
@@ -340,8 +252,8 @@ func (fMgr *FaultManager) FaultEnableAction(config *objects.FaultEnable) (retVal
 			if config.Enable == false {
 				err = fMgr.DisableFaults(evtKey)
 				if err == nil {
-					fMgr.ClearExistingFaults(evtKey, "")
-					fMgr.ClearExistingAlarms(evtKey, "")
+					fMgr.ClearExistingFaults(evtKey, "", FAULTDISABLED)
+					fMgr.ClearExistingAlarms(evtKey, "", FAULTDISABLED)
 					retVal = true
 				}
 			} else {
@@ -392,8 +304,8 @@ func (fMgr *FaultManager) FaultClearAction(config *objects.FaultClear) (retVal b
 			err = errors.New("Unable to find the corresponding faulty event")
 		} else {
 			if fEnt.RaiseFault == true {
-				fMgr.ClearExistingFaults(evtKey, config.SrcObjUUID)
-				fMgr.ClearExistingAlarms(evtKey, config.SrcObjUUID)
+				fMgr.ClearExistingFaults(evtKey, config.SrcObjUUID, FAULTCLEARED)
+				fMgr.ClearExistingAlarms(evtKey, config.SrcObjUUID, FAULTCLEARED)
 				retVal = true
 			} else {
 				err = errors.New("Fault for this Event is already disabled, nothing to be cleared")

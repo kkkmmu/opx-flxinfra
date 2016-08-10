@@ -33,44 +33,6 @@ import (
 	"utils/eventUtils"
 )
 
-func (fMgr *FaultManager) generateFaultObjKey(srcObjName string, srcObjKey interface{}) (FaultObjKey, error) {
-	/*
-		keyMap, exist := events.EventKeyMap[ownerName]
-		if !exist {
-			return ""
-		}
-		obj, exist := keyMap[srcObjName]
-		if !exist {
-			return ""
-		}
-		obj = srcObjKey
-	*/
-	key := fmt.Sprintf("%v", srcObjKey)
-	str := strings.Split(fmt.Sprintf("%v", key), "map[")
-	key = strings.Split(str[1], "]")[0]
-	srcObjUUID, err := fMgr.getUUID(srcObjName, key)
-	if err != nil {
-		fMgr.logger.Err("Unable to find the UUID of", srcObjName, srcObjKey, err)
-		return "", errors.New(fmt.Sprintln("Unable to find the UUID of", srcObjName, srcObjKey, err))
-	}
-	return FaultObjKey(fmt.Sprintf("%s#%s#%s", srcObjName, key, srcObjUUID)), err
-}
-
-func getObjKey(srcObjName string, srcObjKey string) (str string) {
-	str = srcObjName
-	keyVal := strings.Split(srcObjKey, " ")
-	for _, kv := range keyVal {
-		val := strings.Split(strings.TrimSpace(kv), ":")[1]
-		str = str + "#" + val
-	}
-	return str
-}
-
-func (fMgr *FaultManager) getUUID(srcObjName, srcObjKey string) (uuid string, err error) {
-	objKey := getObjKey(srcObjName, srcObjKey)
-	return fMgr.dbHdl.GetUUIDFromObjKey(objKey)
-}
-
 func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.FaultStateGetInfo, error) {
 	var retObj objects.FaultStateGetInfo
 
@@ -116,13 +78,7 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 		fObj.SrcObjUUID = fault.SrcObjUUID
 		if fault.Resolved == true {
 			fObj.ResolutionTime = fault.ResolutionTime.String()
-			if fault.ResolutionReason == CLEARED {
-				fObj.ResolutionReason = "CLEARED"
-			} else if fault.ResolutionReason == DISABLED {
-				fObj.ResolutionReason = "DISABLED"
-			} else {
-				fObj.ResolutionReason = "UNKNOWN"
-			}
+			fObj.ResolutionReason = getResolutionReason(fault.ResolutionReason)
 		} else {
 			fObj.ResolutionTime = "N/A"
 			fObj.ResolutionReason = "N/A"
@@ -313,7 +269,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 	if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
 		fDBKey.ResolutionTime = evt.TimeStamp
 		fDBKey.Resolved = true
-		fDBKey.ResolutionReason = CLEARED
+		fDBKey.ResolutionReason = AUTOCLEARED
 		fMgr.FRBRWMutex.Lock()
 		fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
 		fMgr.FRBRWMutex.Unlock()
@@ -332,7 +288,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 					fMgr.logger.Debug(fmt.Sprintln("Alarm timer is stopped for", evt))
 				}
 			} else {
-				aDataEnt.RemoveAlarmTimer = fMgr.StartAlarmRemoveTimer(evt, CLEARED)
+				aDataEnt.RemoveAlarmTimer = fMgr.StartAlarmRemoveTimer(evt, AUTOCLEARED)
 				aDataMapEnt[fObjKey] = aDataEnt
 				fMgr.AlarmMap[fEvtKey] = aDataMapEnt
 			}
@@ -345,7 +301,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 	return nil
 }
 
-func (fMgr *FaultManager) ClearExistingFaults(evtKey EventKey, uuid string) {
+func (fMgr *FaultManager) ClearExistingFaults(evtKey EventKey, uuid string, reason Reason) {
 	fMgr.FMapRWMutex.Lock()
 	fDataMapEnt, exist := fMgr.FaultMap[evtKey]
 	if !exist {
@@ -359,7 +315,7 @@ func (fMgr *FaultManager) ClearExistingFaults(evtKey EventKey, uuid string) {
 		fDBKey := fIntf.(FaultRBEntry)
 		if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
 			if uuid == "" || uuid == fDBKey.SrcObjUUID {
-				fDBKey.ResolutionReason = DISABLED
+				fDBKey.ResolutionReason = reason
 				fDBKey.ResolutionTime = time.Now()
 				fDBKey.Resolved = true
 				fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
