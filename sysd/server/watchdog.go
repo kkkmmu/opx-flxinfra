@@ -237,7 +237,6 @@ func (server *SYSDServer) WDTimer() error {
 				}
 			}
 			server.DaemonKAResetCh <- daemon
-			daemonInfo.RecvedKACount = 0
 		}
 	}
 	return nil
