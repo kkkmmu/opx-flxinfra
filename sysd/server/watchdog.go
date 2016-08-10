@@ -91,13 +91,15 @@ func (server *SYSDServer) StartWDRoutine() error {
 				daemonInfo.Initialize()
 				server.DaemonMap[kaDaemon] = daemonInfo
 			}
-			daemonInfo.RecvedKACount++
-			if daemonInfo.State != sysdCommonDefs.UP {
-				daemonInfo.State = sysdCommonDefs.UP
-				daemonInfo.Reason = REASON_NONE
-				server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
+			if daemonInfo.Enable {
+				daemonInfo.RecvedKACount++
+				if daemonInfo.State != sysdCommonDefs.UP {
+					daemonInfo.State = sysdCommonDefs.UP
+					daemonInfo.Reason = REASON_NONE
+					server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
+				}
+				server.UpdateDaemonStateInDb(kaDaemon)
 			}
-			server.UpdateDaemonStateInDb(kaDaemon)
 		case daemonConfig := <-server.DaemonConfigCh:
 			server.logger.Info(fmt.Sprintln("Received daemon config for: ", daemonConfig.Name, " Enable ", daemonConfig.Enable))
 			daemon := daemonConfig.Name
