@@ -91,3 +91,9 @@ func (h *rpcServiceHandler) ExecuteActionFaultEnable(config *fMgrd.FaultEnable) 
 
 	return api.FaultEnableAction(convertToObjFmtFaultEnable(config))
 }
+
+func (h *rpcServiceHandler) ExecuteActionFaultClear(config *fMgrd.FaultClear) (bool, error) {
+	h.logger.Info(fmt.Sprintln("ExecuteActionFaultClear ", config))
+
+	return api.FaultClearAction(convertToObjFmtFaultClear(config))
+}

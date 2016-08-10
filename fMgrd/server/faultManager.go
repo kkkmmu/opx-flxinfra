@@ -36,3 +36,8 @@ func (svr *FMGRServer) faultEnableAction(config *objects.FaultEnable) (bool, err
 	retObj, err := svr.fMgr.FaultEnableAction(config)
 	return retObj, err
 }
+
+func (svr *FMGRServer) faultClearAction(config *objects.FaultClear) (bool, error) {
+	retObj, err := svr.fMgr.FaultClearAction(config)
+	return retObj, err
+}
