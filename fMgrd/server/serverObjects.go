@@ -33,6 +33,7 @@ const (
 	GET_BULK_FAULT_STATE ServerOpId = iota
 	GET_BULK_ALARM_STATE
 	FAULT_ENABLE_ACTION
+	FAULT_CLEAR_ACTION
 )
 
 type ServerRequest struct {
@@ -60,6 +61,15 @@ type FaultEnableActionInArgs struct {
 }
 
 type FaultEnableActionOutArgs struct {
+	RetVal bool
+	Err    error
+}
+
+type FaultClearActionInArgs struct {
+	Config *objects.FaultClear
+}
+
+type FaultClearActionOutArgs struct {
 	RetVal bool
 	Err    error
 }

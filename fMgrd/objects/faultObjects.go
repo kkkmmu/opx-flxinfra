@@ -49,3 +49,9 @@ type FaultEnable struct {
 	EventName string
 	Enable    bool
 }
+
+type FaultClear struct {
+	OwnerName  string
+	EventName  string
+	SrcObjUUID string
+}
