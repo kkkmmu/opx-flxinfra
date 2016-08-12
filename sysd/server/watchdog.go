@@ -84,7 +84,6 @@ func (server *SYSDServer) StartWDRoutine() {
 	server.DaemonRestartCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
 	go server.KeepAliveReceiver()
 	go server.DaemonStateDBWriter()
-	server.WDStartedCh <- true
 	for {
 		select {
 		case daemonConfig := <-server.DaemonConfigCh:
