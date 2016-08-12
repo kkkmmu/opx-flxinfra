@@ -85,7 +85,6 @@ type SYSDServer struct {
 	SysInfo                  *objects.SystemParam
 	SysUpdCh                 chan *SystemParamUpdate
 	DaemonStateDBCh          chan string
-	DaemonKAResetCh          chan string
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
