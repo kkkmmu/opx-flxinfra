@@ -69,6 +69,7 @@ type SYSDServer struct {
 	logger                   *logging.Writer
 	dbHdl                    *dbutils.DBUtil
 	ServerStartedCh          chan bool
+	WDStartedCh              chan bool
 	paramsDir                string
 	GlobalLoggingConfigCh    chan GlobalLoggingConfig
 	ComponentLoggingConfigCh chan ComponentLoggingConfig
@@ -85,7 +86,6 @@ type SYSDServer struct {
 	SysInfo                  *objects.SystemParam
 	SysUpdCh                 chan *SystemParamUpdate
 	DaemonStateDBCh          chan string
-	DaemonKAResetCh          chan string
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
@@ -95,6 +95,7 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.dbHdl = dbHdl
 	sysdServer.paramsDir = paramsDir
 	sysdServer.ServerStartedCh = make(chan bool)
+	sysdServer.WDStartedCh = make(chan bool)
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
@@ -219,6 +220,8 @@ func (server *SYSDServer) StartServer() {
 	// Start watchdog routine
 	go server.StartWDRoutine()
 
+	// Wait for WD go routine to start before declaring sysd server as running
+	<-server.WDStartedCh
 	server.ServerStartedCh <- true
 	// Now, wait on below channels to process
 	for {
