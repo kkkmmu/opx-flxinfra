@@ -21,27 +21,10 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package objects
 
-import (
-	"errors"
-	"infra/notifierd/api"
-	"notifierd"
-)
-
-func (h *rpcServiceHandler) CreateNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("CreateNotifierEnable is not supported", conf)
-	return false, errors.New("CreateNotifierEnable is not supported")
-}
-
-func (h *rpcServiceHandler) DeleteNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("DeleteNotifierEnable is not supported", conf)
-	return false, errors.New("DeleteNotifierEnable is not supported")
-}
-
-func (h *rpcServiceHandler) UpdateNotifierEnable(oldCfg *notifierd.NotifierEnable, newCfg *notifierd.NotifierEnable, attrset []bool, op []*notifierd.PatchOpInfo) (bool, error) {
-	h.logger.Info("UpdateNotifierEnable is not supported", oldCfg, newCfg, attrset, op)
-	convOldCfg := convertFromRPCFmtNotifierEnable(oldCfg)
-	convNewCfg := convertFromRPCFmtNotifierEnable(newCfg)
-	return api.UpdateNotifierEnable(convOldCfg, convNewCfg, attrset)
+type NotifierEnable struct {
+	EventEnable bool
+	FaultEnable bool
+	AlarmEnable bool
 }

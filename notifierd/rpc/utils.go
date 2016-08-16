@@ -24,24 +24,14 @@
 package rpc
 
 import (
-	"errors"
-	"infra/notifierd/api"
+	"infra/notifierd/objects"
 	"notifierd"
 )
 
-func (h *rpcServiceHandler) CreateNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("CreateNotifierEnable is not supported", conf)
-	return false, errors.New("CreateNotifierEnable is not supported")
-}
-
-func (h *rpcServiceHandler) DeleteNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("DeleteNotifierEnable is not supported", conf)
-	return false, errors.New("DeleteNotifierEnable is not supported")
-}
-
-func (h *rpcServiceHandler) UpdateNotifierEnable(oldCfg *notifierd.NotifierEnable, newCfg *notifierd.NotifierEnable, attrset []bool, op []*notifierd.PatchOpInfo) (bool, error) {
-	h.logger.Info("UpdateNotifierEnable is not supported", oldCfg, newCfg, attrset, op)
-	convOldCfg := convertFromRPCFmtNotifierEnable(oldCfg)
-	convNewCfg := convertFromRPCFmtNotifierEnable(newCfg)
-	return api.UpdateNotifierEnable(convOldCfg, convNewCfg, attrset)
+func convertFromRPCFmtNotifierEnable(obj *notifierd.NotifierEnable) *objects.NotifierEnable {
+	return &objects.NotifierEnable{
+		EventEnable: obj.EventEnable,
+		FaultEnable: obj.FaultEnable,
+		AlarmEnable: obj.AlarmEnable,
+	}
 }
