@@ -21,27 +21,32 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package server
 
 import (
-	"errors"
-	"infra/notifierd/api"
-	"notifierd"
+	//"errors"
+	//"fmt"
+	"infra/notifierd/objects"
 )
 
-func (h *rpcServiceHandler) CreateNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("CreateNotifierEnable is not supported", conf)
-	return false, errors.New("CreateNotifierEnable is not supported")
-}
+func (svr *NMGRServer) updateNotifierEnable(oldCfg, newCfg *objects.NotifierEnable, attrset []bool) (bool, error) {
 
-func (h *rpcServiceHandler) DeleteNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("DeleteNotifierEnable is not supported", conf)
-	return false, errors.New("DeleteNotifierEnable is not supported")
-}
-
-func (h *rpcServiceHandler) UpdateNotifierEnable(oldCfg *notifierd.NotifierEnable, newCfg *notifierd.NotifierEnable, attrset []bool, op []*notifierd.PatchOpInfo) (bool, error) {
-	h.logger.Info("UpdateNotifierEnable is not supported", oldCfg, newCfg, attrset, op)
-	convOldCfg := convertFromRPCFmtNotifierEnable(oldCfg)
-	convNewCfg := convertFromRPCFmtNotifierEnable(newCfg)
-	return api.UpdateNotifierEnable(convOldCfg, convNewCfg, attrset)
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//ObjKey Vrf
+			case 1:
+				//EventEnable
+				//update event notifier
+			case 2:
+				//FaultEnable
+				//update fault notifier
+			case 3:
+				//AlarmEnable
+				//update alarm notifier
+			}
+		}
+	}
+	return true, nil
 }

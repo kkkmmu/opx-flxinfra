@@ -7,11 +7,11 @@
 //
 //    http://www.apache.org/licenses/LICENSE-2.0
 //
-//       Unless required by applicable law or agreed to in writing, software
-//       distributed under the License is distributed on an "AS IS" BASIS,
-//       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//       See the License for the specific language governing permissions and
-//       limitations under the License.
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
 //
 // _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
@@ -21,29 +21,31 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package api
+package server
 
 import (
-	//	"errors"
 	"infra/notifierd/objects"
-	"infra/notifierd/server"
+	"utils/logging"
 )
 
-var svr *server.NMGRServer
+type ServerOpId int
 
-func InitApiLayer(server *server.NMGRServer) {
-	svr = server
-	svr.Logger.Info("Initializing API Layer")
+const (
+	UPDATE_NOTIFIER_ENABLE ServerOpId = iota
+)
+
+type ServerRequest struct {
+	Op   ServerOpId
+	Data interface{}
 }
 
-func UpdateNotifierEnable(oldCfg, newCfg *objects.NotifierEnable, attrset []bool) (bool, error) {
-	svr.ReqChan <- &server.ServerRequest{
-		Op: server.UPDATE_NOTIFIER_ENABLE,
-		Data: interface{}(&server.UpdateNotifierEnableInArgs{
-			NotifierEnableOld: oldCfg,
-			NotifierEnableNew: newCfg,
-			AttrSet:           attrset,
-		}),
-	}
-	return true, nil
+type UpdateNotifierEnableInArgs struct {
+	NotifierEnableOld *objects.NotifierEnable
+	NotifierEnableNew *objects.NotifierEnable
+	AttrSet           []bool
+}
+
+type ServerInitParams struct {
+	ParamsDir string
+	Logger    logging.LoggerIntf
 }

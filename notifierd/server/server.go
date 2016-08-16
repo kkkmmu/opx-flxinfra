@@ -24,34 +24,49 @@
 package server
 
 import (
-	//	"fmt"
-	"time"
 	"utils/logging"
 )
 
 type NMGRServer struct {
-	Logger   logging.LoggerIntf
-	InitDone chan bool
+	Logger      logging.LoggerIntf
+	paramsDir   string
+	ReqChan     chan *ServerRequest
+	InitDone    chan bool
+	EventEnable bool
+	FaultEnable bool
+	AlarmEnable bool
 }
 
-func NewNMGRServer(logger *logging.Writer) *NMGRServer {
+func NewNMGRServer(initParams *ServerInitParams) *NMGRServer {
 	nMgrServer := &NMGRServer{}
-	nMgrServer.Logger = logger
+	nMgrServer.Logger = initParams.Logger
+	nMgrServer.paramsDir = initParams.ParamsDir
 	nMgrServer.InitDone = make(chan bool)
+	nMgrServer.ReqChan = make(chan *ServerRequest)
 	return nMgrServer
 }
 
+func (server *NMGRServer) InitServer() {
+	server.EventEnable = true
+	server.FaultEnable = true
+	server.AlarmEnable = true
+}
+
 func (server *NMGRServer) StartServer() {
-	//server.InitServer()
+	server.InitServer()
 	server.InitDone <- true
 	for {
-		/*
-		   select {
-		   case req := <-server.ReqChan:
-		           server.Logger.Info(fmt.Sprintln("Server request received - ", *req))
-		           server.handleRPCRequest(req)
-		   }
-		*/
-		time.Sleep(30 * time.Second)
+		select {
+		case req := <-server.ReqChan:
+			server.Logger.Info("Server request received - ", *req)
+			switch req.Op {
+			case UPDATE_NOTIFIER_ENABLE:
+				if val, ok := req.Data.(*UpdateNotifierEnableInArgs); ok {
+					server.updateNotifierEnable(val.NotifierEnableOld, val.NotifierEnableNew, val.AttrSet)
+				}
+			default:
+				server.Logger.Err("Error: Server received unrecognized request - ", req.Op)
+			}
+		}
 	}
 }

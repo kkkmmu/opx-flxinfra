@@ -52,7 +52,11 @@ func main() {
 	}
 
 	// Get server handle and start server
-	dmn.server = server.NewNMGRServer(dmn.FSBaseDmn.Logger)
+	svrInitParams := &server.ServerInitParams{
+		ParamsDir: dmn.ParamsDir,
+		Logger:    dmn.FSBaseDmn.Logger,
+	}
+	dmn.server = server.NewNMGRServer(svrInitParams)
 	go dmn.server.StartServer()
 
 	//Initialize API layer
