@@ -24,11 +24,58 @@
 package faultMgr
 
 import (
+	"encoding/json"
+	"errors"
 	"infra/fMgrd/objects"
 	"strings"
 	"time"
 	"utils/eventUtils"
 )
+
+func (fMgr *FaultManager) GetAlarmStateObject(alarm *AlarmRBEntry) (aObj objects.AlarmState, err error) {
+	aObj.OwnerId = int32(alarm.OwnerId)
+	aObj.EventId = int32(alarm.EventId)
+	evtKey := EventKey{
+		DaemonId: alarm.OwnerId,
+		EventId:  alarm.EventId,
+	}
+	fEnt, exist := fMgr.FaultEventMap[evtKey]
+	if !exist {
+		return aObj, errors.New("Error finding the entry in AlarmRB")
+	}
+	aObj.OwnerName = fEnt.FaultOwnerName
+	aObj.EventName = fEnt.FaultEventName
+	aObj.SrcObjName = fEnt.FaultSrcObjName
+	aObj.Severity = fEnt.AlarmSeverity
+	aObj.Description = alarm.Description
+	aObj.OccuranceTime = alarm.OccuranceTime.String()
+	aObj.SrcObjKey = alarm.SrcObjKey
+	aObj.SrcObjUUID = alarm.SrcObjUUID
+
+	if alarm.Resolved == true {
+		aObj.ResolutionTime = alarm.ResolutionTime.String()
+		aObj.ResolutionReason = getResolutionReason(alarm.ResolutionReason)
+	} else {
+		aObj.ResolutionTime = "N/A"
+		aObj.ResolutionReason = "N/A"
+	}
+	return aObj, nil
+}
+
+func (fMgr *FaultManager) PublishAlarms(idx int) {
+	fMgr.ARBRWMutex.RLock()
+	aIntf := fMgr.AlarmRB.GetEntryFromRingBuffer(idx)
+	fMgr.ARBRWMutex.RUnlock()
+	alarm := aIntf.(AlarmRBEntry)
+	aObj, err := fMgr.GetAlarmStateObject(&alarm)
+	if err != nil {
+		fMgr.logger.Err("Error Fetching the fault state object", err)
+		return
+	}
+	msg, _ := json.Marshal(aObj)
+	channel := aObj.OwnerName + "Alarms"
+	fMgr.AlarmPubHdl.Publish("PUBLISH", channel, msg)
+}
 
 func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.AlarmStateGetInfo, error) {
 	var retObj objects.AlarmStateGetInfo
@@ -45,32 +92,9 @@ func (fMgr *FaultManager) GetBulkAlarmState(fromIdx int, count int) (*objects.Al
 	for i, j = 0, fromIdx; i < count && j < length; j++ {
 		aIntf := alarms[length-j-1]
 		alarm := aIntf.(AlarmRBEntry)
-		var aObj objects.AlarmState
-		aObj.OwnerId = int32(alarm.OwnerId)
-		aObj.EventId = int32(alarm.EventId)
-		evtKey := EventKey{
-			DaemonId: alarm.OwnerId,
-			EventId:  alarm.EventId,
-		}
-		fEnt, exist := fMgr.FaultEventMap[evtKey]
-		if !exist {
+		aObj, err := fMgr.GetAlarmStateObject(&alarm)
+		if err != nil {
 			continue
-		}
-		aObj.OwnerName = fEnt.FaultOwnerName
-		aObj.EventName = fEnt.FaultEventName
-		aObj.SrcObjName = fEnt.FaultSrcObjName
-		aObj.Severity = fEnt.AlarmSeverity
-		aObj.Description = alarm.Description
-		aObj.OccuranceTime = alarm.OccuranceTime.String()
-		aObj.SrcObjKey = alarm.SrcObjKey
-		aObj.SrcObjUUID = alarm.SrcObjUUID
-
-		if alarm.Resolved == true {
-			aObj.ResolutionTime = alarm.ResolutionTime.String()
-			aObj.ResolutionReason = getResolutionReason(alarm.ResolutionReason)
-		} else {
-			aObj.ResolutionTime = "N/A"
-			aObj.ResolutionReason = "N/A"
 		}
 		aState[i] = aObj
 		i++
@@ -116,6 +140,7 @@ func (fMgr *FaultManager) StartAlarmTimer(evt eventUtils.Event) *time.Timer {
 			return
 		}
 		aDataEnt.AlarmListIdx = fMgr.AddAlarmEntryInRB(evt, objKey, fObjKeyUUId)
+		fMgr.PublishAlarms(aDataEnt.AlarmListIdx)
 		aDataEnt.AlarmSeqNumber = fMgr.AlarmSeqNumber
 		fMgr.AlarmSeqNumber++
 		aDataMapEnt[fObjKey] = aDataEnt
@@ -173,14 +198,6 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event, reason Rea
 			fMgr.AMapRWMutex.Unlock()
 			return
 		}
-		/*
-			fObjKey, err := fMgr.generateFaultObjKey(evt.OwnerName, evt.SrcObjName, evt.SrcObjKey)
-			if err != nil {
-				fMgr.logger.Err("Fault Obj key, hence skipping alarm removal")
-				fMgr.AMapRWMutex.Unlock()
-				return
-			}
-		*/
 		aDataEnt, exist := aDataMapEnt[fObjKey]
 		if !exist {
 			fMgr.logger.Err("Alarm Data entry doesnot exist, hence skipping this")
@@ -196,6 +213,7 @@ func (fMgr *FaultManager) StartAlarmRemoveTimer(evt eventUtils.Event, reason Rea
 			fMgr.ARBRWMutex.Lock()
 			fMgr.AlarmRB.UpdateEntryInRingBuffer(aRBData, aDataEnt.AlarmListIdx)
 			fMgr.ARBRWMutex.Unlock()
+			fMgr.PublishAlarms(aDataEnt.AlarmListIdx)
 			delete(aDataMapEnt, fObjKey)
 			fMgr.AlarmMap[fEvtKey] = aDataMapEnt
 		}
@@ -229,6 +247,11 @@ func (fMgr *FaultManager) ClearExistingAlarms(evtKey EventKey, uuid string, reas
 			}
 		}
 		fMgr.ARBRWMutex.Unlock()
+		if aRBData.AlarmSeqNumber == aDataEnt.AlarmSeqNumber {
+			if uuid == "" || uuid == aRBData.SrcObjUUID {
+				fMgr.PublishAlarms(aDataEnt.AlarmListIdx)
+			}
+		}
 	}
 	if len(aDataMapEnt) == 0 {
 		delete(fMgr.AlarmMap, evtKey)

@@ -37,6 +37,11 @@ import (
 	"utils/ringBuffer"
 )
 
+type PubIntf interface {
+	Publish(string, interface{}, interface{})
+	Connect() error
+}
+
 type FaultManager struct {
 	logger                     logging.LoggerIntf
 	dbHdl                      dbutils.DBIntf
@@ -59,6 +64,8 @@ type FaultManager struct {
 	AlarmSeqNumber             uint64
 	FaultToAlarmTransitionTime time.Duration
 	AlarmTransitionTime        time.Duration
+	FaultPubHdl                PubIntf
+	AlarmPubHdl                PubIntf
 }
 
 func NewFaultManager(logger logging.LoggerIntf) *FaultManager {
@@ -80,7 +87,9 @@ func NewFaultManager(logger logging.LoggerIntf) *FaultManager {
 	fMgr.AlarmSeqNumber = 0
 	fMgr.FaultToAlarmTransitionTime = time.Duration(3) * time.Second
 	fMgr.AlarmTransitionTime = time.Duration(3) * time.Second
-	fMgr.dbHdl = dbutils.NewDBUtil(logger.(*logging.Writer))
+	fMgr.dbHdl = dbutils.NewDBUtil(logger)
+	fMgr.FaultPubHdl = dbutils.NewDBUtil(logger)
+	fMgr.AlarmPubHdl = dbutils.NewDBUtil(logger)
 	return fMgr
 }
 
@@ -94,6 +103,14 @@ func (fMgr *FaultManager) InitFaultManager() error {
 	if err != nil {
 		fMgr.logger.Err(fmt.Sprintln("Error Initializing Fault Manager DB Handler:", err))
 		return err
+	}
+	err = fMgr.FaultPubHdl.Connect()
+	if err != nil {
+		fMgr.logger.Err(fmt.Sprintln("Error Initializing Fault Publisher Handler:", err))
+	}
+	err = fMgr.AlarmPubHdl.Connect()
+	if err != nil {
+		fMgr.logger.Err(fmt.Sprintln("Error Initializing Alarm Publisher Handler:", err))
 	}
 	go fMgr.EventProcessor()
 	return err
@@ -116,20 +133,6 @@ func (fMgr *FaultManager) EventProcessor() {
 			fMgr.logger.Debug(fmt.Sprintln("Timestamp:", evt.TimeStamp))
 			fMgr.logger.Debug(fmt.Sprintln("Description:", evt.Description))
 			fMgr.logger.Debug(fmt.Sprintln("SrcObjName:", evt.SrcObjName))
-			/*
-				keyMap, exist := events.EventKeyMap[evt.OwnerName]
-				if !exist {
-					fMgr.logger.Err("Key map not found given Event")
-					continue
-				}
-				obj, exist := keyMap[evt.SrcObjName]
-				if !exist {
-					fMgr.logger.Err("Src Object Name not found in Event Key Map")
-					continue
-				}
-				obj = evt.SrcObjKey
-				fMgr.logger.Debug(fmt.Sprintln("Src Obj Key", obj))
-			*/
 
 			fMgr.processEvents(evt)
 		case _ = <-fMgr.PauseEventProcessCh:

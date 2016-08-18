@@ -76,15 +76,14 @@ func (server *FMGRServer) Subscriber() {
 			server.fMgr.EventCh <- n.Data
 		case redis.Subscription:
 			if n.Count == 0 {
-				return
+				server.Logger.Err("Empty data Received")
 			}
 		case error:
 			server.Logger.Err(fmt.Sprintf("error: %v\n", n))
-			return
 		}
 	}
 	server.subHdl.Unsubscribe()
-	server.subHdl.PUnsubscribe()
+	//server.subHdl.PUnsubscribe()
 }
 
 func (server *FMGRServer) InitSubscriber() error {

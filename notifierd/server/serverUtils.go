@@ -21,26 +21,45 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package rpc
+package server
 
 import (
+	"encoding/json"
 	"errors"
-	"infra/notifierd/api"
-	"notifierd"
+	"fmt"
+	"io/ioutil"
+	"strconv"
+	"utils/eventUtils"
 )
 
-func (h *rpcServiceHandler) CreateNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	return true, nil
+type SysProfile struct {
+	Port int `json:"Notifier_Port"`
 }
 
-func (h *rpcServiceHandler) DeleteNotifierEnable(conf *notifierd.NotifierEnable) (bool, error) {
-	h.logger.Info("DeleteNotifierEnable is not supported", conf)
-	return false, errors.New("DeleteNotifierEnable is not supported")
+func (server *NMGRServer) getNotifierPort() (string, error) {
+	var sysProfile SysProfile
+
+	sysProfileFile := server.paramsDir + "systemProfile.json"
+	bytes, err := ioutil.ReadFile(sysProfileFile)
+	if err != nil {
+		return "", errors.New(fmt.Sprintln("Error reading the sysProfile file", sysProfileFile))
+	}
+	err = json.Unmarshal(bytes, &sysProfile)
+	if err != nil {
+		return "", errors.New(fmt.Sprintln("Error unmarshalling sysProfile file", sysProfileFile))
+	}
+	port := strconv.Itoa(sysProfile.Port)
+	return port, nil
 }
 
-func (h *rpcServiceHandler) UpdateNotifierEnable(oldCfg *notifierd.NotifierEnable, newCfg *notifierd.NotifierEnable, attrset []bool, op []*notifierd.PatchOpInfo) (bool, error) {
-	h.logger.Info("UpdateNotifierEnable is not supported", oldCfg, newCfg, attrset, op)
-	convOldCfg := convertFromRPCFmtNotifierEnable(oldCfg)
-	convNewCfg := convertFromRPCFmtNotifierEnable(newCfg)
-	return api.UpdateNotifierEnable(convOldCfg, convNewCfg, attrset)
+func (server *NMGRServer) getDmnList() ([]string, error) {
+	evtJson, err := eventUtils.ParseEventsJson()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintln("Error parsing events.json file", err))
+	}
+	var dmnList []string
+	for _, daemon := range evtJson.DaemonEvents {
+		dmnList = append(dmnList, daemon.DaemonName)
+	}
+	return dmnList, nil
 }
