@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"infra/sysd/sysdCommonDefs"
+	"io/ioutil"
 	"models/objects"
 	"os"
 	"os/exec"
@@ -51,6 +52,19 @@ const (
 	REASON_COMING_UP      = "Started by user"
 )
 
+type DaemonJson struct {
+	Name string `json:"Name"`
+}
+
+type DaemonEnableJson struct {
+	Name   string `json:"Name"`
+	Enable bool   `json:"Enable"`
+}
+
+type DaemonsEnableList struct {
+	DaemonsEnable []DaemonEnableJson `json:"Daemons"`
+}
+
 type DaemonInfo struct {
 	Enable        bool
 	State         sysdCommonDefs.SRDaemonStatus
@@ -72,7 +86,7 @@ func (daemonInfo *DaemonInfo) Initialize() error {
 	daemonInfo.NumRestarts = 0
 	daemonInfo.RestartTime = ""
 	daemonInfo.RestartReason = ""
-	daemonInfo.WatchDog = true
+	daemonInfo.WatchDog = false
 	return nil
 }
 
@@ -82,6 +96,7 @@ func (server *SYSDServer) StartWDRoutine() {
 	server.DaemonStateDBCh = make(chan string, KA_RECV_CH_SIZE)
 	server.DaemonConfigCh = make(chan DaemonConfig, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
 	server.DaemonRestartCh = make(chan string, sysdCommonDefs.SYSD_TOTAL_KA_DAEMONS)
+	server.PopulateDaemonList()
 	go server.KeepAliveReceiver()
 	go server.DaemonStateDBWriter()
 	for {
@@ -93,23 +108,18 @@ func (server *SYSDServer) StartWDRoutine() {
 			watchDog := daemonConfig.WatchDog
 			daemonInfo, exist := server.DaemonMap[daemon]
 			daemonUpdated := false
-			if enable {
-				if !exist {
-					daemonInfo = &DaemonInfo{}
-					daemonInfo.Initialize()
-					server.DaemonMap[daemon] = daemonInfo
-				}
-				if daemonInfo.State == sysdCommonDefs.STOPPED {
-					server.ToggleFlexswitchDaemon(daemon, true)
-					daemonInfo.State = sysdCommonDefs.STARTING
-					daemonInfo.Reason = REASON_COMING_UP
-					daemonInfo.Enable = true
-					daemonUpdated = true
+			if exist {
+				if enable {
+					if daemonInfo.State == sysdCommonDefs.STOPPED {
+						server.ToggleFlexswitchDaemon(daemon, true)
+						daemonInfo.State = sysdCommonDefs.STARTING
+						daemonInfo.Reason = REASON_COMING_UP
+						daemonInfo.Enable = true
+						daemonUpdated = true
+					} else {
+						server.logger.Info("Daemon", daemonConfig.Name, "is not in stopped state, ignoring enable command")
+					}
 				} else {
-					server.logger.Info("Daemon", daemonConfig.Name, "is not in stopped state, ignoring enable command")
-				}
-			} else {
-				if exist {
 					if daemonInfo.State == sysdCommonDefs.UP {
 						server.ToggleFlexswitchDaemon(daemon, false)
 						daemonInfo.State = sysdCommonDefs.STOPPED
@@ -121,15 +131,15 @@ func (server *SYSDServer) StartWDRoutine() {
 					} else {
 						server.logger.Info("Daemon", daemonConfig.Name, "is not in up state, ignoring disable command")
 					}
-				} else {
-					server.logger.Info("Received call to stop unknown daemon", daemon)
 				}
-			}
-			if daemonInfo != nil {
-				daemonInfo.WatchDog = watchDog
-			}
-			if daemonUpdated {
-				server.DaemonStateDBCh <- daemon
+				if daemonInfo != nil {
+					daemonInfo.WatchDog = watchDog
+				}
+				if daemonUpdated {
+					server.DaemonStateDBCh <- daemon
+				}
+			} else {
+				server.logger.Info("Unknown daemon:", daemonConfig.Name)
 			}
 		case daemon := <-server.DaemonRestartCh:
 			daemonInfo, exist := server.DaemonMap[daemon]
@@ -143,6 +153,71 @@ func (server *SYSDServer) StartWDRoutine() {
 			}
 		}
 	}
+}
+
+/*
+ * Read clients.json and populate DaemonMap. Keep the Daemon's watchdog as false so that sysd won't
+ * try to restart it until first keepalive is received.
+ * Also, read systemProfile.json and disable (as stopped) the daemons that have Enabled == false.
+ */
+func (server *SYSDServer) PopulateDaemonList() error {
+	var daemonsList []DaemonJson
+	var daemonsEnableList DaemonsEnableList
+	var daemonName string
+
+	daemonsFile := server.paramsDir + "clients.json"
+	bytes, err := ioutil.ReadFile(daemonsFile)
+	if err != nil {
+		server.logger.Info("Failed to read daemons list file")
+		return err
+	}
+	err = json.Unmarshal(bytes, &daemonsList)
+	if err != nil {
+		server.logger.Info("Failed to unmarshal daemons list json")
+		return err
+	}
+	for _, daemon := range daemonsList {
+		if daemon.Name == "sysd" {
+			continue
+		}
+		if daemon.Name == "local" {
+			daemonName = "confd"
+		} else {
+			daemonName = daemon.Name
+		}
+		daemonInfo := &DaemonInfo{}
+		daemonInfo.Initialize()
+		server.DaemonMap[daemonName] = daemonInfo
+		server.logger.Info("Added daemon", daemonName)
+	}
+
+	daemonsEnableFile := server.paramsDir + "systemProfile.json"
+	bytes, err = ioutil.ReadFile(daemonsEnableFile)
+	if err != nil {
+		server.logger.Info("Failed to read daemons enablefile")
+		return err
+	}
+	err = json.Unmarshal(bytes, &daemonsEnableList)
+	if err != nil {
+		server.logger.Info("Failed to unmarshal daemons enable list json")
+		return err
+	}
+	for _, daemon := range daemonsEnableList.DaemonsEnable {
+		daemonInfo, exist := server.DaemonMap[daemon.Name]
+		if exist {
+			if daemon.Enable == false {
+				daemonInfo.Enable = false
+				daemonInfo.State = sysdCommonDefs.STOPPED
+				daemonInfo.Reason = REASON_DAEMON_STOPPED
+				server.logger.Info("Daemon", daemon.Name, "is stopped")
+			}
+		}
+	}
+	// Write all daemons' information into DB
+	for daemonName, _ = range server.DaemonMap {
+		server.UpdateDaemonStateInDb(daemonName)
+	}
+	return nil
 }
 
 func (server *SYSDServer) PublishDaemonKANotification(name string, status sysdCommonDefs.SRDaemonStatus) error {
@@ -214,20 +289,21 @@ func (server *SYSDServer) KeepAliveReceiver() {
 		select {
 		case kaDaemon := <-server.KaRecvCh:
 			daemonInfo, exist := server.DaemonMap[kaDaemon]
-			if !exist {
-				daemonInfo = &DaemonInfo{}
-				daemonInfo.Initialize()
-				server.DaemonMap[kaDaemon] = daemonInfo
-				server.logger.Info("KA added new daemon", kaDaemon)
-			}
-			if daemonInfo.Enable {
-				daemonInfo.RecvedKACount++
-				if daemonInfo.State != sysdCommonDefs.UP {
-					daemonInfo.State = sysdCommonDefs.UP
-					daemonInfo.Reason = REASON_NONE
-					server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
+			if exist {
+				if daemonInfo.Enable {
+					if daemonInfo.WatchDog == false {
+						daemonInfo.WatchDog = true
+					}
+					daemonInfo.RecvedKACount++
+					if daemonInfo.State != sysdCommonDefs.UP {
+						daemonInfo.State = sysdCommonDefs.UP
+						daemonInfo.Reason = REASON_NONE
+						server.PublishDaemonKANotification(kaDaemon, daemonInfo.State)
+					}
+					server.DaemonStateDBCh <- kaDaemon
 				}
-				server.DaemonStateDBCh <- kaDaemon
+			} else {
+				server.logger.Info("Received keepalive from unknown daemon", kaDaemon)
 			}
 		case <-wdTimerCh:
 			for daemon, daemonInfo := range server.DaemonMap {
