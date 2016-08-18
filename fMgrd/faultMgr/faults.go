@@ -24,14 +24,57 @@
 package faultMgr
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"infra/fMgrd/objects"
-	//"models/events"
 	"strings"
 	"time"
 	"utils/eventUtils"
 )
+
+func (fMgr *FaultManager) GetFaultStateObject(fault *FaultRBEntry) (fObj objects.FaultState, err error) {
+	fObj.OwnerId = int32(fault.OwnerId)
+	fObj.EventId = int32(fault.EventId)
+	evtKey := EventKey{
+		DaemonId: fault.OwnerId,
+		EventId:  fault.EventId,
+	}
+	fEnt, exist := fMgr.FaultEventMap[evtKey]
+	if !exist {
+		return fObj, errors.New("Error finding the entry in Fault Event")
+	}
+	fObj.OwnerName = fEnt.FaultOwnerName
+	fObj.EventName = fEnt.FaultEventName
+	fObj.SrcObjName = fEnt.FaultSrcObjName
+	fObj.Description = fault.Description
+	fObj.OccuranceTime = fault.OccuranceTime.String()
+	fObj.SrcObjKey = fault.SrcObjKey
+	fObj.SrcObjUUID = fault.SrcObjUUID
+	if fault.Resolved == true {
+		fObj.ResolutionTime = fault.ResolutionTime.String()
+		fObj.ResolutionReason = getResolutionReason(fault.ResolutionReason)
+	} else {
+		fObj.ResolutionTime = "N/A"
+		fObj.ResolutionReason = "N/A"
+	}
+	return fObj, nil
+}
+
+func (fMgr *FaultManager) PublishFaults(idx int) {
+	fMgr.FRBRWMutex.RLock()
+	fIntf := fMgr.FaultRB.GetEntryFromRingBuffer(idx)
+	fMgr.FRBRWMutex.RUnlock()
+	fault := fIntf.(FaultRBEntry)
+	fObj, err := fMgr.GetFaultStateObject(&fault)
+	if err != nil {
+		fMgr.logger.Err("Error Fetching the fault state object", err)
+		return
+	}
+	msg, _ := json.Marshal(fObj)
+	channel := fObj.OwnerName + "Faults"
+	fMgr.FaultPubHdl.Publish("PUBLISH", channel, msg)
+}
 
 func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.FaultStateGetInfo, error) {
 	var retObj objects.FaultStateGetInfo
@@ -48,40 +91,9 @@ func (fMgr *FaultManager) GetBulkFaultState(fromIdx int, count int) (*objects.Fa
 	for i, j = 0, fromIdx; i < count && j < length; j++ {
 		fIntf := faults[length-j-1]
 		fault := fIntf.(FaultRBEntry)
-		var fObj objects.FaultState
-		fObj.OwnerId = int32(fault.OwnerId)
-		fObj.EventId = int32(fault.EventId)
-		evtKey := EventKey{
-			DaemonId: fault.OwnerId,
-			EventId:  fault.EventId,
-		}
-		fEnt, exist := fMgr.FaultEventMap[evtKey]
-		if !exist {
+		fObj, err := fMgr.GetFaultStateObject(&fault)
+		if err != nil {
 			continue
-		}
-		fObj.OwnerName = fEnt.FaultOwnerName
-		fObj.EventName = fEnt.FaultEventName
-		fObj.SrcObjName = fEnt.FaultSrcObjName
-		fObj.Description = fault.Description
-		fObj.OccuranceTime = fault.OccuranceTime.String()
-		/*
-			str := strings.Split(fmt.Sprintf("%v", fault.SrcObjKey), "map[")
-			//fObj.SrcObjKey = fmt.Sprintf("%v", fault.SrcObjKey)
-			fObj.SrcObjKey = strings.Split(str[1], "]")[0]
-			fObj.SrcObjUUID, err = fMgr.getUUID(fObj.SrcObjName, fObj.SrcObjKey)
-			if err != nil {
-				fMgr.logger.Err("Unable to find the UUID of", fObj.SrcObjName, fObj.SrcObjKey)
-				continue
-			}
-		*/
-		fObj.SrcObjKey = fault.SrcObjKey
-		fObj.SrcObjUUID = fault.SrcObjUUID
-		if fault.Resolved == true {
-			fObj.ResolutionTime = fault.ResolutionTime.String()
-			fObj.ResolutionReason = getResolutionReason(fault.ResolutionReason)
-		} else {
-			fObj.ResolutionTime = "N/A"
-			fObj.ResolutionReason = "N/A"
 		}
 		fState[i] = fObj
 		i++
@@ -189,6 +201,8 @@ func (fMgr *FaultManager) CreateEntryInFaultAlarmDB(evt eventUtils.Event) error 
 		return errors.New("Unable to add entry in fault database")
 	}
 
+	fMgr.PublishFaults(faultIdx)
+
 	fDataEnt.FaultListIdx = faultIdx
 	fDataEnt.FaultSeqNumber = fMgr.FaultSeqNumber
 	fMgr.FaultSeqNumber++
@@ -273,6 +287,7 @@ func (fMgr *FaultManager) DeleteEntryFromFaultAlarmDB(evt eventUtils.Event) erro
 		fMgr.FRBRWMutex.Lock()
 		fMgr.FaultRB.UpdateEntryInRingBuffer(fDBKey, fDataEnt.FaultListIdx)
 		fMgr.FRBRWMutex.Unlock()
+		fMgr.PublishFaults(fDataEnt.FaultListIdx)
 		fMgr.AMapRWMutex.Lock()
 		aDataMapEnt, exist := fMgr.AlarmMap[fEvtKey]
 		if !exist {
@@ -326,6 +341,11 @@ func (fMgr *FaultManager) ClearExistingFaults(evtKey EventKey, uuid string, reas
 			}
 		}
 		fMgr.FRBRWMutex.Unlock()
+		if fDataEnt.FaultSeqNumber == fDBKey.FaultSeqNumber {
+			if uuid == "" || uuid == fDBKey.SrcObjUUID {
+				fMgr.PublishFaults(fDataEnt.FaultListIdx)
+			}
+		}
 	}
 	if len(fDataMapEnt) == 0 {
 		delete(fMgr.FaultMap, evtKey)

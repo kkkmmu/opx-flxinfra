@@ -23,8 +23,17 @@
 
 package objects
 
+import (
+	"utils/logging"
+)
+
 type NotifierEnable struct {
 	EventEnable bool
 	FaultEnable bool
 	AlarmEnable bool
+}
+
+type NotifierParam struct {
+	Logger  logging.LoggerIntf
+	DmnList []string
 }
