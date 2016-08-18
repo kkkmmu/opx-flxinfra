@@ -134,7 +134,8 @@ window.addEventListener("load", function(evt) {
     var printEvent = function(message) {
         var d = document.createElement("div");
         var x = document.createElement("HR");
-        d.innerHTML = message;
+	var obj = JSON.parse(message)
+        d.innerHTML = "OwnerName: " + obj.OwnerName + "<br>Description: " + obj.Description + "<br>OccuranceTime: " + obj.TimeStamp + "<br>Details: " + message;
         eventsOutput.insertBefore(x, eventsOutput.firstChild);
         eventsOutput.insertBefore(d, eventsOutput.firstChild);
     };
@@ -142,7 +143,12 @@ window.addEventListener("load", function(evt) {
     var printFault = function(message) {
         var d = document.createElement("div");
         var x = document.createElement("HR");
-        d.innerHTML = message;
+	var obj = JSON.parse(message)
+	if (obj.ResolutionTime == "N/A") {
+        d.innerHTML = "OwnerName: " + obj.OwnerName + "<br>Description: " + obj.Description + "<br>Src Object:  {" + obj.SrcObjKey + "}<br>OccuranceTime: " + obj.OccuranceTime;
+	} else {
+        d.innerHTML = "Owner Name: " + obj.OwnerName + " <br>Description: " + obj.Description + "<br>Src Object:  {" + obj.SrcObjKey + "}<br>Occurance Time: " + obj.OccuranceTime + "<br>Resolution Time: " + obj.ResolutionTime + "<br>Resolution Reason: " + obj.ResolutionReason;
+	}
         faultsOutput.insertBefore(x, faultsOutput.firstChild);
         faultsOutput.insertBefore(d, faultsOutput.firstChild);
     };
@@ -150,7 +156,12 @@ window.addEventListener("load", function(evt) {
     var printAlarm = function(message) {
         var d = document.createElement("div");
         var x = document.createElement("HR");
-        d.innerHTML = message;
+	var obj = JSON.parse(message)
+	if (obj.ResolutionTime == "N/A") {
+        d.innerHTML = "OwnerName: " + obj.OwnerName + "<br>Description: " + obj.Description + "<br>Src Object:  {" + obj.SrcObjKey + "}<br>OccuranceTime: " + obj.OccuranceTime + "<br>Severity: " + obj.Severity;
+	} else {
+        d.innerHTML = "Owner Name: " + obj.OwnerName + "<br>Description: " + obj.Description + "<br>Src Object:  {" + obj.SrcObjKey + "}<br>Occurance Time: " + obj.OccuranceTime + "<br>Resolution Time: " + obj.ResolutionTime + "<br>Resolution Reason: " + obj.ResolutionReason + "<br>Severity: " + obj.Severity;
+	}
         alarmsOutput.insertBefore(x, alarmsOutput.firstChild);
         alarmsOutput.insertBefore(d, alarmsOutput.firstChild);
     };
@@ -161,16 +172,13 @@ window.addEventListener("load", function(evt) {
             eventsWs.close();
             eventsWs = new WebSocket(addr);
             eventsWs.onopen = function(evt) {
-                printEvent("Monitoring Events...");
             }
         } else {
             eventsWs = new WebSocket(addr);
             eventsWs.onopen = function(evt) {
-                printEvent("Monitoring Events...");
             }
 	}
         eventsWs.onclose = function(evt) {
-            printEvent("Stopped monitoring Events");
             eventsWs = null;
         }
         eventsWs.onmessage = function(evt) {
@@ -188,16 +196,13 @@ window.addEventListener("load", function(evt) {
             faultsWs.close();
             faultsWs = new WebSocket(addr);
             faultsWs.onopen = function(evt) {
-                printFault("Monitoring Faults...");
             }
         } else {
             faultsWs = new WebSocket(addr);
             faultsWs.onopen = function(evt) {
-                printFault("Monitoring Faults...");
             }
 	}
         faultsWs.onclose = function(evt) {
-            printFault("Stopped monitoring Faults");
             faultsWs = null;
         }
         faultsWs.onmessage = function(evt) {
@@ -215,16 +220,13 @@ window.addEventListener("load", function(evt) {
             alarmsWs.close();
             alarmsWs = new WebSocket(addr);
             alarmsWs.onopen = function(evt) {
-                printAlarm("Monitoring Alarms...");
             }
         } else {
             alarmsWs = new WebSocket(addr);
             alarmsWs.onopen = function(evt) {
-                printAlarm("Monitoring Alarms...");
             }
 	}
         alarmsWs.onclose = function(evt) {
-            printAlarm("Stopped monitoring Alarms");
             alarmsWs = null;
         }
         alarmsWs.onmessage = function(evt) {
@@ -240,7 +242,6 @@ window.addEventListener("load", function(evt) {
         if (!eventsWs) {
             return false;
         }
-        printEvent("Stopped monitoring Events");
         eventsWs.close();
         return false;
     };
@@ -249,7 +250,6 @@ window.addEventListener("load", function(evt) {
         if (!faultsWs) {
             return false;
         }
-        printFault("Stopped monitoring Faults");
         faultsWs.close();
         return false;
     };
@@ -258,7 +258,6 @@ window.addEventListener("load", function(evt) {
         if (!alarmsWs) {
             return false;
         }
-        printAlarm("Stopped monitoring Alarms");
         alarmsWs.close();
         return false;
     };
@@ -311,7 +310,8 @@ table
     width: 100%;
 }
 
-th {
+.heading {
+    text-align: center;
     background-color: #e6ffe6;
 }
 
@@ -323,35 +323,29 @@ th {
 </header>
 
 <ul class="tab">
-  <li><a href="#" class="tablinks" id="startEvents">Start Monitoring Events</a></li>
-  <li><a href="#" class="tablinks" id="startFaults">Start Monitoring Faults</a></li>
   <li><a href="#" class="tablinks" id="startAlarms">Start Monitoring Alarms</a></li>
-  <li><a href="#" class="tablinks" id="stopEvents">Stop Monitoring Events</a></li>
-  <li><a href="#" class="tablinks" id="stopFaults">Stop Monitoring Faults</a></li>
+  <li><a href="#" class="tablinks" id="startFaults">Start Monitoring Faults</a></li>
+  <li><a href="#" class="tablinks" id="startEvents">Start Monitoring Events</a></li>
   <li><a href="#" class="tablinks" id="stopAlarms">Stop Monitoring Alarms</a></li>
+  <li><a href="#" class="tablinks" id="stopFaults">Stop Monitoring Faults</a></li>
+  <li><a href="#" class="tablinks" id="stopEvents">Stop Monitoring Events</a></li>
 </ul>
 
+<p class="heading"> <font size="5"> Alarms </font> <p>
 <div class="scroll">
 <table>
 <tr>
-<th> <font size="5"> Events </font> </th>
-</tr>
-<tr>
 <td>
-<div id="eventsOutput">
+<div id="alarmsOutput">
 </div>
 </td>
 </tr>
 </table>
 </div>
 
-<br>
-
+<p class="heading"> <font size="5"> Faults </font> <p>
 <div class="scroll">
 <table>
-<tr>
-<th> <font size="5"> Faults </font> </th>
-</tr>
 <tr>
 <td>
 <div id="faultsOutput">
@@ -361,21 +355,18 @@ th {
 </table>
 </div>
 
-<br>
-
+<p class="heading"> <font size="5"> Events </font> </p>
 <div class="scroll">
 <table>
 <tr>
-<th> <font size="5"> Alarms </font> </th>
-</tr>
-<tr>
 <td>
-<div id="alarmsOutput">
+<div id="eventsOutput">
 </div>
 </td>
 </tr>
 </table>
 </div>
+
 <footer>Copyright © snaproute.com</footer>
 </body>
 </html>
