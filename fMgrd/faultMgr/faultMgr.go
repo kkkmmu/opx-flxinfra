@@ -267,7 +267,10 @@ func (fMgr *FaultManager) FaultEnableAction(config *objects.FaultEnable) (retVal
 		ownerName := strings.ToLower(config.OwnerName)
 		for evtKeyStr, evtKey := range fMgr.OwnerEventNameMap {
 			if strings.ToLower(evtKeyStr.OwnerName) == ownerName {
-				retVal, err = fMgr.faultEnable(evtKey, config.Enable)
+				_, exist := fMgr.FaultEventMap[evtKey]
+				if exist {
+					retVal, err = fMgr.faultEnable(evtKey, config.Enable)
+				}
 			} else {
 				continue
 			}
