@@ -44,6 +44,10 @@ type FaultStateGetInfo struct {
 	List   []FaultState
 }
 
+const (
+	ALL_EVENTS = "all"
+)
+
 type FaultEnable struct {
 	OwnerName string
 	EventName string
