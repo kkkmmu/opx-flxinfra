@@ -81,6 +81,7 @@ var SensorMgr SensorManager
 
 func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	sMgr.logger = logger
+	sMgr.logger.Info("sensor Manager Init( Start)")
 	sMgr.plugin = plugin
 	sMgr.SensorState = new(pluginCommon.SensorState)
 	sMgr.SensorState.FanSensor = make(map[string]pluginCommon.FanSensorData)
@@ -93,8 +94,10 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		sMgr.logger.Info("Sensor Manager Init() Failed")
 		return
 	}
+	sMgr.logger.Info("Sensor State:", sMgr.SensorState)
 	sMgr.fanConfigDB = make(map[string]FanSensorConfig)
 	for name, _ := range sMgr.SensorState.FanSensor {
+		sMgr.logger.Info("Fan Sensor:", name)
 		fanCfgEnt, _ := sMgr.fanConfigDB[name]
 		// TODO: Read Json
 		fanCfgEnt.AdminState = "Enabled"
@@ -107,6 +110,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	}
 	sMgr.tempConfigDB = make(map[string]TemperatureSensorConfig)
 	for name, _ := range sMgr.SensorState.TemperatureSensor {
+		sMgr.logger.Info("Temperature Sensor:", name)
 		tempCfgEnt, _ := sMgr.tempConfigDB[name]
 		// TODO: Read Json
 		tempCfgEnt.AdminState = "Enabled"
@@ -119,6 +123,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	}
 	sMgr.voltageConfigDB = make(map[string]VoltageSensorConfig)
 	for name, _ := range sMgr.SensorState.VoltageSensor {
+		sMgr.logger.Info("Voltage Sensor:", name)
 		voltageCfgEnt, _ := sMgr.voltageConfigDB[name]
 		// TODO: Read Json
 		voltageCfgEnt.AdminState = "Enabled"
@@ -131,6 +136,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	}
 	sMgr.powerConverterConfigDB = make(map[string]PowerConverterSensorConfig)
 	for name, _ := range sMgr.SensorState.PowerConverterSensor {
+		sMgr.logger.Info("Power Sensor:", name)
 		powerConverterCfgEnt, _ := sMgr.powerConverterConfigDB[name]
 		// TODO: Read Json
 		powerConverterCfgEnt.AdminState = "Enabled"

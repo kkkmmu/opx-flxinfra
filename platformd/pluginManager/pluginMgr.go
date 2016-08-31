@@ -77,6 +77,7 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	pluginMgr.ResourceManagers = new(ResourceManagers)
 	pluginMgr.logger = initParams.Logger
 	pluginName := strings.ToLower(initParams.PluginName)
+	fmt.Println("==========", pluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
 		fmt.Println("===== ONLP_PLUGIN =====")

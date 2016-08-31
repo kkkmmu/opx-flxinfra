@@ -25,6 +25,7 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
 	"infra/platformd/api"
 	"platformd"
 )
@@ -322,6 +323,7 @@ func (rpcHdl *rpcServiceHandler) GetBulkFanSensor(fromIdx, count platformd.Int) 
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanSensorState, error) {
+	fmt.Println("Inside Fan Sensor State")
 	var rpcObj *platformd.FanSensorState
 	var err error
 
@@ -333,6 +335,7 @@ func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanS
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensorState(fromIdx, count platformd.Int) (*platformd.FanSensorStateGetInfo, error) {
+	fmt.Println("Inside Fan Sensor Get Bulk State")
 	var getBulkObj platformd.FanSensorStateGetInfo
 	var err error
 
@@ -603,17 +606,19 @@ func (rpcHdl *rpcServiceHandler) GetBulkQsfp(fromIdx, count platformd.Int) (*pla
 	var getBulkObj platformd.QsfpGetInfo
 	var err error
 
-	info, err := api.GetBulkQsfpConfig(int(fromIdx), int(count))
-	if err != nil {
-		return nil, err
-	}
-	getBulkObj.StartIdx = fromIdx
-	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-	getBulkObj.More = info.More
-	getBulkObj.Count = platformd.Int(len(info.List))
-	for idx := 0; idx < len(info.List); idx++ {
-		getBulkObj.QsfpList = append(getBulkObj.QsfpList, convertToRPCFmtQsfpConfig(info.List[idx]))
-	}
+	/*
+		info, err := api.GetBulkQsfpConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.QsfpList = append(getBulkObj.QsfpList, convertToRPCFmtQsfpConfig(info.List[idx]))
+		}
+	*/
 	return &getBulkObj, err
 }
 

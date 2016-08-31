@@ -34,6 +34,7 @@ func (svr *PlatformdServer) getFanSensorState(Name string) (*objects.FanSensorSt
 
 func (svr *PlatformdServer) getBulkFanSensorState(fromIdx int, count int) (*objects.FanSensorStateGetInfo, error) {
 	retObj, err := svr.pluginMgr.GetBulkFanSensorState(fromIdx, count)
+	svr.Logger.Info("Fan State:", retObj)
 	return retObj, err
 }
 
