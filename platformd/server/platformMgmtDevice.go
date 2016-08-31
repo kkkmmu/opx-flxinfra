@@ -21,66 +21,24 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package server
 
 import (
-	"utils/logging"
+	"infra/platformd/objects"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+func (svr *PlatformdServer) getPlatformMgmtDeviceState(Name string) (*objects.PlatformMgmtDeviceState, error) {
+	/*
+		retObj, err := svr.pluginMgr.GetPlatformMgmtDeviceState(Name)
+		return retObj, err
+	*/
+	return nil, nil
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
-}
-
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
-}
-
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+func (svr *PlatformdServer) getBulkPlatformMgmtDeviceState(fromIdx int, count int) (*objects.PlatformMgmtDeviceStateGetInfo, error) {
+	/*
+		retObj, err := svr.pluginMgr.GetBulkPlatformMgmtDeviceState(fromIdx, count)
+		return retObj, err
+	*/
+	return nil, nil
 }

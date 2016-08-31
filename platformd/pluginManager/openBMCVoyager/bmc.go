@@ -1,4 +1,3 @@
-//
 //Copyright [2016] [SnapRoute Inc]
 //
 //Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,66 +20,62 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package openBMCVoyager
 
+/*
 import (
-	"utils/logging"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	//"io/ioutil"
+	"net/http"
+	//"strconv"
+	//"strings"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
+type BMCResource []string
+type BMCActions []string
 
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+type BMC struct {
+	Info      BMCInfo     `json:"Information"`
+	Resources BMCResource `json:"Resources"`
+	Actions   BMCActions  `json:"Actions"`
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
+type BMCInfo struct {
+	Uptime         string `json:"Uptime"`
+	Description    string `json:"Description"`
+	ResetReson     string `json:"Reset Reason"`
+	MemoryUsage    string `json:"Memory Usage"`
+	OpenBMCVersion string `json:"OpenBMC Version"`
+	CPUUsage       string `json:"CPU Usage"`
 }
 
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
+func (driver *openBMCDriver) GetBMCInfo() (info BMCInfo, err error) {
+	var jsonStr = []byte(nil)
+	url := "http://" + driver.ipAddr + ":" + driver.port + "/api/sys/bmc"
+	//fmt.Println("URL:>", url)
+	req, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonStr))
+	if err != nil {
+		return info, err
+	}
+	req.Header.Set("Accept", "application/json")
+	body, err := SendHttpCmd(req)
+	if err != nil {
+		return info, err
+	}
+	return extractBMCData(body)
 }
 
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
+func extractBMCData(body []byte) (data BMCInfo, err error) {
+	var bmc BMC
 
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+	err = json.Unmarshal(body, &bmc)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return data, err
+	}
+
+	return bmc.Info, err
 }
+*/

@@ -21,66 +21,28 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package server
 
 import (
-	"utils/logging"
+	"infra/platformd/objects"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+func (svr *PlatformdServer) getPowerConverterSensorState(Name string) (*objects.PowerConverterSensorState, error) {
+	retObj, err := svr.pluginMgr.GetPowerConverterSensorState(Name)
+	return retObj, err
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
+func (svr *PlatformdServer) getBulkPowerConverterSensorState(fromIdx int, count int) (*objects.PowerConverterSensorStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkPowerConverterSensorState(fromIdx, count)
+	return retObj, err
 }
 
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
+func (svr *PlatformdServer) getBulkPowerConverterSensorConfig(fromIdx int, count int) (*objects.PowerConverterSensorConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkPowerConverterSensorConfig(fromIdx, count)
+	return retObj, err
 }
 
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+func (svr *PlatformdServer) updatePowerConverterSensorConfig(oldCfg *objects.PowerConverterSensorConfig, newCfg *objects.PowerConverterSensorConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdatePowerConverterSensorConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }
