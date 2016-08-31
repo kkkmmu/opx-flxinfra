@@ -67,3 +67,26 @@ const (
 	FAN_STATUS_FAILED_STR         = "FAILED"
 	FAN_STATUS_NORMAL_STR         = "NORMAL"
 )
+
+type FanSensorData struct {
+	Value int32
+}
+
+type TemperatureSensorData struct {
+	Value float64
+}
+
+type VoltageSensorData struct {
+	Value float64
+}
+
+type PowerConverterSensorData struct {
+	Value float64
+}
+
+type SensorState struct {
+	FanSensor            map[string]FanSensorData
+	TemperatureSensor    map[string]TemperatureSensorData
+	VoltageSensor        map[string]VoltageSensorData
+	PowerConverterSensor map[string]PowerConverterSensorData
+}

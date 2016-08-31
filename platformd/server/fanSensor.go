@@ -21,66 +21,28 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package server
 
 import (
-	"utils/logging"
+	"infra/platformd/objects"
 )
 
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+func (svr *PlatformdServer) getFanSensorState(Name string) (*objects.FanSensorState, error) {
+	retObj, err := svr.pluginMgr.GetFanSensorState(Name)
+	return retObj, err
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
+func (svr *PlatformdServer) getBulkFanSensorState(fromIdx int, count int) (*objects.FanSensorStateGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanSensorState(fromIdx, count)
+	return retObj, err
 }
 
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
+func (svr *PlatformdServer) getBulkFanSensorConfig(fromIdx int, count int) (*objects.FanSensorConfigGetInfo, error) {
+	retObj, err := svr.pluginMgr.GetBulkFanSensorConfig(fromIdx, count)
+	return retObj, err
 }
 
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+func (svr *PlatformdServer) updateFanSensorConfig(oldCfg *objects.FanSensorConfig, newCfg *objects.FanSensorConfig, attrset []bool) (bool, error) {
+	ret, err := svr.pluginMgr.UpdateFanSensorConfig(oldCfg, newCfg, attrset)
+	return ret, err
 }

@@ -256,3 +256,7 @@ func (driver *onlpDriver) GetMaxNumOfThermal() int {
 func (driver *onlpDriver) GetThermalState(thermalId int32) (tState pluginCommon.ThermalState, err error) {
 	return tState, err
 }
+
+func (driver *onlpDriver) GetAllSensorState(state *pluginCommon.SensorState) error {
+	return errors.New("Not supported")
+}
