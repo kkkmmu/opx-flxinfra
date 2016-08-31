@@ -24,6 +24,7 @@
 package rpc
 
 import (
+	"errors"
 	"infra/platformd/api"
 	"platformd"
 )
@@ -284,62 +285,69 @@ func (rpcHdl *rpcServiceHandler) GetPsuState(PsuId int32) (*platformd.PsuState, 
 }
 
 func (rpcHdl *rpcServiceHandler) CreateFanSensor(config *platformd.FanSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) DeleteFanSensor(config *platformd.FanSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) UpdateFanSensor(oldConfig *platformd.FanSensor, newConfig *platformd.FanSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
-	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
-	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
-	//	return rv, err
-	return true, nil
+	oldCfg := convertRPCToObjFmtFanSensorConfig(oldConfig)
+	newCfg := convertRPCToObjFmtFanSensorConfig(newConfig)
+	rv, err := api.UpdateFanSensor(oldCfg, newCfg, attrset)
+	return rv, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensor(Name string) (*platformd.FanSensor, error) {
-	/*
-		var rpcObj *platformd.Fan
-		var err error
-
-		obj, err := api.GetFanConfig(fanId)
-		if err == nil {
-			rpcObj = convertToRPCFmtFanConfig(obj)
-		}
-		return rpcObj, err
-	*/
-	return nil, nil
+	return nil, errors.New("Not Supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensor(fromIdx, count platformd.Int) (*platformd.FanSensorGetInfo, error) {
-	/*
-		var getBulkObj platformd.FanGetInfo
-		var err error
+	var getBulkObj platformd.FanSensorGetInfo
+	var err error
 
-		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
-		}
-		return &getBulkObj, err
-	*/
-	return nil, nil
+	info, err := api.GetBulkFanSensorConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.FanSensorList = append(getBulkObj.FanSensorList, convertToRPCFmtFanSensorConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanSensorState, error) {
-	return nil, nil
+	var rpcObj *platformd.FanSensorState
+	var err error
+
+	obj, err := api.GetFanSensorState(Name)
+	if err == nil {
+		rpcObj = convertToRPCFmtFanSensorState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensorState(fromIdx, count platformd.Int) (*platformd.FanSensorStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.FanSensorStateGetInfo
+	var err error
+
+	info, err := api.GetBulkFanSensorState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.FanSensorStateList = append(getBulkObj.FanSensorStateList, convertToRPCFmtFanSensorState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensorPMDataState(Name string, Class string) (*platformd.FanSensorPMDataState, error) {
@@ -347,66 +355,73 @@ func (rpcHdl *rpcServiceHandler) GetFanSensorPMDataState(Name string, Class stri
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensorPMDataState(fromIdx, count platformd.Int) (*platformd.FanSensorPMDataStateGetInfo, error) {
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) CreateTemperatureSensor(config *platformd.TemperatureSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) DeleteTemperatureSensor(config *platformd.TemperatureSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) UpdateTemperatureSensor(oldConfig *platformd.TemperatureSensor, newConfig *platformd.TemperatureSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
-	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
-	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
-	//	return rv, err
-	return true, nil
+	oldCfg := convertRPCToObjFmtTemperatureSensorConfig(oldConfig)
+	newCfg := convertRPCToObjFmtTemperatureSensorConfig(newConfig)
+	rv, err := api.UpdateTemperatureSensor(oldCfg, newCfg, attrset)
+	return rv, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetTemperatureSensor(Name string) (*platformd.TemperatureSensor, error) {
-	/*
-		var rpcObj *platformd.Fan
-		var err error
-
-		obj, err := api.GetFanConfig(fanId)
-		if err == nil {
-			rpcObj = convertToRPCFmtFanConfig(obj)
-		}
-		return rpcObj, err
-	*/
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensor(fromIdx, count platformd.Int) (*platformd.TemperatureSensorGetInfo, error) {
-	/*
-		var getBulkObj platformd.FanGetInfo
-		var err error
+	var getBulkObj platformd.TemperatureSensorGetInfo
+	var err error
 
-		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
-		}
-		return &getBulkObj, err
-	*/
-	return nil, nil
+	info, err := api.GetBulkTemperatureSensorConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.TemperatureSensorList = append(getBulkObj.TemperatureSensorList, convertToRPCFmtTemperatureSensorConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetTemperatureSensorState(Name string) (*platformd.TemperatureSensorState, error) {
-	return nil, nil
+	var rpcObj *platformd.TemperatureSensorState
+	var err error
+
+	obj, err := api.GetTemperatureSensorState(Name)
+	if err == nil {
+		rpcObj = convertToRPCFmtTemperatureSensorState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.TemperatureSensorStateGetInfo
+	var err error
+
+	info, err := api.GetBulkTemperatureSensorState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.TemperatureSensorStateList = append(getBulkObj.TemperatureSensorStateList, convertToRPCFmtTemperatureSensorState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetTemperatureSensorPMDataState(Name string, Class string) (*platformd.TemperatureSensorPMDataState, error) {
@@ -414,66 +429,73 @@ func (rpcHdl *rpcServiceHandler) GetTemperatureSensorPMDataState(Name string, Cl
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorPMDataState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorPMDataStateGetInfo, error) {
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) CreateVoltageSensor(config *platformd.VoltageSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) DeleteVoltageSensor(config *platformd.VoltageSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) UpdateVoltageSensor(oldConfig *platformd.VoltageSensor, newConfig *platformd.VoltageSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
-	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
-	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
-	//	return rv, err
-	return true, nil
+	oldCfg := convertRPCToObjFmtVoltageSensorConfig(oldConfig)
+	newCfg := convertRPCToObjFmtVoltageSensorConfig(newConfig)
+	rv, err := api.UpdateVoltageSensor(oldCfg, newCfg, attrset)
+	return rv, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetVoltageSensor(Name string) (*platformd.VoltageSensor, error) {
-	/*
-		var rpcObj *platformd.Fan
-		var err error
-
-		obj, err := api.GetFanConfig(fanId)
-		if err == nil {
-			rpcObj = convertToRPCFmtFanConfig(obj)
-		}
-		return rpcObj, err
-	*/
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensor(fromIdx, count platformd.Int) (*platformd.VoltageSensorGetInfo, error) {
-	/*
-		var getBulkObj platformd.FanGetInfo
-		var err error
+	var getBulkObj platformd.VoltageSensorGetInfo
+	var err error
 
-		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
-		}
-		return &getBulkObj, err
-	*/
-	return nil, nil
+	info, err := api.GetBulkVoltageSensorConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.VoltageSensorList = append(getBulkObj.VoltageSensorList, convertToRPCFmtVoltageSensorConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetVoltageSensorState(Name string) (*platformd.VoltageSensorState, error) {
-	return nil, nil
+	var rpcObj *platformd.VoltageSensorState
+	var err error
+
+	obj, err := api.GetVoltageSensorState(Name)
+	if err == nil {
+		rpcObj = convertToRPCFmtVoltageSensorState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorState(fromIdx, count platformd.Int) (*platformd.VoltageSensorStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.VoltageSensorStateGetInfo
+	var err error
+
+	info, err := api.GetBulkVoltageSensorState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.VoltageSensorStateList = append(getBulkObj.VoltageSensorStateList, convertToRPCFmtVoltageSensorState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetVoltageSensorPMDataState(Name string, Class string) (*platformd.VoltageSensorPMDataState, error) {
@@ -481,66 +503,73 @@ func (rpcHdl *rpcServiceHandler) GetVoltageSensorPMDataState(Name string, Class 
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorPMDataState(fromIdx, count platformd.Int) (*platformd.VoltageSensorPMDataStateGetInfo, error) {
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) CreatePowerConverterSensor(config *platformd.PowerConverterSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) DeletePowerConverterSensor(config *platformd.PowerConverterSensor) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) UpdatePowerConverterSensor(oldConfig *platformd.PowerConverterSensor, newConfig *platformd.PowerConverterSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
-	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
-	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
-	//	return rv, err
-	return true, nil
+	oldCfg := convertRPCToObjFmtPowerConverterSensorConfig(oldConfig)
+	newCfg := convertRPCToObjFmtPowerConverterSensorConfig(newConfig)
+	rv, err := api.UpdatePowerConverterSensor(oldCfg, newCfg, attrset)
+	return rv, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetPowerConverterSensor(Name string) (*platformd.PowerConverterSensor, error) {
-	/*
-		var rpcObj *platformd.Fan
-		var err error
-
-		obj, err := api.GetFanConfig(fanId)
-		if err == nil {
-			rpcObj = convertToRPCFmtFanConfig(obj)
-		}
-		return rpcObj, err
-	*/
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensor(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorGetInfo, error) {
-	/*
-		var getBulkObj platformd.FanGetInfo
-		var err error
+	var getBulkObj platformd.PowerConverterSensorGetInfo
+	var err error
 
-		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
-		}
-		return &getBulkObj, err
-	*/
-	return nil, nil
+	info, err := api.GetBulkPowerConverterSensorConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.PowerConverterSensorList = append(getBulkObj.PowerConverterSensorList, convertToRPCFmtPowerConverterSensorConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorState(Name string) (*platformd.PowerConverterSensorState, error) {
-	return nil, nil
+	var rpcObj *platformd.PowerConverterSensorState
+	var err error
+
+	obj, err := api.GetPowerConverterSensorState(Name)
+	if err == nil {
+		rpcObj = convertToRPCFmtPowerConverterSensorState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.PowerConverterSensorStateGetInfo
+	var err error
+
+	info, err := api.GetBulkPowerConverterSensorState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.PowerConverterSensorStateList = append(getBulkObj.PowerConverterSensorStateList, convertToRPCFmtPowerConverterSensorState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorPMDataState(Name string, Class string) (*platformd.PowerConverterSensorPMDataState, error) {
@@ -548,66 +577,73 @@ func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorPMDataState(Name string,
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorPMDataState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorPMDataStateGetInfo, error) {
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) CreateQsfp(config *platformd.Qsfp) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) DeleteQsfp(config *platformd.Qsfp) (bool, error) {
-	return true, nil
+	return false, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) UpdateQsfp(oldConfig *platformd.Qsfp, newConfig *platformd.Qsfp, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
-	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
-	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
-	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
-	//	return rv, err
-	return true, nil
+	oldCfg := convertRPCToObjFmtQsfpConfig(oldConfig)
+	newCfg := convertRPCToObjFmtQsfpConfig(newConfig)
+	rv, err := api.UpdateQsfp(oldCfg, newCfg, attrset)
+	return rv, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetQsfp(Location string) (*platformd.Qsfp, error) {
-	/*
-		var rpcObj *platformd.Fan
-		var err error
-
-		obj, err := api.GetFanConfig(fanId)
-		if err == nil {
-			rpcObj = convertToRPCFmtFanConfig(obj)
-		}
-		return rpcObj, err
-	*/
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkQsfp(fromIdx, count platformd.Int) (*platformd.QsfpGetInfo, error) {
-	/*
-		var getBulkObj platformd.FanGetInfo
-		var err error
+	var getBulkObj platformd.QsfpGetInfo
+	var err error
 
-		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
-		}
-		return &getBulkObj, err
-	*/
-	return nil, nil
+	info, err := api.GetBulkQsfpConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.QsfpList = append(getBulkObj.QsfpList, convertToRPCFmtQsfpConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetQsfpState(Location string) (*platformd.QsfpState, error) {
-	return nil, nil
+	var rpcObj *platformd.QsfpState
+	var err error
+
+	obj, err := api.GetQsfpState(Location)
+	if err == nil {
+		rpcObj = convertToRPCFmtQsfpState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkQsfpState(fromIdx, count platformd.Int) (*platformd.QsfpStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.QsfpStateGetInfo
+	var err error
+
+	info, err := api.GetBulkQsfpState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.QsfpStateList = append(getBulkObj.QsfpStateList, convertToRPCFmtQsfpState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(Location string, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
@@ -615,13 +651,34 @@ func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(Location string, Resource st
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkQsfpPMDataState(fromIdx, count platformd.Int) (*platformd.QsfpPMDataStateGetInfo, error) {
-	return nil, nil
+	return nil, errors.New("Not supported")
 }
 
 func (rpcHdl *rpcServiceHandler) GetPlatformMgmtDeviceState(DeviceName string) (*platformd.PlatformMgmtDeviceState, error) {
-	return nil, nil
+	var rpcObj *platformd.PlatformMgmtDeviceState
+	var err error
+
+	obj, err := api.GetPlatformMgmtDeviceState(DeviceName)
+	if err == nil {
+		rpcObj = convertToRPCFmtPlatformMgmtDeviceState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkPlatformMgmtDeviceState(fromIdx, count platformd.Int) (*platformd.PlatformMgmtDeviceStateGetInfo, error) {
-	return nil, nil
+	var getBulkObj platformd.PlatformMgmtDeviceStateGetInfo
+	var err error
+
+	info, err := api.GetBulkPlatformMgmtDeviceState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.PlatformMgmtDeviceStateList = append(getBulkObj.PlatformMgmtDeviceStateList, convertToRPCFmtPlatformMgmtDeviceState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
