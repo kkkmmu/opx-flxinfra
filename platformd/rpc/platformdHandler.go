@@ -282,3 +282,346 @@ func (rpcHdl *rpcServiceHandler) GetPsuState(PsuId int32) (*platformd.PsuState, 
 
 	return &obj, nil
 }
+
+func (rpcHdl *rpcServiceHandler) CreateFanSensor(config *platformd.FanSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteFanSensor(config *platformd.FanSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateFanSensor(oldConfig *platformd.FanSensor, newConfig *platformd.FanSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	//	return rv, err
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetFanSensor(Name string) (*platformd.FanSensor, error) {
+	/*
+		var rpcObj *platformd.Fan
+		var err error
+
+		obj, err := api.GetFanConfig(fanId)
+		if err == nil {
+			rpcObj = convertToRPCFmtFanConfig(obj)
+		}
+		return rpcObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkFanSensor(fromIdx, count platformd.Int) (*platformd.FanSensorGetInfo, error) {
+	/*
+		var getBulkObj platformd.FanGetInfo
+		var err error
+
+		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
+		}
+		return &getBulkObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanSensorState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkFanSensorState(fromIdx, count platformd.Int) (*platformd.FanSensorStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetFanSensorPMDataState(Name string, Class string) (*platformd.FanSensorPMDataState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkFanSensorPMDataState(fromIdx, count platformd.Int) (*platformd.FanSensorPMDataStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) CreateTemperatureSensor(config *platformd.TemperatureSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteTemperatureSensor(config *platformd.TemperatureSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateTemperatureSensor(oldConfig *platformd.TemperatureSensor, newConfig *platformd.TemperatureSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	//	return rv, err
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetTemperatureSensor(Name string) (*platformd.TemperatureSensor, error) {
+	/*
+		var rpcObj *platformd.Fan
+		var err error
+
+		obj, err := api.GetFanConfig(fanId)
+		if err == nil {
+			rpcObj = convertToRPCFmtFanConfig(obj)
+		}
+		return rpcObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensor(fromIdx, count platformd.Int) (*platformd.TemperatureSensorGetInfo, error) {
+	/*
+		var getBulkObj platformd.FanGetInfo
+		var err error
+
+		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
+		}
+		return &getBulkObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetTemperatureSensorState(Name string) (*platformd.TemperatureSensorState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetTemperatureSensorPMDataState(Name string, Class string) (*platformd.TemperatureSensorPMDataState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorPMDataState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorPMDataStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) CreateVoltageSensor(config *platformd.VoltageSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteVoltageSensor(config *platformd.VoltageSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateVoltageSensor(oldConfig *platformd.VoltageSensor, newConfig *platformd.VoltageSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	//	return rv, err
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetVoltageSensor(Name string) (*platformd.VoltageSensor, error) {
+	/*
+		var rpcObj *platformd.Fan
+		var err error
+
+		obj, err := api.GetFanConfig(fanId)
+		if err == nil {
+			rpcObj = convertToRPCFmtFanConfig(obj)
+		}
+		return rpcObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensor(fromIdx, count platformd.Int) (*platformd.VoltageSensorGetInfo, error) {
+	/*
+		var getBulkObj platformd.FanGetInfo
+		var err error
+
+		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
+		}
+		return &getBulkObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetVoltageSensorState(Name string) (*platformd.VoltageSensorState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorState(fromIdx, count platformd.Int) (*platformd.VoltageSensorStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetVoltageSensorPMDataState(Name string, Class string) (*platformd.VoltageSensorPMDataState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorPMDataState(fromIdx, count platformd.Int) (*platformd.VoltageSensorPMDataStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) CreatePowerConverterSensor(config *platformd.PowerConverterSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeletePowerConverterSensor(config *platformd.PowerConverterSensor) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdatePowerConverterSensor(oldConfig *platformd.PowerConverterSensor, newConfig *platformd.PowerConverterSensor, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	//	return rv, err
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetPowerConverterSensor(Name string) (*platformd.PowerConverterSensor, error) {
+	/*
+		var rpcObj *platformd.Fan
+		var err error
+
+		obj, err := api.GetFanConfig(fanId)
+		if err == nil {
+			rpcObj = convertToRPCFmtFanConfig(obj)
+		}
+		return rpcObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensor(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorGetInfo, error) {
+	/*
+		var getBulkObj platformd.FanGetInfo
+		var err error
+
+		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
+		}
+		return &getBulkObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorState(Name string) (*platformd.PowerConverterSensorState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorPMDataState(Name string, Class string) (*platformd.PowerConverterSensorPMDataState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorPMDataState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorPMDataStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) CreateQsfp(config *platformd.Qsfp) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteQsfp(config *platformd.Qsfp) (bool, error) {
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateQsfp(oldConfig *platformd.Qsfp, newConfig *platformd.Qsfp, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	//	oldCfg := convertRPCToObjFmtFanConfig(oldConfig)
+	//	newCfg := convertRPCToObjFmtFanConfig(newConfig)
+	//	rv, err := api.UpdateFan(oldCfg, newCfg, attrset)
+	//	return rv, err
+	return true, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfp(Location string) (*platformd.Qsfp, error) {
+	/*
+		var rpcObj *platformd.Fan
+		var err error
+
+		obj, err := api.GetFanConfig(fanId)
+		if err == nil {
+			rpcObj = convertToRPCFmtFanConfig(obj)
+		}
+		return rpcObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfp(fromIdx, count platformd.Int) (*platformd.QsfpGetInfo, error) {
+	/*
+		var getBulkObj platformd.FanGetInfo
+		var err error
+
+		info, err := api.GetBulkFanConfig(int(fromIdx), int(count))
+		if err != nil {
+			return nil, err
+		}
+		getBulkObj.StartIdx = fromIdx
+		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+		getBulkObj.More = info.More
+		getBulkObj.Count = platformd.Int(len(info.List))
+		for idx := 0; idx < len(info.List); idx++ {
+			getBulkObj.FanList = append(getBulkObj.FanList, convertToRPCFmtFanConfig(info.List[idx]))
+		}
+		return &getBulkObj, err
+	*/
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfpState(Location string) (*platformd.QsfpState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfpState(fromIdx, count platformd.Int) (*platformd.QsfpStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(Location string, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfpPMDataState(fromIdx, count platformd.Int) (*platformd.QsfpPMDataStateGetInfo, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetPlatformMgmtDeviceState(DeviceName string) (*platformd.PlatformMgmtDeviceState, error) {
+	return nil, nil
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkPlatformMgmtDeviceState(fromIdx, count platformd.Int) (*platformd.PlatformMgmtDeviceStateGetInfo, error) {
+	return nil, nil
+}
