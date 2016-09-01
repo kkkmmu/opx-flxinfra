@@ -94,14 +94,12 @@ func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, ne
 
 func (h *SYSDHandler) CreateSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Create global config attrs:", gLoggingConf))
-	err := errors.New("SystemLogging create not supported")
-	return false, err
+	return h.SendGlobalLoggingConfig(gLoggingConf), nil
 }
 
 func (h *SYSDHandler) CreateComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
 	h.logger.Info(fmt.Sprintln("Create component config attrs:", cLoggingConf))
-	err := errors.New("CompoenentLogging create not supported")
-	return false, err
+	return h.SendComponentLoggingConfig(cLoggingConf), nil
 }
 
 func (h *SYSDHandler) DeleteSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
