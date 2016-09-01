@@ -20,29 +20,13 @@
 // |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  |
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
+//
+#ifndef OPENBMC_VOYAGER_H
+#define OPENBMC_VOYAGER_H
 
-package server
+#include "pluginCommon.h"
 
-import (
-	"infra/platformd/objects"
-)
+int GetQsfpState(qsfp_info_t *info, int id); 
 
-func (svr *PlatformdServer) getQsfpState(QsfpId int32) (*objects.QsfpState, error) {
-	retObj, err := svr.pluginMgr.GetQsfpState(QsfpId)
-	return retObj, err
-}
+#endif //OPENBMC_VOYAGER_H
 
-func (svr *PlatformdServer) getBulkQsfpState(fromIdx int, count int) (*objects.QsfpStateGetInfo, error) {
-	retObj, err := svr.pluginMgr.GetBulkQsfpState(fromIdx, count)
-	return retObj, err
-}
-
-func (svr *PlatformdServer) getBulkQsfpConfig(fromIdx int, count int) (*objects.QsfpConfigGetInfo, error) {
-	retObj, err := svr.pluginMgr.GetBulkQsfpConfig(fromIdx, count)
-	return retObj, err
-}
-
-func (svr *PlatformdServer) updateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *objects.QsfpConfig, attrset []bool) (bool, error) {
-	ret, err := svr.pluginMgr.UpdateQsfpConfig(oldCfg, newCfg, attrset)
-	return ret, err
-}

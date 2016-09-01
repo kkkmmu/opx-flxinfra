@@ -266,7 +266,7 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 	case GET_QSFP_STATE:
 		var retObj GetQsfpStateOutArgs
 		if val, ok := req.Data.(*GetQsfpStateInArgs); ok {
-			retObj.Obj, retObj.Err = svr.getQsfpState(val.Location)
+			retObj.Obj, retObj.Err = svr.getQsfpState(val.QsfpId)
 		}
 		svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_STATE request replying -", retObj))
 		svr.ReplyChan <- interface{}(&retObj)

@@ -498,11 +498,11 @@ func GetBulkPowerConverterSensorConfig(fromIdx, count int) (*objects.PowerConver
 	}
 }
 
-func GetQsfpState(location string) (*objects.QsfpState, error) {
+func GetQsfpState(QsfpId int32) (*objects.QsfpState, error) {
 	svr.ReqChan <- &server.ServerRequest{
 		Op: server.GET_QSFP_STATE,
 		Data: interface{}(&server.GetQsfpStateInArgs{
-			Location: location,
+			QsfpId: QsfpId,
 		}),
 	}
 	ret := <-svr.ReplyChan

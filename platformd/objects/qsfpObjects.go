@@ -24,7 +24,7 @@
 package objects
 
 type QsfpState struct {
-	Location           string
+	QsfpId             int32
 	Present            bool
 	VendorName         string
 	VendorOUI          string
@@ -56,7 +56,7 @@ type QsfpStateGetInfo struct {
 }
 
 type QsfpConfig struct {
-	Location                 string
+	QsfpId                   int32
 	AdminState               string
 	HigherAlarmTemperature   float64
 	HigherAlarmVoltage       float64
