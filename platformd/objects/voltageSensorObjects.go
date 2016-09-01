@@ -21,66 +21,32 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package objects
 
-import (
-	"utils/logging"
-)
-
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+type VoltageSensorState struct {
+	Name           string
+	CurrentVoltage float64
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
+type VoltageSensorStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*VoltageSensorState
 }
 
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
+type VoltageSensorConfig struct {
+	Name                   string
+	AdminState             string
+	HigherAlarmThreshold   float64
+	HigherWarningThreshold float64
+	LowerWarningThreshold  float64
+	LowerAlarmThreshold    float64
 }
 
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+type VoltageSensorConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*VoltageSensorConfig
 }

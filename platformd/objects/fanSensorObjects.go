@@ -21,66 +21,32 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package pluginCommon
+package objects
 
-import (
-	"utils/logging"
-)
-
-//Plugin name constants
-const (
-	ONLP_PLUGIN           = "onlp"
-	OpenBMC_PLUGIN        = "openbmc"
-	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
-	Dummy_PLUGIN          = "dummy"
-)
-
-type PluginInitParams struct {
-	Logger     logging.LoggerIntf
-	PluginName string
-	IpAddr     string
-	Port       string
+type FanSensorState struct {
+	Name         string
+	CurrentSpeed int32
 }
 
-type FanState struct {
-	FanId         int32
-	OperMode      string
-	OperSpeed     int32
-	OperDirection string
-	Status        string
-	Model         string
-	SerialNum     string
-	LedId         int32
-	Valid         bool
+type FanSensorStateGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanSensorState
 }
 
-type SfpState struct {
-	SfpId      int32
-	SfpSpeed   string
-	SfpLos     string
-	SfpPresent string
-	SfpType    string
-	SerialNum  string
-	EEPROM     string
+type FanSensorConfig struct {
+	Name                   string
+	AdminState             string
+	HigherAlarmThreshold   int32
+	HigherWarningThreshold int32
+	LowerWarningThreshold  int32
+	LowerAlarmThreshold    int32
 }
 
-type PlatformState struct {
-	ObjName      string
-	ProductName  string
-	SerialNum    string
-	Manufacturer string
-	Vendor       string
-	Release      string
-	PlatformName string
-	Version      string
-}
-
-type ThermalState struct {
-	ThermalId                 int32
-	Location                  string
-	Temperature               string
-	LowerWatermarkTemperature string
-	UpperWatermarkTemperature string
-	ShutdownTemperature       string
-	Valid                     bool
+type FanSensorConfigGetInfo struct {
+	EndIdx int
+	Count  int
+	More   bool
+	List   []*FanSensorConfig
 }

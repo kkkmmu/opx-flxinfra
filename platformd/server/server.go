@@ -163,6 +163,144 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.BulkInfo, retObj.Err = svr.getBulkThermalState(val.FromIdx, val.Count)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_FAN_SENSOR_STATE:
+		var retObj GetFanSensorStateOutArgs
+		if val, ok := req.Data.(*GetFanSensorStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getFanSensorState(val.Name)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_FAN_SENSOR_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_FAN_SENSOR_STATE:
+		var retObj GetBulkFanSensorStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkFanSensorState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_FAN_SENSOR_CONFIG:
+		var retObj GetBulkFanSensorConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkFanSensorConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_FAN_SENSOR_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateFanSensorConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateFanSensorConfig(val.FanSensorOldCfg, val.FanSensorNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_TEMPERATURE_SENSOR_STATE:
+		var retObj GetTemperatureSensorStateOutArgs
+		if val, ok := req.Data.(*GetTemperatureSensorStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getTemperatureSensorState(val.Name)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_TEMPERATURE_SENSOR_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_TEMPERATURE_SENSOR_STATE:
+		var retObj GetBulkTemperatureSensorStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkTemperatureSensorState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_TEMPERATURE_SENSOR_CONFIG:
+		var retObj GetBulkTemperatureSensorConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkTemperatureSensorConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_TEMPERATURE_SENSOR_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateTemperatureSensorConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateTemperatureSensorConfig(val.TemperatureSensorOldCfg, val.TemperatureSensorNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_VOLTAGE_SENSOR_STATE:
+		var retObj GetVoltageSensorStateOutArgs
+		if val, ok := req.Data.(*GetVoltageSensorStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getVoltageSensorState(val.Name)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_VOLTAGE_SENSOR_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_VOLTAGE_SENSOR_STATE:
+		var retObj GetBulkVoltageSensorStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkVoltageSensorState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_VOLTAGE_SENSOR_CONFIG:
+		var retObj GetBulkVoltageSensorConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkVoltageSensorConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_VOLTAGE_SENSOR_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateVoltageSensorConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateVoltageSensorConfig(val.VoltageSensorOldCfg, val.VoltageSensorNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_POWER_CONVERTER_SENSOR_STATE:
+		var retObj GetPowerConverterSensorStateOutArgs
+		if val, ok := req.Data.(*GetPowerConverterSensorStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getPowerConverterSensorState(val.Name)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_POWER_CONVERTER_SENSOR_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_POWER_CONVERTER_SENSOR_STATE:
+		var retObj GetBulkPowerConverterSensorStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkPowerConverterSensorState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_POWER_CONVERTER_SENSOR_CONFIG:
+		var retObj GetBulkPowerConverterSensorConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkPowerConverterSensorConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_POWER_CONVERTER_SENSOR_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdatePowerConverterSensorConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updatePowerConverterSensorConfig(val.PowerConverterSensorOldCfg, val.PowerConverterSensorNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_QSFP_STATE:
+		var retObj GetQsfpStateOutArgs
+		if val, ok := req.Data.(*GetQsfpStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getQsfpState(val.Location)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_QSFP_STATE:
+		var retObj GetBulkQsfpStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkQsfpState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_QSFP_CONFIG:
+		var retObj GetBulkQsfpConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkQsfpConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_QSFP_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateQsfpConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateQsfpConfig(val.QsfpOldCfg, val.QsfpNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_PLATFORM_MGMT_DEVICE_STATE:
+		var retObj GetPlatformMgmtDeviceStateOutArgs
+		if val, ok := req.Data.(*GetPlatformMgmtDeviceStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getPlatformMgmtDeviceState(val.DeviceName)
+		}
+		svr.Logger.Info(fmt.Sprintln("Server GET_PLATFORM_MGMT_DEVICE_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_PLATFORM_MGMT_DEVICE_STATE:
+		var retObj GetBulkPlatformMgmtDeviceStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkPlatformMgmtDeviceState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	default:
 		svr.Logger.Err(fmt.Sprintln("Error : Server recevied unrecognized request - ", req.Op))
 	}
