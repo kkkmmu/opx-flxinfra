@@ -52,6 +52,8 @@ type PluginIntf interface {
 	GetThermalState(thermalId int32) (pluginCommon.ThermalState, error)
 	GetMaxNumOfThermal() int
 	GetAllSensorState(state *pluginCommon.SensorState) error
+	GetMaxNumOfQsfp() int
+	GetQsfpState(id int32) (pluginCommon.QsfpState, error)
 }
 
 type ResourceManagers struct {
@@ -62,6 +64,7 @@ type ResourceManagers struct {
 	*ThermalManager
 	*LedManager
 	*SensorManager
+	*QsfpManager
 }
 
 type PluginManager struct {
@@ -77,7 +80,6 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	pluginMgr.ResourceManagers = new(ResourceManagers)
 	pluginMgr.logger = initParams.Logger
 	pluginName := strings.ToLower(initParams.PluginName)
-	fmt.Println("==========", pluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
 		fmt.Println("===== ONLP_PLUGIN =====")
@@ -116,6 +118,7 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	pluginMgr.ThermalManager = &ThermalMgr
 	pluginMgr.LedManager = &LedMgr
 	pluginMgr.SensorManager = &SensorMgr
+	pluginMgr.QsfpManager = &QsfpMgr
 	return pluginMgr, nil
 }
 
@@ -128,6 +131,7 @@ func (pMgr *PluginManager) Init() error {
 	pMgr.ThermalManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.LedManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.SensorManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.QsfpManager.Init(pMgr.logger, pMgr.plugin)
 	return nil
 }
 
@@ -139,4 +143,5 @@ func (pMgr *PluginManager) Deinit() {
 	pMgr.ThermalManager.Deinit()
 	pMgr.LedManager.Deinit()
 	pMgr.SensorManager.Deinit()
+	pMgr.QsfpManager.Deinit()
 }

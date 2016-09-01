@@ -217,7 +217,7 @@ func convertToRPCFmtPowerConverterSensorState(obj *objects.PowerConverterSensorS
 
 func convertToRPCFmtQsfpConfig(obj *objects.QsfpConfig) *platformd.Qsfp {
 	return &platformd.Qsfp{
-		Location:                 obj.Location,
+		QsfpId:                   obj.QsfpId,
 		AdminState:               obj.AdminState,
 		HigherAlarmTemperature:   obj.HigherAlarmTemperature,
 		HigherAlarmVoltage:       obj.HigherAlarmVoltage,
@@ -244,7 +244,7 @@ func convertToRPCFmtQsfpConfig(obj *objects.QsfpConfig) *platformd.Qsfp {
 
 func convertRPCToObjFmtQsfpConfig(rpcObj *platformd.Qsfp) *objects.QsfpConfig {
 	return &objects.QsfpConfig{
-		Location:                 rpcObj.Location,
+		QsfpId:                   rpcObj.QsfpId,
 		AdminState:               rpcObj.AdminState,
 		HigherAlarmTemperature:   rpcObj.HigherAlarmTemperature,
 		HigherAlarmVoltage:       rpcObj.HigherAlarmVoltage,
@@ -271,7 +271,7 @@ func convertRPCToObjFmtQsfpConfig(rpcObj *platformd.Qsfp) *objects.QsfpConfig {
 
 func convertToRPCFmtQsfpState(obj *objects.QsfpState) *platformd.QsfpState {
 	return &platformd.QsfpState{
-		Location:           obj.Location,
+		QsfpId:             obj.QsfpId,
 		Present:            obj.Present,
 		VendorName:         obj.VendorName,
 		VendorOUI:          obj.VendorOUI,

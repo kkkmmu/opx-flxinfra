@@ -598,7 +598,7 @@ func (rpcHdl *rpcServiceHandler) UpdateQsfp(oldConfig *platformd.Qsfp, newConfig
 	return rv, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetQsfp(Location string) (*platformd.Qsfp, error) {
+func (rpcHdl *rpcServiceHandler) GetQsfp(QsfpId int32) (*platformd.Qsfp, error) {
 	return nil, errors.New("Not supported")
 }
 
@@ -606,27 +606,25 @@ func (rpcHdl *rpcServiceHandler) GetBulkQsfp(fromIdx, count platformd.Int) (*pla
 	var getBulkObj platformd.QsfpGetInfo
 	var err error
 
-	/*
-		info, err := api.GetBulkQsfpConfig(int(fromIdx), int(count))
-		if err != nil {
-			return nil, err
-		}
-		getBulkObj.StartIdx = fromIdx
-		getBulkObj.EndIdx = platformd.Int(info.EndIdx)
-		getBulkObj.More = info.More
-		getBulkObj.Count = platformd.Int(len(info.List))
-		for idx := 0; idx < len(info.List); idx++ {
-			getBulkObj.QsfpList = append(getBulkObj.QsfpList, convertToRPCFmtQsfpConfig(info.List[idx]))
-		}
-	*/
+	info, err := api.GetBulkQsfpConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.QsfpList = append(getBulkObj.QsfpList, convertToRPCFmtQsfpConfig(info.List[idx]))
+	}
 	return &getBulkObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetQsfpState(Location string) (*platformd.QsfpState, error) {
+func (rpcHdl *rpcServiceHandler) GetQsfpState(QsfpId int32) (*platformd.QsfpState, error) {
 	var rpcObj *platformd.QsfpState
 	var err error
 
-	obj, err := api.GetQsfpState(Location)
+	obj, err := api.GetQsfpState(QsfpId)
 	if err == nil {
 		rpcObj = convertToRPCFmtQsfpState(obj)
 	}
@@ -651,7 +649,7 @@ func (rpcHdl *rpcServiceHandler) GetBulkQsfpState(fromIdx, count platformd.Int) 
 	return &getBulkObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(Location string, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
+func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(QspfId int32, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
 	return nil, nil
 }
 

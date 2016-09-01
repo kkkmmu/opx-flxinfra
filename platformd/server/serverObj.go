@@ -285,7 +285,7 @@ type UpdatePowerConverterSensorConfigInArgs struct {
 }
 
 type GetQsfpStateInArgs struct {
-	Location string
+	QsfpId int32
 }
 
 type GetQsfpStateOutArgs struct {

@@ -116,3 +116,12 @@ func (driver *dummyDriver) GetMaxNumOfThermal() int {
 func (driver *dummyDriver) GetAllSensorState(state *pluginCommon.SensorState) error {
 	return errors.New("Not supported")
 }
+
+func (driver *dummyDriver) GetQsfpState(Id int32) (retObj pluginCommon.QsfpState, err error) {
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetMaxNumOfQsfp() int {
+	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
+	return 0
+}
