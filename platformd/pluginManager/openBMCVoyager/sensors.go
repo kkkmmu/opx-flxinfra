@@ -105,6 +105,10 @@ type OutletTempSensor struct {
 	Name    string `json:"name"`
 }
 
+type SensorName struct {
+	Name string `json:"name"`
+}
+
 func (driver *openBMCVoyagerDriver) GetAllSensorState(state *pluginCommon.SensorState) error {
 	var jsonStr = []byte(nil)
 	url := "http://" + driver.ipAddr + ":" + driver.port + "/api/sys/sensors"
@@ -144,13 +148,34 @@ func extractSensorData(state *pluginCommon.SensorState, body []byte) error {
 		fmt.Println("Error:", err)
 		return err
 	}
-	extractIR3581Data(state, info.Info[0])
-	extractIR3584Data(state, info.Info[1])
-	extractInletTempData(state, info.Info[2])
-	extractMicroserverTempData(state, info.Info[3])
-	extractVoltageData(state, info.Info[4])
-	extractOutletTempData(state, info.Info[5])
-	extractFanData(state, info.Info[6])
+	for idx := 0; idx < 7; idx++ {
+		var sensorName SensorName
+		msg, _ := json.Marshal(info.Info[idx])
+		err := json.Unmarshal(msg, &sensorName)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return err
+		}
+		switch sensorName.Name {
+		case "IR3581-i2c-1-70":
+			extractIR3581Data(state, info.Info[idx])
+		case "IR3584-i2c-11-72":
+			extractIR3584Data(state, info.Info[idx])
+		case "pwr1014a-i2c-2-40":
+			extractVoltageData(state, info.Info[idx])
+		case "tmp75-i2c-3-48":
+			extractInletTempData(state, info.Info[idx])
+		case "tmp75-i2c-3-4a":
+			extractMicroserverTempData(state, info.Info[idx])
+		case "fancpld-i2c-8-33":
+			extractFanData(state, info.Info[idx])
+		case "tmp75-i2c-3-4b":
+			extractOutletTempData(state, info.Info[idx])
+		default:
+			fmt.Println("Unrecognized sensor")
+		}
+	}
+
 	return err
 }
 

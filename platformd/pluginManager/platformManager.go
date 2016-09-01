@@ -21,24 +21,36 @@
 // |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
 //
 
-package server
+package pluginManager
+
+/*
 
 import (
+	"errors"
+	"fmt"
 	"infra/platformd/objects"
+	"infra/platformd/pluginManager/pluginCommon"
+	"utils/logging"
 )
 
-func (svr *PlatformdServer) getPlatformMgmtDeviceState(Name string) (retObj *objects.PlatformMgmtDeviceState, err error) {
-	/*
-		retObj, err := svr.pluginMgr.GetPlatformMgmtDeviceState(Name)
-		return retObj, err
-	*/
-	return retObj, err
+type PlatformManager struct {
+	logger logging.LoggerIntf
+	plugin PluginIntf
 }
 
-func (svr *PlatformdServer) getBulkPlatformMgmtDeviceState(fromIdx int, count int) (retObj *objects.PlatformMgmtDeviceStateGetInfo, err error) {
-	/*
-		retObj, err := svr.pluginMgr.GetBulkPlatformMgmtDeviceState(fromIdx, count)
-		return retObj, err
-	*/
-	return retObj, err
+var platfomMgr PlarformManager
+
+func (pMgr *PlarformManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
+	pMgr.logger = logger
+	pMgr.plugin = plugin
 }
+
+func (pMgr *PlarformManager) GetPlatformMgmtDeviceState(Name string) (*objects.PlatformMgmtDeviceState, error) {
+
+	return nil, err
+}
+
+func (pMgr *PlarformManager) GetBulkPlatformMgmtDeviceState(fromIdx int, count int) (*objects.PlatformMgmtDeviceStateGetInfo, error) {
+	return nil, err
+}
+*/
