@@ -25,7 +25,6 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
 	"infra/sysd/server"
 	"models/objects"
 	"strings"
@@ -73,43 +72,43 @@ func (h *SYSDHandler) SendComponentLoggingConfig(cLoggingConfig *sysd.ComponentL
 }
 
 func (h *SYSDHandler) UpdateSystemLogging(origConf *sysd.SystemLogging, newConf *sysd.SystemLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Original global config attrs:", origConf))
+	h.logger.Info("Original global config attrs:", origConf)
 	if newConf == nil {
 		err := errors.New("Invalid global Configuration")
 		return false, err
 	}
-	h.logger.Info(fmt.Sprintln("Update global config attrs:", newConf))
+	h.logger.Info("Update global config attrs:", newConf)
 	return h.SendGlobalLoggingConfig(newConf), nil
 }
 
 func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, newConf *sysd.ComponentLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Original component config attrs:", origConf))
+	h.logger.Info("Original component config attrs:", origConf)
 	if newConf == nil {
 		err := errors.New("Invalid component Configuration")
 		return false, err
 	}
-	h.logger.Info(fmt.Sprintln("Update component config attrs:", newConf))
+	h.logger.Info("Update component config attrs:", newConf)
 	return h.SendComponentLoggingConfig(newConf), nil
 }
 
 func (h *SYSDHandler) CreateSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Create global config attrs:", gLoggingConf))
+	h.logger.Info("Create global config attrs:", gLoggingConf)
 	return h.SendGlobalLoggingConfig(gLoggingConf), nil
 }
 
 func (h *SYSDHandler) CreateComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Create component config attrs:", cLoggingConf))
+	h.logger.Info("Create component config attrs:", cLoggingConf)
 	return h.SendComponentLoggingConfig(cLoggingConf), nil
 }
 
 func (h *SYSDHandler) DeleteSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Delete global config attrs:", gLoggingConf))
+	h.logger.Info("Delete global config attrs:", gLoggingConf)
 	err := errors.New("SystemLogging delete not supported")
 	return false, err
 }
 
 func (h *SYSDHandler) DeleteComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Delete component config attrs:", cLoggingConf))
+	h.logger.Info("Delete component config attrs:", cLoggingConf)
 	err := errors.New("CompoenentLogging delete not supported")
 	return false, err
 }
@@ -133,7 +132,7 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 }
 
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Daemon action attrs: ", daemonConfig))
+	h.logger.Info("Daemon action attrs: ", daemonConfig)
 	dConf := server.DaemonConfig{
 		Name:     daemonConfig.Name,
 		Enable:   daemonConfig.Enable,
@@ -144,7 +143,7 @@ func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, erro
 }
 
 func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
-	h.logger.Info(fmt.Sprintln("Get Daemon state ", name))
+	h.logger.Info("Get Daemon state ", name)
 	daemonStateResponse := sysd.NewDaemonState()
 	dState := h.server.GetDaemonState(name)
 	daemonState := h.server.ConvertDaemonStateToThrift(*dState)
@@ -153,7 +152,7 @@ func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
 }
 
 func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sysd.DaemonStateGetInfo, error) {
-	h.logger.Info(fmt.Sprintln("Get Daemon states "))
+	h.logger.Info("Get Daemon states ")
 	nextIdx, currCount, daemonStates := h.server.GetBulkDaemonStates(int(fromIdx), int(count))
 	if daemonStates == nil {
 		err := errors.New("System server is busy")
@@ -192,7 +191,7 @@ func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
 		return false, errors.New("Hostname should not have Special Characters " +
 			SPECIAL_HOSTNAME_CHARS)
 	}
-	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+	h.logger.Info("Configuring Global Object", cfg)
 	confg := convertSystemParamThriftToModel(cfg)
 	h.server.SystemParamConfig <- confg
 	return true, nil
@@ -239,7 +238,7 @@ func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset
 
 func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
 	op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Received update for system param information", org, new, attrset))
+	h.logger.Info("Received update for system param information", org, new, attrset)
 	if org == nil || new == nil {
 		return false, errors.New("Invalid information provided to server")
 	}
@@ -277,7 +276,7 @@ func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, 
 		return nil, errors.New("No Matching entry for " + name + "found")
 	}
 	convertSystemParamStateToThrift(*sysInfo, sysParamsResp)
-	h.logger.Info(fmt.Sprintln("Returing System Info:", sysParamsResp))
+	h.logger.Info("Returing System Info:", sysParamsResp)
 	return sysParamsResp, nil
 }
 
