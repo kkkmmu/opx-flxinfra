@@ -35,7 +35,7 @@ import (
 const (
 	DMN_NAME = "platformd"
 	CFG_FILE = "platformd.conf"
-	CFG_DIR  = "/etc/flexswitch/"
+	//CFG_DIR  = "/etc/flexswitch/"
 )
 
 type platformDaemon struct {
@@ -56,7 +56,7 @@ func main() {
 	}
 
 	//Get server handle and start server
-	cfgFileName := CFG_DIR + CFG_FILE
+	cfgFileName := dmn.ParamsDir + "/" + CFG_FILE
 	InitParams := &server.InitParams{
 		DmnName:     DMN_NAME,
 		ParamsDir:   dmn.ParamsDir,

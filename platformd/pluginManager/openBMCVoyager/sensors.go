@@ -24,12 +24,13 @@
 package openBMCVoyager
 
 import (
-	"bytes"
+	//	"bytes"
 	"encoding/json"
 	"fmt"
 	"infra/platformd/pluginManager/pluginCommon"
 	"io/ioutil"
 	"net/http"
+	//"net/url"
 	"strconv"
 	"strings"
 )
@@ -110,34 +111,19 @@ type SensorName struct {
 }
 
 func (driver *openBMCVoyagerDriver) GetAllSensorState(state *pluginCommon.SensorState) error {
-	var jsonStr = []byte(nil)
 	url := "http://" + driver.ipAddr + ":" + driver.port + "/api/sys/sensors"
 	//fmt.Println("URL:>", url)
-	req, err := http.NewRequest("GET", url, bytes.NewBuffer(jsonStr))
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Accept", "application/json")
-	body, err := SendHttpCmd(req)
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 	return extractSensorData(state, body)
-}
-
-func SendHttpCmd(req *http.Request) (body []byte, err error) {
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return body, err
-	}
-	defer resp.Body.Close()
-
-	body, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return body, err
-	}
-	return body, err
 }
 
 func extractSensorData(state *pluginCommon.SensorState, body []byte) error {
