@@ -45,6 +45,8 @@ else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
 	install params/onlp_platformd.conf $(PARAMSDIR)/platformd.conf
 else ifeq ($(PLATFORM_BUILD_TARGET), dummy)
 	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
+else ifeq ($(PLATFORM_BUILD_TARGET), openBMCVoyager)
+	install params/openBMCVoyager_platformd.conf $(PARAMSDIR)/platformd.conf
 else
 	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
 endif
