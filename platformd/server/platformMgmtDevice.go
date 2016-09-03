@@ -28,17 +28,11 @@ import (
 )
 
 func (svr *PlatformdServer) getPlatformMgmtDeviceState(Name string) (retObj *objects.PlatformMgmtDeviceState, err error) {
-	/*
-		retObj, err := svr.pluginMgr.GetPlatformMgmtDeviceState(Name)
-		return retObj, err
-	*/
+	retObj, err = svr.pluginMgr.GetPlatformMgmtDeviceState(Name)
 	return retObj, err
 }
 
 func (svr *PlatformdServer) getBulkPlatformMgmtDeviceState(fromIdx int, count int) (retObj *objects.PlatformMgmtDeviceStateGetInfo, err error) {
-	/*
-		retObj, err := svr.pluginMgr.GetBulkPlatformMgmtDeviceState(fromIdx, count)
-		return retObj, err
-	*/
+	retObj, err = svr.pluginMgr.GetBulkPlatformMgmtDeviceState(fromIdx, count)
 	return retObj, err
 }

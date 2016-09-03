@@ -23,8 +23,6 @@
 
 package pluginManager
 
-/*
-
 import (
 	"errors"
 	"fmt"
@@ -34,23 +32,60 @@ import (
 )
 
 type PlatformManager struct {
-	logger logging.LoggerIntf
-	plugin PluginIntf
+	logger                  logging.LoggerIntf
+	plugin                  PluginIntf
+	PlatformMgmtDeviceState *pluginCommon.PlatformMgmtDeviceState
 }
 
-var platfomMgr PlarformManager
+var PlatformMgr PlatformManager
 
-func (pMgr *PlarformManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
+func (pMgr *PlatformManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	pMgr.logger = logger
+	pMgr.logger.Info("PlarformManager Init Start")
 	pMgr.plugin = plugin
+	pMgr.PlatformMgmtDeviceState = new(pluginCommon.PlatformMgmtDeviceState)
 }
 
-func (pMgr *PlarformManager) GetPlatformMgmtDeviceState(Name string) (*objects.PlatformMgmtDeviceState, error) {
-
-	return nil, err
+func (pMgr *PlatformManager) Deinit() {
+	pMgr.logger.Info("PlarformManager deinit")
 }
 
-func (pMgr *PlarformManager) GetBulkPlatformMgmtDeviceState(fromIdx int, count int) (*objects.PlatformMgmtDeviceStateGetInfo, error) {
-	return nil, err
+func (pMgr *PlatformManager) GetPlatformMgmtDeviceState(Name string) (*objects.PlatformMgmtDeviceState, error) {
+	var platformMgmtDeviceObj objects.PlatformMgmtDeviceState
+	if pMgr.plugin == nil {
+		return &platformMgmtDeviceObj, errors.New("Invalid platform plugin")
+	}
+	err := pMgr.plugin.GetPlatformMgmtDeviceState(pMgr.PlatformMgmtDeviceState)
+	if err != nil {
+		return &platformMgmtDeviceObj, errors.New("Unable to get the PlatformMgmtDeviceState")
+	}
+	platformMgmtDeviceObj.CPUUsage = pMgr.PlatformMgmtDeviceState.CPUUsage
+	platformMgmtDeviceObj.Version = pMgr.PlatformMgmtDeviceState.Version
+	platformMgmtDeviceObj.Description = pMgr.PlatformMgmtDeviceState.Description
+	platformMgmtDeviceObj.DeviceName = pMgr.PlatformMgmtDeviceState.DeviceName
+	platformMgmtDeviceObj.MemoryUsage = pMgr.PlatformMgmtDeviceState.MemoryUsage
+	platformMgmtDeviceObj.ResetReason = pMgr.PlatformMgmtDeviceState.ResetReason
+	platformMgmtDeviceObj.Uptime = pMgr.PlatformMgmtDeviceState.Uptime
+	return &platformMgmtDeviceObj, err
 }
-*/
+
+func (pMgr *PlatformManager) GetBulkPlatformMgmtDeviceState(fromIdx int, count int) (*objects.PlatformMgmtDeviceStateGetInfo, error) {
+	var retObj objects.PlatformMgmtDeviceStateGetInfo
+	if pMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if fromIdx > 0 {
+		return nil, errors.New("Invalid range, There is only one object")
+	}
+	retObj.EndIdx = 1
+	retObj.More = false
+	retObj.Count = 1
+	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
+		obj, err := pMgr.GetPlatformMgmtDeviceState("BMC")
+		if err != nil {
+			pMgr.logger.Err(fmt.Sprintln("Error getting the platform management state for :BMC"))
+		}
+		retObj.List = append(retObj.List, obj)
+	}
+	return &retObj, nil
+}

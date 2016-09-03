@@ -308,3 +308,7 @@ func (driver *openBMCDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0
 }
+
+func (driver *openBMCDriver) GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error {
+	return errors.New("Not supported")
+}

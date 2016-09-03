@@ -54,6 +54,7 @@ type PluginIntf interface {
 	GetAllSensorState(state *pluginCommon.SensorState) error
 	GetMaxNumOfQsfp() int
 	GetQsfpState(id int32) (pluginCommon.QsfpState, error)
+	GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error
 }
 
 type ResourceManagers struct {
@@ -65,6 +66,7 @@ type ResourceManagers struct {
 	*LedManager
 	*SensorManager
 	*QsfpManager
+	*PlatformManager
 }
 
 type PluginManager struct {
@@ -119,6 +121,7 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	pluginMgr.LedManager = &LedMgr
 	pluginMgr.SensorManager = &SensorMgr
 	pluginMgr.QsfpManager = &QsfpMgr
+	pluginMgr.PlatformManager = &PlatformMgr
 	return pluginMgr, nil
 }
 
@@ -132,6 +135,7 @@ func (pMgr *PluginManager) Init() error {
 	pMgr.LedManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.SensorManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.QsfpManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.PlatformManager.Init(pMgr.logger, pMgr.plugin)
 	return nil
 }
 
@@ -144,4 +148,5 @@ func (pMgr *PluginManager) Deinit() {
 	pMgr.LedManager.Deinit()
 	pMgr.SensorManager.Deinit()
 	pMgr.QsfpManager.Deinit()
+	pMgr.PlatformManager.Deinit()
 }
