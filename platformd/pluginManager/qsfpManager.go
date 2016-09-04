@@ -94,7 +94,27 @@ func (qMgr *QsfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	qMgr.configDB = make([]QsfpConfig, numOfQsfps)
 	for id := 0; id < numOfQsfps; id++ {
 		qsfpCfgEnt := qMgr.configDB[id]
-		//TODO
+		qsfpCfgEnt.AdminState = "Enabled"
+		qsfpCfgEnt.HigherAlarmTemperature = 100.0
+		qsfpCfgEnt.HigherAlarmVoltage = 10.0
+		qsfpCfgEnt.HigherAlarmRXPower = 100.0
+		qsfpCfgEnt.HigherAlarmTXPower = 100.0
+		qsfpCfgEnt.HigherAlarmTXBias = 100.0
+		qsfpCfgEnt.HigherWarningTemperature = 100.0
+		qsfpCfgEnt.HigherWarningVoltage = 10.0
+		qsfpCfgEnt.HigherWarningRXPower = 100.0
+		qsfpCfgEnt.HigherWarningTXPower = 100.0
+		qsfpCfgEnt.HigherWarningTXBias = 100.0
+		qsfpCfgEnt.LowerAlarmTemperature = -100.0
+		qsfpCfgEnt.LowerAlarmVoltage = -10.0
+		qsfpCfgEnt.LowerAlarmRXPower = -100.0
+		qsfpCfgEnt.LowerAlarmTXPower = -100.0
+		qsfpCfgEnt.LowerAlarmTXBias = -100.0
+		qsfpCfgEnt.LowerWarningTemperature = -100.0
+		qsfpCfgEnt.LowerWarningVoltage = -10.0
+		qsfpCfgEnt.LowerWarningRXPower = -100.0
+		qsfpCfgEnt.LowerWarningTXPower = -100.0
+		qsfpCfgEnt.LowerWarningTXBias = -100.0
 		qMgr.configDB[id] = qsfpCfgEnt
 	}
 	qMgr.logger.Info("Qsfp Manager Init()")
@@ -185,8 +205,27 @@ func (qMgr *QsfpManager) GetQsfpConfig(id int32) (*objects.QsfpConfig, error) {
 	qsfpCfgEnt := qMgr.configDB[id-1]
 	obj.QsfpId = id
 	obj.AdminState = qsfpCfgEnt.AdminState
+	obj.HigherAlarmTemperature = qsfpCfgEnt.HigherAlarmTemperature
+	obj.HigherAlarmVoltage = qsfpCfgEnt.HigherAlarmVoltage
+	obj.HigherAlarmRXPower = qsfpCfgEnt.HigherAlarmRXPower
+	obj.HigherAlarmTXPower = qsfpCfgEnt.HigherAlarmTXPower
+	obj.HigherAlarmTXBias = qsfpCfgEnt.HigherAlarmTXBias
+	obj.HigherWarningTemperature = qsfpCfgEnt.HigherWarningTemperature
+	obj.HigherWarningVoltage = qsfpCfgEnt.HigherWarningVoltage
+	obj.HigherWarningRXPower = qsfpCfgEnt.HigherWarningRXPower
+	obj.HigherWarningTXPower = qsfpCfgEnt.HigherWarningTXPower
+	obj.HigherWarningTXBias = qsfpCfgEnt.HigherWarningTXBias
+	obj.LowerAlarmTemperature = qsfpCfgEnt.LowerAlarmTemperature
+	obj.LowerAlarmVoltage = qsfpCfgEnt.LowerAlarmVoltage
+	obj.LowerAlarmRXPower = qsfpCfgEnt.LowerAlarmRXPower
+	obj.LowerAlarmTXPower = qsfpCfgEnt.LowerAlarmTXPower
+	obj.LowerAlarmTXBias = qsfpCfgEnt.LowerAlarmTXBias
+	obj.LowerWarningTemperature = qsfpCfgEnt.LowerWarningTemperature
+	obj.LowerWarningVoltage = qsfpCfgEnt.LowerWarningVoltage
+	obj.LowerWarningRXPower = qsfpCfgEnt.LowerWarningRXPower
+	obj.LowerWarningTXPower = qsfpCfgEnt.LowerWarningTXPower
+	obj.LowerWarningTXBias = qsfpCfgEnt.LowerWarningTXBias
 
-	// Need to be added
 	return &obj, nil
 }
 
@@ -218,11 +257,134 @@ func (qMgr *QsfpManager) GetBulkQsfpConfig(fromIdx int, cnt int) (*objects.QsfpC
 	return &retObj, nil
 }
 
+func genQsfpUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//QSFP Id
+			case 1:
+				mask |= objects.QSFP_UPDATE_ADMIN_STATE
+			case 2:
+				mask |= objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE
+			case 3:
+				mask |= objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE
+			case 4:
+				mask |= objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER
+			case 5:
+				mask |= objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER
+			case 6:
+				mask |= objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS
+			case 7:
+				mask |= objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE
+			case 8:
+				mask |= objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE
+			case 9:
+				mask |= objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER
+			case 10:
+				mask |= objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER
+			case 11:
+				mask |= objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS
+			case 12:
+				mask |= objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE
+			case 13:
+				mask |= objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE
+			case 14:
+				mask |= objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER
+			case 15:
+				mask |= objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER
+			case 16:
+				mask |= objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS
+			case 17:
+				mask |= objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE
+			case 18:
+				mask |= objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE
+			case 19:
+				mask |= objects.QSFP_UPDATE_LOWER_WARN_RX_POWER
+			case 20:
+				mask |= objects.QSFP_UPDATE_LOWER_WARN_TX_POWER
+			case 21:
+				mask |= objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS
+			}
+		}
+	}
+	return mask
+}
+
 func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *objects.QsfpConfig, attrset []bool) (bool, error) {
 	if qMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
-	//TODO
-	//ret, err := fMgr.plugin.UpdateFanConfig(newCfg)
+	numOfQsfp := len(qMgr.configDB)
+	if newCfg.QsfpId > int32(numOfQsfp) || newCfg.QsfpId < int32(1) {
+		return false, errors.New("Invalid Qsfp Id")
+	}
+	qsfpCfgEnt := qMgr.configDB[newCfg.QsfpId-1]
+	mask := genQsfpUpdateMask(attrset)
+	if mask&objects.QSFP_UPDATE_ADMIN_STATE == objects.QSFP_UPDATE_ADMIN_STATE {
+		qsfpCfgEnt.AdminState = newCfg.AdminState
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE == objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE {
+		qsfpCfgEnt.HigherAlarmTemperature = newCfg.HigherAlarmTemperature
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE == objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE {
+		qsfpCfgEnt.HigherAlarmVoltage = newCfg.HigherAlarmVoltage
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER {
+		qsfpCfgEnt.HigherAlarmRXPower = newCfg.HigherAlarmRXPower
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER {
+		qsfpCfgEnt.HigherAlarmTXPower = newCfg.HigherAlarmTXPower
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS == objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS {
+		qsfpCfgEnt.HigherAlarmTXBias = newCfg.HigherAlarmTXBias
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE == objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE {
+		qsfpCfgEnt.HigherWarningTemperature = newCfg.HigherWarningTemperature
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE == objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE {
+		qsfpCfgEnt.HigherWarningVoltage = newCfg.HigherWarningVoltage
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER {
+		qsfpCfgEnt.HigherWarningRXPower = newCfg.HigherWarningRXPower
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER {
+		qsfpCfgEnt.HigherWarningTXPower = newCfg.HigherWarningTXPower
+	}
+	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS == objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS {
+		qsfpCfgEnt.HigherWarningTXBias = newCfg.HigherWarningTXBias
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE == objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE {
+		qsfpCfgEnt.LowerAlarmTemperature = newCfg.LowerAlarmTemperature
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE == objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE {
+		qsfpCfgEnt.LowerAlarmVoltage = newCfg.LowerAlarmVoltage
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER {
+		qsfpCfgEnt.LowerAlarmRXPower = newCfg.LowerAlarmRXPower
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER {
+		qsfpCfgEnt.LowerAlarmTXPower = newCfg.LowerAlarmTXPower
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS == objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS {
+		qsfpCfgEnt.LowerAlarmTXBias = newCfg.LowerAlarmTXBias
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE == objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE {
+		qsfpCfgEnt.LowerWarningTemperature = newCfg.LowerWarningTemperature
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE == objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE {
+		qsfpCfgEnt.LowerWarningVoltage = newCfg.LowerWarningVoltage
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_WARN_RX_POWER == objects.QSFP_UPDATE_LOWER_WARN_RX_POWER {
+		qsfpCfgEnt.LowerWarningRXPower = newCfg.LowerWarningRXPower
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_POWER == objects.QSFP_UPDATE_LOWER_WARN_TX_POWER {
+		qsfpCfgEnt.LowerWarningTXPower = newCfg.LowerWarningTXPower
+	}
+	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS == objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS {
+		qsfpCfgEnt.LowerWarningTXBias = newCfg.LowerWarningTXBias
+	}
+
 	return true, nil
 }
