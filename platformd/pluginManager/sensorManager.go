@@ -248,10 +248,54 @@ func (sMgr *SensorManager) GetBulkFanSensorConfig(fromIdx int, cnt int) (*object
 	return &retObj, nil
 }
 
+func genFanSensorUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//ObjKey Fan Name
+			case 1:
+				mask |= objects.FAN_SENSOR_UPDATE_ADMIN_STATE
+			case 2:
+				mask |= objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+			case 3:
+				mask |= objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+			case 4:
+				mask |= objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+			case 5:
+				mask |= objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+			}
+		}
+	}
+	return mask
+}
+
 func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig, newCfg *objects.FanSensorConfig, attrset []bool) (bool, error) {
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	fanSensorCfgEnt, exist := sMgr.fanConfigDB[newCfg.Name]
+	if !exist {
+		return false, errors.New("Invalid FanSensor Name")
+	}
+	mask := genFanSensorUpdateMask(attrset)
+	if mask&objects.FAN_SENSOR_UPDATE_ADMIN_STATE == objects.FAN_SENSOR_UPDATE_ADMIN_STATE {
+		fanSensorCfgEnt.AdminState = newCfg.AdminState
+	}
+	if mask&objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
+		fanSensorCfgEnt.HigherAlarmThreshold = newCfg.HigherAlarmThreshold
+	}
+	if mask&objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD == objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD {
+		fanSensorCfgEnt.HigherWarningThreshold = newCfg.HigherWarningThreshold
+	}
+	if mask&objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD == objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD {
+		fanSensorCfgEnt.LowerAlarmThreshold = newCfg.LowerAlarmThreshold
+	}
+	if mask&objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
+		fanSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
+	}
+	sMgr.fanConfigDB[newCfg.Name] = fanSensorCfgEnt
 	return true, nil
 }
 
@@ -349,10 +393,54 @@ func (sMgr *SensorManager) GetBulkTemperatureSensorConfig(fromIdx int, cnt int) 
 	return &retObj, nil
 }
 
+func genTempSensorUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//ObjKey Temp Sensor Name
+			case 1:
+				mask |= objects.TEMP_SENSOR_UPDATE_ADMIN_STATE
+			case 2:
+				mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+			case 3:
+				mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+			case 4:
+				mask |= objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+			case 5:
+				mask |= objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+			}
+		}
+	}
+	return mask
+}
+
 func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.TemperatureSensorConfig, newCfg *objects.TemperatureSensorConfig, attrset []bool) (bool, error) {
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	tempSensorCfgEnt, exist := sMgr.tempConfigDB[newCfg.Name]
+	if !exist {
+		return false, errors.New("Invalid TemperatureSensor Name")
+	}
+	mask := genTempSensorUpdateMask(attrset)
+	if mask&objects.TEMP_SENSOR_UPDATE_ADMIN_STATE == objects.TEMP_SENSOR_UPDATE_ADMIN_STATE {
+		tempSensorCfgEnt.AdminState = newCfg.AdminState
+	}
+	if mask&objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
+		tempSensorCfgEnt.HigherAlarmThreshold = newCfg.HigherAlarmThreshold
+	}
+	if mask&objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD == objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD {
+		tempSensorCfgEnt.HigherWarningThreshold = newCfg.HigherWarningThreshold
+	}
+	if mask&objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD == objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD {
+		tempSensorCfgEnt.LowerAlarmThreshold = newCfg.LowerAlarmThreshold
+	}
+	if mask&objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
+		tempSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
+	}
+	sMgr.tempConfigDB[newCfg.Name] = tempSensorCfgEnt
 	return true, nil
 }
 
@@ -450,10 +538,55 @@ func (sMgr *SensorManager) GetBulkVoltageSensorConfig(fromIdx int, cnt int) (*ob
 	return &retObj, nil
 }
 
+func genVoltageSensorUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//ObjKey Voltage Sensor Name
+			case 1:
+				mask |= objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE
+			case 2:
+				mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+			case 3:
+				mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+			case 4:
+				mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+			case 5:
+				mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+			}
+		}
+	}
+	return mask
+}
+
 func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSensorConfig, newCfg *objects.VoltageSensorConfig, attrset []bool) (bool, error) {
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	voltageSensorCfgEnt, exist := sMgr.voltageConfigDB[newCfg.Name]
+	if !exist {
+		return false, errors.New("Invalid VoltageSensor Name")
+	}
+	mask := genVoltageSensorUpdateMask(attrset)
+	if mask&objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE == objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE {
+		voltageSensorCfgEnt.AdminState = newCfg.AdminState
+	}
+	if mask&objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
+		voltageSensorCfgEnt.HigherAlarmThreshold = newCfg.HigherAlarmThreshold
+	}
+	if mask&objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD {
+		voltageSensorCfgEnt.HigherWarningThreshold = newCfg.HigherWarningThreshold
+	}
+	if mask&objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD {
+		voltageSensorCfgEnt.LowerAlarmThreshold = newCfg.LowerAlarmThreshold
+	}
+	if mask&objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
+		voltageSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
+	}
+	sMgr.voltageConfigDB[newCfg.Name] = voltageSensorCfgEnt
+
 	return true, nil
 }
 
@@ -551,9 +684,54 @@ func (sMgr *SensorManager) GetBulkPowerConverterSensorConfig(fromIdx int, cnt in
 	return &retObj, nil
 }
 
+func genPowerConverterSensorUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+	for idx, val := range attrset {
+		if true == val {
+			switch idx {
+			case 0:
+				//ObjKey PowerConverter Sensor Name
+			case 1:
+				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE
+			case 2:
+				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+			case 3:
+				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+			case 4:
+				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+			case 5:
+				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+			}
+		}
+	}
+	return mask
+}
+
 func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.PowerConverterSensorConfig, newCfg *objects.PowerConverterSensorConfig, attrset []bool) (bool, error) {
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	powerConverterSensorCfgEnt, exist := sMgr.powerConverterConfigDB[newCfg.Name]
+	if !exist {
+		return false, errors.New("Invalid PowerConverterSensor Name")
+	}
+	mask := genPowerConverterSensorUpdateMask(attrset)
+	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE == objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE {
+		powerConverterSensorCfgEnt.AdminState = newCfg.AdminState
+	}
+	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
+		powerConverterSensorCfgEnt.HigherAlarmThreshold = newCfg.HigherAlarmThreshold
+	}
+	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD {
+		powerConverterSensorCfgEnt.HigherWarningThreshold = newCfg.HigherWarningThreshold
+	}
+	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD {
+		powerConverterSensorCfgEnt.LowerAlarmThreshold = newCfg.LowerAlarmThreshold
+	}
+	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
+		powerConverterSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
+	}
+	sMgr.powerConverterConfigDB[newCfg.Name] = powerConverterSensorCfgEnt
+
 	return true, nil
 }

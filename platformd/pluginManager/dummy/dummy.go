@@ -125,3 +125,7 @@ func (driver *dummyDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0
 }
+
+func (driver *dummyDriver) GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error {
+	return nil
+}

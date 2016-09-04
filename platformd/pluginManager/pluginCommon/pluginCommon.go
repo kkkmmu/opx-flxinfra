@@ -113,3 +113,13 @@ type QsfpState struct {
 	TX3Bias            float64
 	TX4Bias            float64
 }
+
+type PlatformMgmtDeviceState struct {
+	DeviceName  string
+	Uptime      string
+	Description string
+	ResetReason string
+	MemoryUsage string
+	Version     string
+	CPUUsage    string
+}

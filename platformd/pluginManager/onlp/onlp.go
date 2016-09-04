@@ -269,3 +269,7 @@ func (driver *onlpDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0
 }
+
+func (driver *onlpDriver) GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error {
+	return errors.New("Not supported")
+}
