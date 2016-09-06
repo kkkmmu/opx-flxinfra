@@ -58,3 +58,14 @@ const (
 	VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD   = 0x8
 	VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD  = 0x10
 )
+
+type VoltageSensorPMData struct {
+	TimeStamp string
+	Value     float64
+}
+
+type VoltageSensorPMState struct {
+	Name  string
+	Class string
+	Data  []interface{}
+}

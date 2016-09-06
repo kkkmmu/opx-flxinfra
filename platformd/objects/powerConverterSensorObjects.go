@@ -58,3 +58,14 @@ const (
 	POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD   = 0x8
 	POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD  = 0x10
 )
+
+type PowerConverterSensorPMData struct {
+	TimeStamp string
+	Value     float64
+}
+
+type PowerConverterSensorPMState struct {
+	Name  string
+	Class string
+	Data  []interface{}
+}

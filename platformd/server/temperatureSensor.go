@@ -46,3 +46,8 @@ func (svr *PlatformdServer) updateTemperatureSensorConfig(oldCfg *objects.Temper
 	ret, err := svr.pluginMgr.UpdateTemperatureSensorConfig(oldCfg, newCfg, attrset)
 	return ret, err
 }
+
+func (svr *PlatformdServer) getTempSensorPMState(Name string, Class string) (*objects.TemperatureSensorPMState, error) {
+	retObj, err := svr.pluginMgr.GetTempSensorPMState(Name, Class)
+	return retObj, err
+}

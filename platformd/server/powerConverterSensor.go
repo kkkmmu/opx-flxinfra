@@ -46,3 +46,8 @@ func (svr *PlatformdServer) updatePowerConverterSensorConfig(oldCfg *objects.Pow
 	ret, err := svr.pluginMgr.UpdatePowerConverterSensorConfig(oldCfg, newCfg, attrset)
 	return ret, err
 }
+
+func (svr *PlatformdServer) getPowerConverterSensorPMState(Name string, Class string) (*objects.PowerConverterSensorPMState, error) {
+	retObj, err := svr.pluginMgr.GetPowerConverterSensorPMState(Name, Class)
+	return retObj, err
+}

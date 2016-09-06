@@ -307,3 +307,75 @@ func convertToRPCFmtPlatformMgmtDeviceState(obj *objects.PlatformMgmtDeviceState
 		CPUUsage:    obj.CPUUsage,
 	}
 }
+
+func convertToRPCFmtFanSensorPMState(obj *objects.FanSensorPMState) *platformd.FanSensorPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.FanSensorPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.FanSensorPMData)
+		data[idx] = new(platformd.FanSensorPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.FanSensorPMDataState{
+		Name:  obj.Name,
+		Class: obj.Class,
+		Data:  data,
+	}
+
+}
+
+func convertToRPCFmtTempSensorPMState(obj *objects.TemperatureSensorPMState) *platformd.TemperatureSensorPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.TemperatureSensorPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.TemperatureSensorPMData)
+		data[idx] = new(platformd.TemperatureSensorPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.TemperatureSensorPMDataState{
+		Name:  obj.Name,
+		Class: obj.Class,
+		Data:  data,
+	}
+
+}
+
+func convertToRPCFmtVoltageSensorPMState(obj *objects.VoltageSensorPMState) *platformd.VoltageSensorPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.VoltageSensorPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.VoltageSensorPMData)
+		data[idx] = new(platformd.VoltageSensorPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.VoltageSensorPMDataState{
+		Name:  obj.Name,
+		Class: obj.Class,
+		Data:  data,
+	}
+
+}
+
+func convertToRPCFmtPowerConverterSensorPMState(obj *objects.PowerConverterSensorPMState) *platformd.PowerConverterSensorPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.PowerConverterSensorPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.PowerConverterSensorPMData)
+		data[idx] = new(platformd.PowerConverterSensorPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.PowerConverterSensorPMDataState{
+		Name:  obj.Name,
+		Class: obj.Class,
+		Data:  data,
+	}
+
+}
