@@ -58,3 +58,14 @@ const (
 	TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD   = 0x8
 	TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD  = 0x10
 )
+
+type TemperatureSensorPMData struct {
+	TimeStamp string
+	Value     float64
+}
+
+type TemperatureSensorPMState struct {
+	Name  string
+	Class string
+	Data  []interface{}
+}

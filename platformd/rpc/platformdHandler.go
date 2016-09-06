@@ -25,7 +25,7 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
+	//"fmt"
 	"infra/platformd/api"
 	"platformd"
 )
@@ -323,7 +323,6 @@ func (rpcHdl *rpcServiceHandler) GetBulkFanSensor(fromIdx, count platformd.Int) 
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanSensorState, error) {
-	fmt.Println("Inside Fan Sensor State")
 	var rpcObj *platformd.FanSensorState
 	var err error
 
@@ -335,7 +334,6 @@ func (rpcHdl *rpcServiceHandler) GetFanSensorState(Name string) (*platformd.FanS
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensorState(fromIdx, count platformd.Int) (*platformd.FanSensorStateGetInfo, error) {
-	fmt.Println("Inside Fan Sensor Get Bulk State")
 	var getBulkObj platformd.FanSensorStateGetInfo
 	var err error
 
@@ -354,7 +352,14 @@ func (rpcHdl *rpcServiceHandler) GetBulkFanSensorState(fromIdx, count platformd.
 }
 
 func (rpcHdl *rpcServiceHandler) GetFanSensorPMDataState(Name string, Class string) (*platformd.FanSensorPMDataState, error) {
-	return nil, nil
+	var rpcObj *platformd.FanSensorPMDataState
+	var err error
+
+	obj, err := api.GetFanSensorPMDataState(Name, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtFanSensorPMState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkFanSensorPMDataState(fromIdx, count platformd.Int) (*platformd.FanSensorPMDataStateGetInfo, error) {
@@ -428,7 +433,14 @@ func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorState(fromIdx, count pl
 }
 
 func (rpcHdl *rpcServiceHandler) GetTemperatureSensorPMDataState(Name string, Class string) (*platformd.TemperatureSensorPMDataState, error) {
-	return nil, nil
+	var rpcObj *platformd.TemperatureSensorPMDataState
+	var err error
+
+	obj, err := api.GetTempSensorPMDataState(Name, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtTempSensorPMState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorPMDataState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorPMDataStateGetInfo, error) {
@@ -502,7 +514,14 @@ func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorState(fromIdx, count platfo
 }
 
 func (rpcHdl *rpcServiceHandler) GetVoltageSensorPMDataState(Name string, Class string) (*platformd.VoltageSensorPMDataState, error) {
-	return nil, nil
+	var rpcObj *platformd.VoltageSensorPMDataState
+	var err error
+
+	obj, err := api.GetVoltageSensorPMDataState(Name, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtVoltageSensorPMState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorPMDataState(fromIdx, count platformd.Int) (*platformd.VoltageSensorPMDataStateGetInfo, error) {
@@ -576,7 +595,14 @@ func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorState(fromIdx, count
 }
 
 func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorPMDataState(Name string, Class string) (*platformd.PowerConverterSensorPMDataState, error) {
-	return nil, nil
+	var rpcObj *platformd.PowerConverterSensorPMDataState
+	var err error
+
+	obj, err := api.GetPowerConverterSensorPMDataState(Name, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtPowerConverterSensorPMState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorPMDataState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorPMDataStateGetInfo, error) {

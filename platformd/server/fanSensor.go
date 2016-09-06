@@ -47,3 +47,8 @@ func (svr *PlatformdServer) updateFanSensorConfig(oldCfg *objects.FanSensorConfi
 	ret, err := svr.pluginMgr.UpdateFanSensorConfig(oldCfg, newCfg, attrset)
 	return ret, err
 }
+
+func (svr *PlatformdServer) getFanSensorPMState(Name string, Class string) (*objects.FanSensorPMState, error) {
+	retObj, err := svr.pluginMgr.GetFanSensorPMState(Name, Class)
+	return retObj, err
+}

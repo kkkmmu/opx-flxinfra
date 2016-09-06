@@ -58,3 +58,14 @@ const (
 	FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD   = 0x8
 	FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD  = 0x10
 )
+
+type FanSensorPMData struct {
+	TimeStamp string
+	Value     int32
+}
+
+type FanSensorPMState struct {
+	Name  string
+	Class string
+	Data  []interface{}
+}

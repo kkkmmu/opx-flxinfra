@@ -591,3 +591,87 @@ func GetBulkPlatformMgmtDeviceState(fromIdx, count int) (*objects.PlatformMgmtDe
 		return nil, errors.New("Error: Invalid response received from server during GetBulkPlatformMgmtDeviceState")
 	}
 }
+
+func GetFanSensorPMDataState(name string, class string) (*objects.FanSensorPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_FAN_SENSOR_PM_STATE,
+		Data: interface{}(&server.GetFanSensorPMStateInArgs{
+			Name:  name,
+			Class: class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetFanSensorPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetFanSensorState")
+	}
+}
+
+func GetTempSensorPMDataState(name string, class string) (*objects.TemperatureSensorPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_TEMPERATURE_SENSOR_STATE,
+		Data: interface{}(&server.GetTempSensorPMStateInArgs{
+			Name:  name,
+			Class: class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetTempSensorPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetTempSensorState")
+	}
+}
+
+func GetVoltageSensorPMDataState(name string, class string) (*objects.VoltageSensorPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_VOLTAGE_SENSOR_PM_STATE,
+		Data: interface{}(&server.GetVoltageSensorPMStateInArgs{
+			Name:  name,
+			Class: class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetVoltageSensorPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetVoltageSensorState")
+	}
+}
+
+func GetPowerConverterSensorPMDataState(name string, class string) (*objects.PowerConverterSensorPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_POWER_CONVERTER_SENSOR_PM_STATE,
+		Data: interface{}(&server.GetPowerConverterSensorPMStateInArgs{
+			Name:  name,
+			Class: class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetPowerConverterSensorPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetPowerConverterSensorState")
+	}
+}

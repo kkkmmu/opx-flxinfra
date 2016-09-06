@@ -46,3 +46,8 @@ func (svr *PlatformdServer) updateVoltageSensorConfig(oldCfg *objects.VoltageSen
 	ret, err := svr.pluginMgr.UpdateVoltageSensorConfig(oldCfg, newCfg, attrset)
 	return ret, err
 }
+
+func (svr *PlatformdServer) getVoltageSensorPMState(Name string, Class string) (*objects.VoltageSensorPMState, error) {
+	retObj, err := svr.pluginMgr.GetVoltageSensorPMState(Name, Class)
+	return retObj, err
+}

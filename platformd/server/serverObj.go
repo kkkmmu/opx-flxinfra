@@ -53,18 +53,22 @@ const (
 	GET_BULK_FAN_SENSOR_STATE
 	GET_BULK_FAN_SENSOR_CONFIG
 	UPDATE_FAN_SENSOR_CONFIG
+	GET_FAN_SENSOR_PM_STATE
 	GET_TEMPERATURE_SENSOR_STATE
 	GET_BULK_TEMPERATURE_SENSOR_STATE
 	GET_BULK_TEMPERATURE_SENSOR_CONFIG
 	UPDATE_TEMPERATURE_SENSOR_CONFIG
+	GET_TEMPERATURE_SENSOR_PM_STATE
 	GET_VOLTAGE_SENSOR_STATE
 	GET_BULK_VOLTAGE_SENSOR_STATE
 	GET_BULK_VOLTAGE_SENSOR_CONFIG
 	UPDATE_VOLTAGE_SENSOR_CONFIG
+	GET_VOLTAGE_SENSOR_PM_STATE
 	GET_POWER_CONVERTER_SENSOR_STATE
 	GET_BULK_POWER_CONVERTER_SENSOR_STATE
 	GET_BULK_POWER_CONVERTER_SENSOR_CONFIG
 	UPDATE_POWER_CONVERTER_SENSOR_CONFIG
+	GET_POWER_CONVERTER_SENSOR_PM_STATE
 	GET_QSFP_STATE
 	GET_BULK_QSFP_STATE
 	GET_BULK_QSFP_CONFIG
@@ -321,4 +325,44 @@ type GetPlatformMgmtDeviceStateOutArgs struct {
 type GetBulkPlatformMgmtDeviceStateOutArgs struct {
 	BulkInfo *objects.PlatformMgmtDeviceStateGetInfo
 	Err      error
+}
+
+type GetFanSensorPMStateInArgs struct {
+	Name  string
+	Class string
+}
+
+type GetFanSensorPMStateOutArgs struct {
+	Obj *objects.FanSensorPMState
+	Err error
+}
+
+type GetTempSensorPMStateInArgs struct {
+	Name  string
+	Class string
+}
+
+type GetTempSensorPMStateOutArgs struct {
+	Obj *objects.TemperatureSensorPMState
+	Err error
+}
+
+type GetVoltageSensorPMStateInArgs struct {
+	Name  string
+	Class string
+}
+
+type GetVoltageSensorPMStateOutArgs struct {
+	Obj *objects.VoltageSensorPMState
+	Err error
+}
+
+type GetPowerConverterSensorPMStateInArgs struct {
+	Name  string
+	Class string
+}
+
+type GetPowerConverterSensorPMStateOutArgs struct {
+	Obj *objects.PowerConverterSensorPMState
+	Err error
 }

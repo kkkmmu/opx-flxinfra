@@ -28,7 +28,10 @@ import (
 	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"sync"
+	"time"
 	"utils/logging"
+	"utils/ringBuffer"
 )
 
 type FanSensorConfig struct {
@@ -63,18 +66,68 @@ type PowerConverterSensorConfig struct {
 	LowerAlarmThreshold    float64
 }
 
+const (
+	classAInterval  time.Duration = time.Duration(10) * time.Second // Polling Interval 10 sec
+	classABufSize   int           = 6 * 60 * 24                     //Storage for 24 hrs
+	classBInterval  time.Duration = time.Duration(15) * time.Minute // Polling Interval 15 mins
+	classBBufSize   int           = 4 * 24                          // Storage for 24 hrs
+	classCInterval  time.Duration = time.Duration(24) * time.Hour   // Polling Interval 24 Hrs
+	classCBufSize   int           = 365                             // Storage for 365 days
+	SentHigherAlarm uint32        = 0x1
+	SentHigherWarn  uint32        = 0x2
+	SentNormal      uint32        = 0x4
+	SentLowerWarn   uint32        = 0x8
+	SentLowerAlarm  uint32        = 0x10
+)
+
 type SensorManager struct {
-	logger                   logging.LoggerIntf
-	plugin                   PluginIntf
-	fanSensorList            []string
-	fanConfigDB              map[string]FanSensorConfig
-	tempSensorList           []string
-	tempConfigDB             map[string]TemperatureSensorConfig
-	voltageSensorList        []string
-	voltageConfigDB          map[string]VoltageSensorConfig
-	powerConverterSensorList []string
-	powerConverterConfigDB   map[string]PowerConverterSensorConfig
-	SensorState              *pluginCommon.SensorState
+	logger                       logging.LoggerIntf
+	plugin                       PluginIntf
+	classAPMTimer                *time.Timer
+	classBPMTimer                *time.Timer
+	classCPMTimer                *time.Timer
+	fanSensorList                []string
+	fanConfigMutex               sync.RWMutex
+	fanConfigDB                  map[string]FanSensorConfig
+	fanMsgStatus                 map[string]uint32
+	fanClassAPMMutex             sync.RWMutex
+	fanSensorClassAPM            map[string]*ringBuffer.RingBuffer
+	fanClassBPMMutex             sync.RWMutex
+	fanSensorClassBPM            map[string]*ringBuffer.RingBuffer
+	fanClassCPMMutex             sync.RWMutex
+	fanSensorClassCPM            map[string]*ringBuffer.RingBuffer
+	tempSensorList               []string
+	tempConfigMutex              sync.RWMutex
+	tempConfigDB                 map[string]TemperatureSensorConfig
+	tempMsgStatus                map[string]uint32
+	tempClassAPMMutex            sync.RWMutex
+	tempSensorClassAPM           map[string]*ringBuffer.RingBuffer
+	tempClassBPMMutex            sync.RWMutex
+	tempSensorClassBPM           map[string]*ringBuffer.RingBuffer
+	tempClassCPMMutex            sync.RWMutex
+	tempSensorClassCPM           map[string]*ringBuffer.RingBuffer
+	voltageSensorList            []string
+	voltageConfigMutex           sync.RWMutex
+	voltageConfigDB              map[string]VoltageSensorConfig
+	voltageMsgStatus             map[string]uint32
+	voltageClassAPMMutex         sync.RWMutex
+	voltageSensorClassAPM        map[string]*ringBuffer.RingBuffer
+	voltageClassBPMMutex         sync.RWMutex
+	voltageSensorClassBPM        map[string]*ringBuffer.RingBuffer
+	voltageClassCPMMutex         sync.RWMutex
+	voltageSensorClassCPM        map[string]*ringBuffer.RingBuffer
+	powerConverterSensorList     []string
+	powerConverterConfigMutex    sync.RWMutex
+	powerConverterConfigDB       map[string]PowerConverterSensorConfig
+	powerConverterMsgStatus      map[string]uint32
+	powerConverterClassAPMMutex  sync.RWMutex
+	powerConverterSensorClassAPM map[string]*ringBuffer.RingBuffer
+	powerConverterClassBPMMutex  sync.RWMutex
+	powerConverterSensorClassBPM map[string]*ringBuffer.RingBuffer
+	powerConverterClassCPMMutex  sync.RWMutex
+	powerConverterSensorClassCPM map[string]*ringBuffer.RingBuffer
+	SensorStateMutex             sync.RWMutex
+	SensorState                  *pluginCommon.SensorState
 }
 
 var SensorMgr SensorManager
@@ -88,7 +141,20 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	sMgr.SensorState.TemperatureSensor = make(map[string]pluginCommon.TemperatureSensorData)
 	sMgr.SensorState.VoltageSensor = make(map[string]pluginCommon.VoltageSensorData)
 	sMgr.SensorState.PowerConverterSensor = make(map[string]pluginCommon.PowerConverterSensorData)
+	sMgr.fanSensorClassAPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.fanSensorClassBPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.fanSensorClassCPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.tempSensorClassAPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.tempSensorClassBPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.tempSensorClassCPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.voltageSensorClassAPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.voltageSensorClassBPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.voltageSensorClassCPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.powerConverterSensorClassAPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.powerConverterSensorClassBPM = make(map[string]*ringBuffer.RingBuffer)
+	sMgr.powerConverterSensorClassCPM = make(map[string]*ringBuffer.RingBuffer)
 
+	sMgr.SensorStateMutex.Lock()
 	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
 	if err != nil {
 		sMgr.logger.Info("Sensor Manager Init() Failed")
@@ -96,8 +162,10 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	}
 	sMgr.logger.Info("Sensor State:", sMgr.SensorState)
 	sMgr.fanConfigDB = make(map[string]FanSensorConfig)
+	sMgr.fanMsgStatus = make(map[string]uint32)
 	for name, _ := range sMgr.SensorState.FanSensor {
 		sMgr.logger.Info("Fan Sensor:", name)
+		sMgr.fanConfigMutex.Lock()
 		fanCfgEnt, _ := sMgr.fanConfigDB[name]
 		// TODO: Read Json
 		fanCfgEnt.AdminState = "Enabled"
@@ -106,47 +174,63 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		fanCfgEnt.LowerAlarmThreshold = 1000
 		fanCfgEnt.LowerWarningThreshold = 1000
 		sMgr.fanConfigDB[name] = fanCfgEnt
+		sMgr.fanMsgStatus[name] = 0
+		sMgr.fanConfigMutex.Unlock()
 		sMgr.fanSensorList = append(sMgr.fanSensorList, name)
 	}
 	sMgr.tempConfigDB = make(map[string]TemperatureSensorConfig)
+	sMgr.tempMsgStatus = make(map[string]uint32)
 	for name, _ := range sMgr.SensorState.TemperatureSensor {
 		sMgr.logger.Info("Temperature Sensor:", name)
+		sMgr.tempConfigMutex.Lock()
 		tempCfgEnt, _ := sMgr.tempConfigDB[name]
 		// TODO: Read Json
 		tempCfgEnt.AdminState = "Enabled"
 		tempCfgEnt.HigherAlarmThreshold = 11000.0
 		tempCfgEnt.HigherWarningThreshold = 11000.0
-		tempCfgEnt.LowerAlarmThreshold = 1000.0
-		tempCfgEnt.LowerWarningThreshold = 1000.0
+		tempCfgEnt.LowerAlarmThreshold = -1000.0
+		tempCfgEnt.LowerWarningThreshold = -1000.0
 		sMgr.tempConfigDB[name] = tempCfgEnt
+		sMgr.tempMsgStatus[name] = 0
+		sMgr.tempConfigMutex.Unlock()
 		sMgr.tempSensorList = append(sMgr.tempSensorList, name)
 	}
 	sMgr.voltageConfigDB = make(map[string]VoltageSensorConfig)
+	sMgr.voltageMsgStatus = make(map[string]uint32)
 	for name, _ := range sMgr.SensorState.VoltageSensor {
 		sMgr.logger.Info("Voltage Sensor:", name)
+		sMgr.voltageConfigMutex.Lock()
 		voltageCfgEnt, _ := sMgr.voltageConfigDB[name]
 		// TODO: Read Json
 		voltageCfgEnt.AdminState = "Enabled"
 		voltageCfgEnt.HigherAlarmThreshold = 11000
 		voltageCfgEnt.HigherWarningThreshold = 11000
-		voltageCfgEnt.LowerAlarmThreshold = 1000
-		voltageCfgEnt.LowerWarningThreshold = 1000
+		voltageCfgEnt.LowerAlarmThreshold = 0
+		voltageCfgEnt.LowerWarningThreshold = 0
 		sMgr.voltageConfigDB[name] = voltageCfgEnt
+		sMgr.voltageMsgStatus[name] = 0
+		sMgr.voltageConfigMutex.Unlock()
 		sMgr.voltageSensorList = append(sMgr.voltageSensorList, name)
 	}
 	sMgr.powerConverterConfigDB = make(map[string]PowerConverterSensorConfig)
+	sMgr.powerConverterMsgStatus = make(map[string]uint32)
 	for name, _ := range sMgr.SensorState.PowerConverterSensor {
 		sMgr.logger.Info("Power Sensor:", name)
+		sMgr.powerConverterConfigMutex.Lock()
 		powerConverterCfgEnt, _ := sMgr.powerConverterConfigDB[name]
 		// TODO: Read Json
 		powerConverterCfgEnt.AdminState = "Enabled"
 		powerConverterCfgEnt.HigherAlarmThreshold = 11000
 		powerConverterCfgEnt.HigherWarningThreshold = 11000
-		powerConverterCfgEnt.LowerAlarmThreshold = 1000
-		powerConverterCfgEnt.LowerWarningThreshold = 1000
+		powerConverterCfgEnt.LowerAlarmThreshold = 0
+		powerConverterCfgEnt.LowerWarningThreshold = 0
 		sMgr.powerConverterConfigDB[name] = powerConverterCfgEnt
+		sMgr.powerConverterMsgStatus[name] = 0
+		sMgr.powerConverterConfigMutex.Unlock()
 		sMgr.powerConverterSensorList = append(sMgr.powerConverterSensorList, name)
 	}
+	sMgr.SensorStateMutex.Unlock()
+	sMgr.StartSensorPM()
 	sMgr.logger.Info("sensor Manager Init( Done)")
 }
 
@@ -164,13 +248,16 @@ func (sMgr *SensorManager) GetFanSensorState(Name string) (*objects.FanSensorSta
 		return nil, errors.New("Invalid Fan Sensor Name")
 	}
 
+	sMgr.SensorStateMutex.Lock()
 	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
 	if err != nil {
+		sMgr.SensorStateMutex.Unlock()
 		return nil, err
 	}
 	fanSensorState, _ := sMgr.SensorState.FanSensor[Name]
 	fanSensorObj.Name = Name
 	fanSensorObj.CurrentSpeed = fanSensorState.Value
+	sMgr.SensorStateMutex.Unlock()
 	return &fanSensorObj, err
 }
 
@@ -207,8 +294,10 @@ func (sMgr *SensorManager) GetFanSensorConfig(Name string) (*objects.FanSensorCo
 	if sMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
+	sMgr.fanConfigMutex.RLock()
 	fanSensorCfgEnt, exist := sMgr.fanConfigDB[Name]
 	if !exist {
+		sMgr.fanConfigMutex.RUnlock()
 		return nil, errors.New("Invalid Fan Sensor Name")
 	}
 	fanSensorObj.Name = Name
@@ -217,6 +306,7 @@ func (sMgr *SensorManager) GetFanSensorConfig(Name string) (*objects.FanSensorCo
 	fanSensorObj.HigherWarningThreshold = fanSensorCfgEnt.HigherWarningThreshold
 	fanSensorObj.LowerAlarmThreshold = fanSensorCfgEnt.LowerAlarmThreshold
 	fanSensorObj.LowerWarningThreshold = fanSensorCfgEnt.LowerWarningThreshold
+	sMgr.fanConfigMutex.RUnlock()
 	return &fanSensorObj, nil
 }
 
@@ -275,8 +365,10 @@ func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	sMgr.fanConfigMutex.Lock()
 	fanSensorCfgEnt, exist := sMgr.fanConfigDB[newCfg.Name]
 	if !exist {
+		sMgr.fanConfigMutex.Unlock()
 		return false, errors.New("Invalid FanSensor Name")
 	}
 	mask := genFanSensorUpdateMask(attrset)
@@ -296,6 +388,7 @@ func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig
 		fanSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
 	sMgr.fanConfigDB[newCfg.Name] = fanSensorCfgEnt
+	sMgr.fanConfigMutex.Unlock()
 	return true, nil
 }
 
@@ -309,13 +402,16 @@ func (sMgr *SensorManager) GetTemperatureSensorState(Name string) (*objects.Temp
 		return nil, errors.New("Invalid Temperature Sensor Name")
 	}
 
+	sMgr.SensorStateMutex.Lock()
 	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
 	if err != nil {
+		sMgr.SensorStateMutex.Unlock()
 		return nil, err
 	}
 	tempSensorState, _ := sMgr.SensorState.TemperatureSensor[Name]
 	tempSensorObj.Name = Name
 	tempSensorObj.CurrentTemperature = tempSensorState.Value
+	sMgr.SensorStateMutex.Unlock()
 	return &tempSensorObj, err
 }
 
@@ -352,8 +448,10 @@ func (sMgr *SensorManager) GetTemperatureSensorConfig(Name string) (*objects.Tem
 	if sMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
+	sMgr.tempConfigMutex.RLock()
 	tempSensorCfgEnt, exist := sMgr.tempConfigDB[Name]
 	if !exist {
+		sMgr.tempConfigMutex.RUnlock()
 		return nil, errors.New("Invalid Temperature Sensor Name")
 	}
 	tempSensorObj.Name = Name
@@ -362,6 +460,7 @@ func (sMgr *SensorManager) GetTemperatureSensorConfig(Name string) (*objects.Tem
 	tempSensorObj.HigherWarningThreshold = tempSensorCfgEnt.HigherWarningThreshold
 	tempSensorObj.LowerAlarmThreshold = tempSensorCfgEnt.LowerAlarmThreshold
 	tempSensorObj.LowerWarningThreshold = tempSensorCfgEnt.LowerWarningThreshold
+	sMgr.tempConfigMutex.RUnlock()
 	return &tempSensorObj, nil
 }
 
@@ -420,8 +519,10 @@ func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.Tempera
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	sMgr.tempConfigMutex.Lock()
 	tempSensorCfgEnt, exist := sMgr.tempConfigDB[newCfg.Name]
 	if !exist {
+		sMgr.tempConfigMutex.Unlock()
 		return false, errors.New("Invalid TemperatureSensor Name")
 	}
 	mask := genTempSensorUpdateMask(attrset)
@@ -441,6 +542,7 @@ func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.Tempera
 		tempSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
 	sMgr.tempConfigDB[newCfg.Name] = tempSensorCfgEnt
+	sMgr.tempConfigMutex.Unlock()
 	return true, nil
 }
 
@@ -454,13 +556,16 @@ func (sMgr *SensorManager) GetVoltageSensorState(Name string) (*objects.VoltageS
 		return nil, errors.New("Invalid Voltage Sensor Name")
 	}
 
+	sMgr.SensorStateMutex.Lock()
 	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
 	if err != nil {
+		sMgr.SensorStateMutex.Unlock()
 		return nil, err
 	}
 	voltageSensorState, _ := sMgr.SensorState.VoltageSensor[Name]
 	voltageSensorObj.Name = Name
 	voltageSensorObj.CurrentVoltage = voltageSensorState.Value
+	sMgr.SensorStateMutex.Unlock()
 	return &voltageSensorObj, err
 }
 
@@ -497,8 +602,10 @@ func (sMgr *SensorManager) GetVoltageSensorConfig(Name string) (*objects.Voltage
 	if sMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
+	sMgr.voltageConfigMutex.RLock()
 	voltageSensorCfgEnt, exist := sMgr.voltageConfigDB[Name]
 	if !exist {
+		sMgr.voltageConfigMutex.RUnlock()
 		return nil, errors.New("Invalid Voltage Sensor Name")
 	}
 	voltageSensorObj.Name = Name
@@ -507,6 +614,7 @@ func (sMgr *SensorManager) GetVoltageSensorConfig(Name string) (*objects.Voltage
 	voltageSensorObj.HigherWarningThreshold = voltageSensorCfgEnt.HigherWarningThreshold
 	voltageSensorObj.LowerAlarmThreshold = voltageSensorCfgEnt.LowerAlarmThreshold
 	voltageSensorObj.LowerWarningThreshold = voltageSensorCfgEnt.LowerWarningThreshold
+	sMgr.voltageConfigMutex.RUnlock()
 	return &voltageSensorObj, nil
 }
 
@@ -565,8 +673,10 @@ func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSens
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	sMgr.voltageConfigMutex.Lock()
 	voltageSensorCfgEnt, exist := sMgr.voltageConfigDB[newCfg.Name]
 	if !exist {
+		sMgr.voltageConfigMutex.Unlock()
 		return false, errors.New("Invalid VoltageSensor Name")
 	}
 	mask := genVoltageSensorUpdateMask(attrset)
@@ -586,6 +696,7 @@ func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSens
 		voltageSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
 	sMgr.voltageConfigDB[newCfg.Name] = voltageSensorCfgEnt
+	sMgr.voltageConfigMutex.Unlock()
 
 	return true, nil
 }
@@ -600,13 +711,16 @@ func (sMgr *SensorManager) GetPowerConverterSensorState(Name string) (*objects.P
 		return nil, errors.New("Invalid PowerConverter Sensor Name")
 	}
 
+	sMgr.SensorStateMutex.Lock()
 	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
 	if err != nil {
+		sMgr.SensorStateMutex.Unlock()
 		return nil, err
 	}
 	powerConverterSensorState, _ := sMgr.SensorState.PowerConverterSensor[Name]
 	powerConverterSensorObj.Name = Name
 	powerConverterSensorObj.CurrentPower = powerConverterSensorState.Value
+	sMgr.SensorStateMutex.Unlock()
 	return &powerConverterSensorObj, err
 }
 
@@ -643,8 +757,10 @@ func (sMgr *SensorManager) GetPowerConverterSensorConfig(Name string) (*objects.
 	if sMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
+	sMgr.powerConverterConfigMutex.RLock()
 	powerConverterSensorCfgEnt, exist := sMgr.powerConverterConfigDB[Name]
 	if !exist {
+		sMgr.powerConverterConfigMutex.RUnlock()
 		return nil, errors.New("Invalid PowerConverter Sensor Name")
 	}
 	powerConverterSensorObj.Name = Name
@@ -653,6 +769,7 @@ func (sMgr *SensorManager) GetPowerConverterSensorConfig(Name string) (*objects.
 	powerConverterSensorObj.HigherWarningThreshold = powerConverterSensorCfgEnt.HigherWarningThreshold
 	powerConverterSensorObj.LowerAlarmThreshold = powerConverterSensorCfgEnt.LowerAlarmThreshold
 	powerConverterSensorObj.LowerWarningThreshold = powerConverterSensorCfgEnt.LowerWarningThreshold
+	sMgr.powerConverterConfigMutex.RUnlock()
 	return &powerConverterSensorObj, nil
 }
 
@@ -711,8 +828,10 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 	if sMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
+	sMgr.powerConverterConfigMutex.Lock()
 	powerConverterSensorCfgEnt, exist := sMgr.powerConverterConfigDB[newCfg.Name]
 	if !exist {
+		sMgr.powerConverterConfigMutex.Unlock()
 		return false, errors.New("Invalid PowerConverterSensor Name")
 	}
 	mask := genPowerConverterSensorUpdateMask(attrset)
@@ -732,6 +851,419 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 		powerConverterSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
 	sMgr.powerConverterConfigDB[newCfg.Name] = powerConverterSensorCfgEnt
+	sMgr.powerConverterConfigMutex.Unlock()
 
 	return true, nil
+}
+
+func (sMgr *SensorManager) InitSensorPM() {
+	for fanSensorName, _ := range sMgr.fanConfigDB {
+		sMgr.fanSensorClassAPM[fanSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.fanSensorClassAPM[fanSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.fanSensorClassBPM[fanSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.fanSensorClassBPM[fanSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.fanSensorClassCPM[fanSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.fanSensorClassCPM[fanSensorName].SetRingBufferCapacity(classCBufSize)
+	}
+	for tempSensorName, _ := range sMgr.tempConfigDB {
+		sMgr.tempSensorClassAPM[tempSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.tempSensorClassAPM[tempSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.tempSensorClassBPM[tempSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.tempSensorClassBPM[tempSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.tempSensorClassCPM[tempSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.tempSensorClassCPM[tempSensorName].SetRingBufferCapacity(classCBufSize)
+	}
+
+	for voltageSensorName, _ := range sMgr.voltageConfigDB {
+		sMgr.voltageSensorClassAPM[voltageSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.voltageSensorClassAPM[voltageSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.voltageSensorClassBPM[voltageSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.voltageSensorClassBPM[voltageSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.voltageSensorClassCPM[voltageSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.voltageSensorClassCPM[voltageSensorName].SetRingBufferCapacity(classCBufSize)
+	}
+	for powerConverterSensorName, _ := range sMgr.powerConverterConfigDB {
+		sMgr.powerConverterSensorClassAPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.powerConverterSensorClassAPM[powerConverterSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.powerConverterSensorClassBPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.powerConverterSensorClassBPM[powerConverterSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.powerConverterSensorClassCPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
+		sMgr.powerConverterSensorClassCPM[powerConverterSensorName].SetRingBufferCapacity(classCBufSize)
+	}
+}
+
+func (sMgr *SensorManager) StartSensorPM() {
+	sMgr.InitSensorPM()
+	sMgr.StartSensorPMClass("Class-A")
+	sMgr.StartSensorPMClass("Class-B")
+	sMgr.StartSensorPMClass("Class-C")
+}
+
+func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorState, class string) {
+	sMgr.fanConfigMutex.Lock()
+	for fanSensorName, fanSensorCfgEnt := range sMgr.fanConfigDB {
+		fanSensorState, _ := sMgr.SensorState.FanSensor[fanSensorName]
+		fanSensorPMData := objects.FanSensorPMData{
+			TimeStamp: time.Now().String(),
+			Value:     fanSensorState.Value,
+		}
+		if fanSensorCfgEnt.HigherAlarmThreshold < fanSensorState.Value &&
+			sMgr.fanMsgStatus[fanSensorName] != SentHigherAlarm {
+			sMgr.fanMsgStatus[fanSensorName] = SentHigherAlarm
+			sMgr.logger.Info("Fan Sensor value exceeded HigherAlarmThreshold")
+		} else if fanSensorCfgEnt.HigherWarningThreshold < fanSensorState.Value &&
+			sMgr.fanMsgStatus[fanSensorName] != SentHigherWarn {
+			sMgr.fanMsgStatus[fanSensorName] = SentHigherWarn
+			sMgr.logger.Info("Fan Sensor value exceeded HigherWarningThreshold")
+		} else if fanSensorCfgEnt.LowerAlarmThreshold > fanSensorState.Value &&
+			sMgr.fanMsgStatus[fanSensorName] != SentLowerAlarm {
+			sMgr.fanMsgStatus[fanSensorName] = SentLowerAlarm
+			sMgr.logger.Info("Fan Sensor value below LowerAlarmThreshold")
+		} else if fanSensorCfgEnt.LowerWarningThreshold > fanSensorState.Value &&
+			sMgr.fanMsgStatus[fanSensorName] != SentLowerWarn {
+			sMgr.fanMsgStatus[fanSensorName] = SentLowerWarn
+			sMgr.logger.Info("Fan Sensor value below lowerWarningThreshold")
+		} else if sMgr.fanMsgStatus[fanSensorName] != SentNormal {
+			sMgr.fanMsgStatus[fanSensorName] = SentNormal
+			sMgr.logger.Info("Fan Sensor value is normal")
+		}
+		switch class {
+		case "Class-A":
+			sMgr.fanClassAPMMutex.Lock()
+			sMgr.fanSensorClassAPM[fanSensorName].InsertIntoRingBuffer(fanSensorPMData)
+			sMgr.fanClassAPMMutex.Unlock()
+		case "Class-B":
+			sMgr.fanClassBPMMutex.Lock()
+			sMgr.fanSensorClassBPM[fanSensorName].InsertIntoRingBuffer(fanSensorPMData)
+			sMgr.fanClassBPMMutex.Unlock()
+		case "Class-C":
+			sMgr.fanClassCPMMutex.Lock()
+			sMgr.fanSensorClassCPM[fanSensorName].InsertIntoRingBuffer(fanSensorPMData)
+			sMgr.fanClassCPMMutex.Unlock()
+		}
+	}
+	sMgr.fanConfigMutex.Unlock()
+}
+
+func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorState, class string) {
+	sMgr.tempConfigMutex.Lock()
+	for tempSensorName, tempSensorCfgEnt := range sMgr.tempConfigDB {
+		tempSensorState, _ := sMgr.SensorState.TemperatureSensor[tempSensorName]
+		tempSensorPMData := objects.TemperatureSensorPMData{
+			TimeStamp: time.Now().String(),
+			Value:     tempSensorState.Value,
+		}
+		if tempSensorCfgEnt.HigherAlarmThreshold < tempSensorState.Value &&
+			sMgr.tempMsgStatus[tempSensorName] != SentHigherAlarm {
+			sMgr.tempMsgStatus[tempSensorName] = SentHigherAlarm
+			sMgr.logger.Info("Temp Sensor value exceeded HigherAlarmThreshold")
+		} else if tempSensorCfgEnt.HigherWarningThreshold < tempSensorState.Value &&
+			sMgr.tempMsgStatus[tempSensorName] != SentHigherWarn {
+			sMgr.tempMsgStatus[tempSensorName] = SentHigherWarn
+			sMgr.logger.Info("Temp Sensor value exceeded HigherWarningThreshold")
+		} else if tempSensorCfgEnt.LowerAlarmThreshold > tempSensorState.Value &&
+			sMgr.tempMsgStatus[tempSensorName] != SentLowerAlarm {
+			sMgr.tempMsgStatus[tempSensorName] = SentLowerAlarm
+			sMgr.logger.Info("Temp Sensor value below LowerAlarmThreshold")
+		} else if tempSensorCfgEnt.LowerWarningThreshold > tempSensorState.Value &&
+			sMgr.tempMsgStatus[tempSensorName] != SentLowerWarn {
+			sMgr.tempMsgStatus[tempSensorName] = SentLowerWarn
+			sMgr.logger.Info("Temp Sensor value below lowerWarningThreshold")
+		} else if sMgr.tempMsgStatus[tempSensorName] != SentNormal {
+			sMgr.tempMsgStatus[tempSensorName] = SentNormal
+			sMgr.logger.Info("Temp Sensor value is normal")
+		}
+		switch class {
+		case "Class-A":
+			sMgr.tempClassAPMMutex.Lock()
+			sMgr.tempSensorClassAPM[tempSensorName].InsertIntoRingBuffer(tempSensorPMData)
+			sMgr.tempClassAPMMutex.Unlock()
+		case "Class-B":
+			sMgr.tempClassBPMMutex.Lock()
+			sMgr.tempSensorClassBPM[tempSensorName].InsertIntoRingBuffer(tempSensorPMData)
+			sMgr.tempClassBPMMutex.Unlock()
+		case "Class-C":
+			sMgr.tempClassCPMMutex.Lock()
+			sMgr.tempSensorClassCPM[tempSensorName].InsertIntoRingBuffer(tempSensorPMData)
+			sMgr.tempClassCPMMutex.Unlock()
+		}
+	}
+	sMgr.tempConfigMutex.Unlock()
+}
+
+func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.SensorState, class string) {
+	sMgr.voltageConfigMutex.Lock()
+	for voltageSensorName, voltageSensorCfgEnt := range sMgr.voltageConfigDB {
+		voltageSensorState, _ := sMgr.SensorState.VoltageSensor[voltageSensorName]
+		voltageSensorPMData := objects.VoltageSensorPMData{
+			TimeStamp: time.Now().String(),
+			Value:     voltageSensorState.Value,
+		}
+		if voltageSensorCfgEnt.HigherAlarmThreshold < voltageSensorState.Value &&
+			sMgr.voltageMsgStatus[voltageSensorName] != SentHigherAlarm {
+			sMgr.voltageMsgStatus[voltageSensorName] = SentHigherAlarm
+			sMgr.logger.Info("Voltage Sensor value exceeded HigherAlarmThreshold")
+		} else if voltageSensorCfgEnt.HigherWarningThreshold < voltageSensorState.Value &&
+			sMgr.voltageMsgStatus[voltageSensorName] != SentHigherWarn {
+			sMgr.voltageMsgStatus[voltageSensorName] = SentHigherWarn
+			sMgr.logger.Info("Voltage Sensor value exceeded HigherWarningThreshold")
+		} else if voltageSensorCfgEnt.LowerAlarmThreshold > voltageSensorState.Value &&
+			sMgr.voltageMsgStatus[voltageSensorName] != SentLowerAlarm {
+			sMgr.voltageMsgStatus[voltageSensorName] = SentLowerAlarm
+			sMgr.logger.Info("Voltage Sensor value below LowerAlarmThreshold")
+		} else if voltageSensorCfgEnt.LowerWarningThreshold > voltageSensorState.Value &&
+			sMgr.voltageMsgStatus[voltageSensorName] != SentLowerWarn {
+			sMgr.voltageMsgStatus[voltageSensorName] = SentLowerWarn
+			sMgr.logger.Info("Voltage Sensor value below lowerWarningThreshold")
+		} else if sMgr.voltageMsgStatus[voltageSensorName] != SentNormal {
+			sMgr.voltageMsgStatus[voltageSensorName] = SentNormal
+			sMgr.logger.Info("Voltage Sensor value is normal")
+		}
+		switch class {
+		case "Class-A":
+			sMgr.voltageClassAPMMutex.Lock()
+			sMgr.voltageSensorClassAPM[voltageSensorName].InsertIntoRingBuffer(voltageSensorPMData)
+			sMgr.voltageClassAPMMutex.Unlock()
+		case "Class-B":
+			sMgr.voltageClassBPMMutex.Lock()
+			sMgr.voltageSensorClassBPM[voltageSensorName].InsertIntoRingBuffer(voltageSensorPMData)
+			sMgr.voltageClassBPMMutex.Unlock()
+		case "Class-C":
+			sMgr.voltageClassCPMMutex.Lock()
+			sMgr.voltageSensorClassCPM[voltageSensorName].InsertIntoRingBuffer(voltageSensorPMData)
+			sMgr.voltageClassCPMMutex.Unlock()
+		}
+	}
+	sMgr.voltageConfigMutex.Unlock()
+}
+
+func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginCommon.SensorState, class string) {
+	sMgr.powerConverterConfigMutex.Lock()
+	for powerConverterSensorName, powerConverterSensorCfgEnt := range sMgr.powerConverterConfigDB {
+		powerConverterSensorState, _ := sMgr.SensorState.PowerConverterSensor[powerConverterSensorName]
+		powerConverterSensorPMData := objects.PowerConverterSensorPMData{
+			TimeStamp: time.Now().String(),
+			Value:     powerConverterSensorState.Value,
+		}
+		if powerConverterSensorCfgEnt.HigherAlarmThreshold < powerConverterSensorState.Value &&
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentHigherAlarm {
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentHigherAlarm
+			sMgr.logger.Info("PowerConverter Sensor value exceeded HigherAlarmThreshold")
+		} else if powerConverterSensorCfgEnt.HigherWarningThreshold < powerConverterSensorState.Value &&
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentHigherWarn {
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentHigherWarn
+			sMgr.logger.Info("PowerConverter Sensor value exceeded HigherWarningThreshold")
+		} else if powerConverterSensorCfgEnt.LowerAlarmThreshold > powerConverterSensorState.Value &&
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentLowerAlarm {
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentLowerAlarm
+			sMgr.logger.Info("PowerConverter Sensor value below LowerAlarmThreshold")
+		} else if powerConverterSensorCfgEnt.LowerWarningThreshold > powerConverterSensorState.Value &&
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentLowerWarn {
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentLowerWarn
+			sMgr.logger.Info("PowerConverter Sensor value below lowerWarningThreshold")
+		} else if sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentNormal {
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentNormal
+			sMgr.logger.Info("PowerConverter Sensor value is normal")
+		}
+		switch class {
+		case "Class-A":
+			sMgr.powerConverterClassAPMMutex.Lock()
+			sMgr.powerConverterSensorClassAPM[powerConverterSensorName].InsertIntoRingBuffer(powerConverterSensorPMData)
+			sMgr.powerConverterClassAPMMutex.Unlock()
+		case "Class-B":
+			sMgr.powerConverterClassBPMMutex.Lock()
+			sMgr.powerConverterSensorClassBPM[powerConverterSensorName].InsertIntoRingBuffer(powerConverterSensorPMData)
+			sMgr.powerConverterClassBPMMutex.Unlock()
+		case "Class-C":
+			sMgr.powerConverterClassCPMMutex.Lock()
+			sMgr.powerConverterSensorClassCPM[powerConverterSensorName].InsertIntoRingBuffer(powerConverterSensorPMData)
+			sMgr.powerConverterClassCPMMutex.Unlock()
+		}
+	}
+	sMgr.powerConverterConfigMutex.Unlock()
+}
+
+func (sMgr *SensorManager) StartSensorPMClass(class string) {
+	sMgr.SensorStateMutex.Lock()
+	err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
+	if err != nil {
+		sMgr.logger.Err("Error getting sensor data during start of PM")
+		return
+	}
+	sMgr.ProcessFanSensorPM(sMgr.SensorState, class)
+	sMgr.ProcessTempSensorPM(sMgr.SensorState, class)
+	sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
+	sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
+	sMgr.SensorStateMutex.Unlock()
+
+	switch class {
+	case "Class-A":
+		classAPMFunc := func() {
+			sMgr.SensorStateMutex.Lock()
+			err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
+			if err != nil {
+				sMgr.logger.Err("Error getting sensor data during PM processing")
+				sMgr.SensorStateMutex.Unlock()
+				return
+			}
+			sMgr.ProcessFanSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessTempSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
+			sMgr.SensorStateMutex.Unlock()
+			sMgr.classAPMTimer.Reset(classAInterval)
+		}
+		sMgr.classAPMTimer = time.AfterFunc(classAInterval, classAPMFunc)
+	case "Class-B":
+		classBPMFunc := func() {
+			sMgr.SensorStateMutex.Lock()
+			err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
+			if err != nil {
+				sMgr.logger.Err("Error getting sensor data during PM processing")
+				sMgr.SensorStateMutex.Unlock()
+				return
+			}
+			sMgr.ProcessFanSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessTempSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
+			sMgr.SensorStateMutex.Unlock()
+			sMgr.classBPMTimer.Reset(classBInterval)
+		}
+		sMgr.classBPMTimer = time.AfterFunc(classBInterval, classBPMFunc)
+	case "Class-C":
+		classCPMFunc := func() {
+			sMgr.SensorStateMutex.Lock()
+			err := sMgr.plugin.GetAllSensorState(sMgr.SensorState)
+			if err != nil {
+				sMgr.logger.Err("Error getting sensor data during PM processing")
+				sMgr.SensorStateMutex.Unlock()
+				return
+			}
+			sMgr.ProcessFanSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessTempSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
+			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
+			sMgr.SensorStateMutex.Unlock()
+			sMgr.classCPMTimer.Reset(classCInterval)
+		}
+		sMgr.classCPMTimer = time.AfterFunc(classCInterval, classCPMFunc)
+	}
+
+}
+
+func (sMgr *SensorManager) GetFanSensorPMState(Name string, Class string) (*objects.FanSensorPMState, error) {
+	var fanSensorPMObj objects.FanSensorPMState
+	if sMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	_, exist := sMgr.fanConfigDB[Name]
+	if !exist {
+		return nil, errors.New("Invalid Fan Sensor Name")
+	}
+
+	fanSensorPMObj.Name = Name
+	fanSensorPMObj.Class = Class
+	switch Class {
+	case "Class-A":
+		sMgr.fanClassAPMMutex.RLock()
+		fanSensorPMObj.Data = sMgr.fanSensorClassAPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.fanClassAPMMutex.RUnlock()
+	case "Class-B":
+		sMgr.fanClassBPMMutex.RLock()
+		fanSensorPMObj.Data = sMgr.fanSensorClassBPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.fanClassBPMMutex.RUnlock()
+	case "Class-C":
+		sMgr.fanClassCPMMutex.RLock()
+		fanSensorPMObj.Data = sMgr.fanSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.fanClassCPMMutex.RUnlock()
+	}
+	return &fanSensorPMObj, nil
+}
+
+func (sMgr *SensorManager) GetTempSensorPMState(Name string, Class string) (*objects.TemperatureSensorPMState, error) {
+	var tempSensorPMObj objects.TemperatureSensorPMState
+	if sMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	_, exist := sMgr.tempConfigDB[Name]
+	if !exist {
+		return nil, errors.New("Invalid Temp Sensor Name")
+	}
+
+	tempSensorPMObj.Name = Name
+	tempSensorPMObj.Class = Class
+	switch Class {
+	case "Class-A":
+		sMgr.tempClassAPMMutex.RLock()
+		tempSensorPMObj.Data = sMgr.tempSensorClassAPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.tempClassAPMMutex.RUnlock()
+	case "Class-B":
+		sMgr.tempClassBPMMutex.RLock()
+		tempSensorPMObj.Data = sMgr.tempSensorClassBPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.tempClassBPMMutex.RUnlock()
+	case "Class-C":
+		sMgr.tempClassCPMMutex.RLock()
+		tempSensorPMObj.Data = sMgr.tempSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.tempClassCPMMutex.RUnlock()
+	}
+	return &tempSensorPMObj, nil
+}
+
+func (sMgr *SensorManager) GetVoltageSensorPMState(Name string, Class string) (*objects.VoltageSensorPMState, error) {
+	var voltageSensorPMObj objects.VoltageSensorPMState
+	if sMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	_, exist := sMgr.voltageConfigDB[Name]
+	if !exist {
+		return nil, errors.New("Invalid Voltage Sensor Name")
+	}
+
+	voltageSensorPMObj.Name = Name
+	voltageSensorPMObj.Class = Class
+	switch Class {
+	case "Class-A":
+		sMgr.voltageClassAPMMutex.RLock()
+		voltageSensorPMObj.Data = sMgr.voltageSensorClassAPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.voltageClassAPMMutex.RUnlock()
+	case "Class-B":
+		sMgr.voltageClassBPMMutex.RLock()
+		voltageSensorPMObj.Data = sMgr.voltageSensorClassBPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.voltageClassBPMMutex.RUnlock()
+	case "Class-C":
+		sMgr.voltageClassCPMMutex.RLock()
+		voltageSensorPMObj.Data = sMgr.voltageSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.voltageClassCPMMutex.RUnlock()
+	}
+	return &voltageSensorPMObj, nil
+}
+
+func (sMgr *SensorManager) GetPowerConverterSensorPMState(Name string, Class string) (*objects.PowerConverterSensorPMState, error) {
+	var powerConverterSensorPMObj objects.PowerConverterSensorPMState
+	if sMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	_, exist := sMgr.powerConverterConfigDB[Name]
+	if !exist {
+		return nil, errors.New("Invalid PowerConverter Sensor Name")
+	}
+
+	powerConverterSensorPMObj.Name = Name
+	powerConverterSensorPMObj.Class = Class
+	switch Class {
+	case "Class-A":
+		sMgr.powerConverterClassAPMMutex.RLock()
+		powerConverterSensorPMObj.Data = sMgr.powerConverterSensorClassAPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.powerConverterClassAPMMutex.RUnlock()
+	case "Class-B":
+		sMgr.powerConverterClassBPMMutex.RLock()
+		powerConverterSensorPMObj.Data = sMgr.powerConverterSensorClassBPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.powerConverterClassBPMMutex.RUnlock()
+	case "Class-C":
+		sMgr.powerConverterClassCPMMutex.RLock()
+		powerConverterSensorPMObj.Data = sMgr.powerConverterSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
+		sMgr.powerConverterClassCPMMutex.RUnlock()
+	}
+	return &powerConverterSensorPMObj, nil
 }
