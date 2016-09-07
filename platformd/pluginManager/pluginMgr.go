@@ -32,6 +32,7 @@ import (
 	"infra/platformd/pluginManager/openBMCVoyager"
 	"infra/platformd/pluginManager/pluginCommon"
 	"strings"
+	"utils/dbutils"
 	"utils/logging"
 )
 
@@ -71,8 +72,9 @@ type ResourceManagers struct {
 
 type PluginManager struct {
 	*ResourceManagers
-	logger logging.LoggerIntf
-	plugin PluginIntf
+	logger     logging.LoggerIntf
+	plugin     PluginIntf
+	EventDbHdl dbutils.DBIntf
 }
 
 func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, error) {
@@ -81,6 +83,7 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	pluginMgr := new(PluginManager)
 	pluginMgr.ResourceManagers = new(ResourceManagers)
 	pluginMgr.logger = initParams.Logger
+	pluginMgr.EventDbHdl = initParams.EventDbHdl
 	pluginName := strings.ToLower(initParams.PluginName)
 	switch pluginName {
 	case pluginCommon.ONLP_PLUGIN:
@@ -133,7 +136,7 @@ func (pMgr *PluginManager) Init() error {
 	pMgr.SfpManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.ThermalManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.LedManager.Init(pMgr.logger, pMgr.plugin)
-	pMgr.SensorManager.Init(pMgr.logger, pMgr.plugin)
+	pMgr.SensorManager.Init(pMgr.logger, pMgr.plugin, pMgr.EventDbHdl)
 	pMgr.QsfpManager.Init(pMgr.logger, pMgr.plugin)
 	pMgr.PlatformManager.Init(pMgr.logger, pMgr.plugin)
 	return nil

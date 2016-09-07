@@ -28,8 +28,11 @@ import (
 	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"models/events"
 	"sync"
 	"time"
+	"utils/dbutils"
+	"utils/eventUtils"
 	"utils/logging"
 	"utils/ringBuffer"
 )
@@ -66,30 +69,49 @@ type PowerConverterSensorConfig struct {
 	LowerAlarmThreshold    float64
 }
 
+type FanSensorEventData struct {
+	Value int32
+}
+
+type TempSensorEventData struct {
+	Value float64
+}
+
+type VoltageSensorEventData struct {
+	Value float64
+}
+
+type PowerConverterSensorEventData struct {
+	Value float64
+}
+
 const (
-	classAInterval  time.Duration = time.Duration(10) * time.Second // Polling Interval 10 sec
-	classABufSize   int           = 6 * 60 * 24                     //Storage for 24 hrs
-	classBInterval  time.Duration = time.Duration(15) * time.Minute // Polling Interval 15 mins
-	classBBufSize   int           = 4 * 24                          // Storage for 24 hrs
-	classCInterval  time.Duration = time.Duration(24) * time.Hour   // Polling Interval 24 Hrs
-	classCBufSize   int           = 365                             // Storage for 365 days
-	SentHigherAlarm uint32        = 0x1
-	SentHigherWarn  uint32        = 0x2
-	SentNormal      uint32        = 0x4
-	SentLowerWarn   uint32        = 0x8
-	SentLowerAlarm  uint32        = 0x10
+	classAInterval time.Duration = time.Duration(10) * time.Second // Polling Interval 10 sec
+	classABufSize  int           = 6 * 60 * 24                     //Storage for 24 hrs
+	classBInterval time.Duration = time.Duration(15) * time.Minute // Polling Interval 15 mins
+	classBBufSize  int           = 4 * 24                          // Storage for 24 hrs
+	classCInterval time.Duration = time.Duration(24) * time.Hour   // Polling Interval 24 Hrs
+	classCBufSize  int           = 365                             // Storage for 365 days
 )
+
+type EventStatus struct {
+	SentHigherAlarm bool
+	SentHigherWarn  bool
+	SentLowerWarn   bool
+	SentLowerAlarm  bool
+}
 
 type SensorManager struct {
 	logger                       logging.LoggerIntf
 	plugin                       PluginIntf
+	eventDbHdl                   dbutils.DBIntf
 	classAPMTimer                *time.Timer
 	classBPMTimer                *time.Timer
 	classCPMTimer                *time.Timer
 	fanSensorList                []string
 	fanConfigMutex               sync.RWMutex
 	fanConfigDB                  map[string]FanSensorConfig
-	fanMsgStatus                 map[string]uint32
+	fanMsgStatus                 map[string]EventStatus
 	fanClassAPMMutex             sync.RWMutex
 	fanSensorClassAPM            map[string]*ringBuffer.RingBuffer
 	fanClassBPMMutex             sync.RWMutex
@@ -99,7 +121,7 @@ type SensorManager struct {
 	tempSensorList               []string
 	tempConfigMutex              sync.RWMutex
 	tempConfigDB                 map[string]TemperatureSensorConfig
-	tempMsgStatus                map[string]uint32
+	tempMsgStatus                map[string]EventStatus
 	tempClassAPMMutex            sync.RWMutex
 	tempSensorClassAPM           map[string]*ringBuffer.RingBuffer
 	tempClassBPMMutex            sync.RWMutex
@@ -109,7 +131,7 @@ type SensorManager struct {
 	voltageSensorList            []string
 	voltageConfigMutex           sync.RWMutex
 	voltageConfigDB              map[string]VoltageSensorConfig
-	voltageMsgStatus             map[string]uint32
+	voltageMsgStatus             map[string]EventStatus
 	voltageClassAPMMutex         sync.RWMutex
 	voltageSensorClassAPM        map[string]*ringBuffer.RingBuffer
 	voltageClassBPMMutex         sync.RWMutex
@@ -119,7 +141,7 @@ type SensorManager struct {
 	powerConverterSensorList     []string
 	powerConverterConfigMutex    sync.RWMutex
 	powerConverterConfigDB       map[string]PowerConverterSensorConfig
-	powerConverterMsgStatus      map[string]uint32
+	powerConverterMsgStatus      map[string]EventStatus
 	powerConverterClassAPMMutex  sync.RWMutex
 	powerConverterSensorClassAPM map[string]*ringBuffer.RingBuffer
 	powerConverterClassBPMMutex  sync.RWMutex
@@ -132,8 +154,10 @@ type SensorManager struct {
 
 var SensorMgr SensorManager
 
-func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
+func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf, eventDbHdl dbutils.DBIntf) {
+	var evtStatus EventStatus
 	sMgr.logger = logger
+	sMgr.eventDbHdl = eventDbHdl
 	sMgr.logger.Info("sensor Manager Init( Start)")
 	sMgr.plugin = plugin
 	sMgr.SensorState = new(pluginCommon.SensorState)
@@ -162,7 +186,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	}
 	sMgr.logger.Info("Sensor State:", sMgr.SensorState)
 	sMgr.fanConfigDB = make(map[string]FanSensorConfig)
-	sMgr.fanMsgStatus = make(map[string]uint32)
+	sMgr.fanMsgStatus = make(map[string]EventStatus)
 	for name, _ := range sMgr.SensorState.FanSensor {
 		sMgr.logger.Info("Fan Sensor:", name)
 		sMgr.fanConfigMutex.Lock()
@@ -174,12 +198,12 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		fanCfgEnt.LowerAlarmThreshold = 1000
 		fanCfgEnt.LowerWarningThreshold = 1000
 		sMgr.fanConfigDB[name] = fanCfgEnt
-		sMgr.fanMsgStatus[name] = 0
+		sMgr.fanMsgStatus[name] = evtStatus
 		sMgr.fanConfigMutex.Unlock()
 		sMgr.fanSensorList = append(sMgr.fanSensorList, name)
 	}
 	sMgr.tempConfigDB = make(map[string]TemperatureSensorConfig)
-	sMgr.tempMsgStatus = make(map[string]uint32)
+	sMgr.tempMsgStatus = make(map[string]EventStatus)
 	for name, _ := range sMgr.SensorState.TemperatureSensor {
 		sMgr.logger.Info("Temperature Sensor:", name)
 		sMgr.tempConfigMutex.Lock()
@@ -191,12 +215,12 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		tempCfgEnt.LowerAlarmThreshold = -1000.0
 		tempCfgEnt.LowerWarningThreshold = -1000.0
 		sMgr.tempConfigDB[name] = tempCfgEnt
-		sMgr.tempMsgStatus[name] = 0
+		sMgr.tempMsgStatus[name] = evtStatus
 		sMgr.tempConfigMutex.Unlock()
 		sMgr.tempSensorList = append(sMgr.tempSensorList, name)
 	}
 	sMgr.voltageConfigDB = make(map[string]VoltageSensorConfig)
-	sMgr.voltageMsgStatus = make(map[string]uint32)
+	sMgr.voltageMsgStatus = make(map[string]EventStatus)
 	for name, _ := range sMgr.SensorState.VoltageSensor {
 		sMgr.logger.Info("Voltage Sensor:", name)
 		sMgr.voltageConfigMutex.Lock()
@@ -208,12 +232,12 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		voltageCfgEnt.LowerAlarmThreshold = 0
 		voltageCfgEnt.LowerWarningThreshold = 0
 		sMgr.voltageConfigDB[name] = voltageCfgEnt
-		sMgr.voltageMsgStatus[name] = 0
+		sMgr.voltageMsgStatus[name] = evtStatus
 		sMgr.voltageConfigMutex.Unlock()
 		sMgr.voltageSensorList = append(sMgr.voltageSensorList, name)
 	}
 	sMgr.powerConverterConfigDB = make(map[string]PowerConverterSensorConfig)
-	sMgr.powerConverterMsgStatus = make(map[string]uint32)
+	sMgr.powerConverterMsgStatus = make(map[string]EventStatus)
 	for name, _ := range sMgr.SensorState.PowerConverterSensor {
 		sMgr.logger.Info("Power Sensor:", name)
 		sMgr.powerConverterConfigMutex.Lock()
@@ -225,7 +249,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 		powerConverterCfgEnt.LowerAlarmThreshold = 0
 		powerConverterCfgEnt.LowerWarningThreshold = 0
 		sMgr.powerConverterConfigDB[name] = powerConverterCfgEnt
-		sMgr.powerConverterMsgStatus[name] = 0
+		sMgr.powerConverterMsgStatus[name] = evtStatus
 		sMgr.powerConverterConfigMutex.Unlock()
 		sMgr.powerConverterSensorList = append(sMgr.powerConverterSensorList, name)
 	}
@@ -387,6 +411,13 @@ func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig
 	if mask&objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
 		fanSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
+
+	if !(fanSensorCfgEnt.HigherAlarmThreshold >= fanSensorCfgEnt.HigherWarningThreshold &&
+		fanSensorCfgEnt.HigherWarningThreshold > fanSensorCfgEnt.LowerWarningThreshold &&
+		fanSensorCfgEnt.LowerWarningThreshold >= fanSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.fanConfigMutex.Unlock()
+		return false, errors.New("Invalid configuration, Please verify the thresholds")
+	}
 	sMgr.fanConfigDB[newCfg.Name] = fanSensorCfgEnt
 	sMgr.fanConfigMutex.Unlock()
 	return true, nil
@@ -541,6 +572,12 @@ func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.Tempera
 	if mask&objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
 		tempSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
+	if !(tempSensorCfgEnt.HigherAlarmThreshold >= tempSensorCfgEnt.HigherWarningThreshold &&
+		tempSensorCfgEnt.HigherWarningThreshold > tempSensorCfgEnt.LowerWarningThreshold &&
+		tempSensorCfgEnt.LowerWarningThreshold >= tempSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.tempConfigMutex.Unlock()
+		return false, errors.New("Invalid configuration, Please verify the thresholds")
+	}
 	sMgr.tempConfigDB[newCfg.Name] = tempSensorCfgEnt
 	sMgr.tempConfigMutex.Unlock()
 	return true, nil
@@ -694,6 +731,12 @@ func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSens
 	}
 	if mask&objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
 		voltageSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
+	}
+	if !(voltageSensorCfgEnt.HigherAlarmThreshold >= voltageSensorCfgEnt.HigherWarningThreshold &&
+		voltageSensorCfgEnt.HigherWarningThreshold > voltageSensorCfgEnt.LowerWarningThreshold &&
+		voltageSensorCfgEnt.LowerWarningThreshold >= voltageSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.voltageConfigMutex.Unlock()
+		return false, errors.New("Invalid configuration, Please verify the thresholds")
 	}
 	sMgr.voltageConfigDB[newCfg.Name] = voltageSensorCfgEnt
 	sMgr.voltageConfigMutex.Unlock()
@@ -850,6 +893,12 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD {
 		powerConverterSensorCfgEnt.LowerWarningThreshold = newCfg.LowerWarningThreshold
 	}
+	if !(powerConverterSensorCfgEnt.HigherAlarmThreshold >= powerConverterSensorCfgEnt.HigherWarningThreshold &&
+		powerConverterSensorCfgEnt.HigherWarningThreshold > powerConverterSensorCfgEnt.LowerWarningThreshold &&
+		powerConverterSensorCfgEnt.LowerWarningThreshold >= powerConverterSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.powerConverterConfigMutex.Unlock()
+		return false, errors.New("Invalid configuration, Please verify the thresholds")
+	}
 	sMgr.powerConverterConfigDB[newCfg.Name] = powerConverterSensorCfgEnt
 	sMgr.powerConverterConfigMutex.Unlock()
 
@@ -907,25 +956,72 @@ func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorSt
 			TimeStamp: time.Now().String(),
 			Value:     fanSensorState.Value,
 		}
-		if fanSensorCfgEnt.HigherAlarmThreshold < fanSensorState.Value &&
-			sMgr.fanMsgStatus[fanSensorName] != SentHigherAlarm {
-			sMgr.fanMsgStatus[fanSensorName] = SentHigherAlarm
-			sMgr.logger.Info("Fan Sensor value exceeded HigherAlarmThreshold")
-		} else if fanSensorCfgEnt.HigherWarningThreshold < fanSensorState.Value &&
-			sMgr.fanMsgStatus[fanSensorName] != SentHigherWarn {
-			sMgr.fanMsgStatus[fanSensorName] = SentHigherWarn
-			sMgr.logger.Info("Fan Sensor value exceeded HigherWarningThreshold")
-		} else if fanSensorCfgEnt.LowerAlarmThreshold > fanSensorState.Value &&
-			sMgr.fanMsgStatus[fanSensorName] != SentLowerAlarm {
-			sMgr.fanMsgStatus[fanSensorName] = SentLowerAlarm
-			sMgr.logger.Info("Fan Sensor value below LowerAlarmThreshold")
-		} else if fanSensorCfgEnt.LowerWarningThreshold > fanSensorState.Value &&
-			sMgr.fanMsgStatus[fanSensorName] != SentLowerWarn {
-			sMgr.fanMsgStatus[fanSensorName] = SentLowerWarn
-			sMgr.logger.Info("Fan Sensor value below lowerWarningThreshold")
-		} else if sMgr.fanMsgStatus[fanSensorName] != SentNormal {
-			sMgr.fanMsgStatus[fanSensorName] = SentNormal
-			sMgr.logger.Info("Fan Sensor value is normal")
+		if fanSensorCfgEnt.AdminState == "Enabled" {
+			eventKey := events.FanSensorKey{
+				Name: fanSensorName,
+			}
+			eventData := FanSensorEventData{
+				Value: fanSensorState.Value,
+			}
+			txEvent := eventUtils.TxEvent{
+				Key:            eventKey,
+				AdditionalInfo: "",
+				AdditionalData: eventData,
+			}
+			var evts []events.EventId
+			var curEvents EventStatus
+			prevEventStatus := sMgr.fanMsgStatus[fanSensorName]
+			if fanSensorState.Value >= fanSensorCfgEnt.HigherAlarmThreshold {
+				curEvents.SentHigherAlarm = true
+			}
+			if fanSensorState.Value < fanSensorCfgEnt.HigherAlarmThreshold &&
+				fanSensorState.Value >= fanSensorCfgEnt.HigherWarningThreshold {
+				curEvents.SentHigherWarn = true
+			}
+			if fanSensorState.Value <= fanSensorCfgEnt.LowerWarningThreshold &&
+				fanSensorState.Value > fanSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerWarn = true
+			}
+			if fanSensorState.Value <= fanSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerAlarm = true
+			}
+			if prevEventStatus.SentHigherAlarm != curEvents.SentHigherAlarm {
+				if curEvents.SentHigherAlarm == true {
+					evts = append(evts, events.FanHigherTCAAlarm)
+				} else {
+					evts = append(evts, events.FanHigherTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentHigherWarn != curEvents.SentHigherWarn {
+				if curEvents.SentHigherWarn == true {
+					evts = append(evts, events.FanHigherTCAWarn)
+				} else {
+					evts = append(evts, events.FanHigherTCAWarnClear)
+				}
+			}
+			if prevEventStatus.SentLowerAlarm != curEvents.SentLowerAlarm {
+				if curEvents.SentLowerAlarm == true {
+					evts = append(evts, events.FanLowerTCAAlarm)
+				} else {
+					evts = append(evts, events.FanLowerTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentLowerWarn != curEvents.SentLowerWarn {
+				if curEvents.SentLowerWarn == true {
+					evts = append(evts, events.FanLowerTCAWarn)
+				} else {
+					evts = append(evts, events.FanLowerTCAWarnClear)
+				}
+			}
+			sMgr.fanMsgStatus[fanSensorName] = curEvents
+			for _, evt := range evts {
+				txEvent.EventId = evt
+				err := eventUtils.PublishEvents(&txEvent)
+				if err != nil {
+					sMgr.logger.Err("Error publish events")
+				}
+			}
+
 		}
 		switch class {
 		case "Class-A":
@@ -953,26 +1049,74 @@ func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorS
 			TimeStamp: time.Now().String(),
 			Value:     tempSensorState.Value,
 		}
-		if tempSensorCfgEnt.HigherAlarmThreshold < tempSensorState.Value &&
-			sMgr.tempMsgStatus[tempSensorName] != SentHigherAlarm {
-			sMgr.tempMsgStatus[tempSensorName] = SentHigherAlarm
-			sMgr.logger.Info("Temp Sensor value exceeded HigherAlarmThreshold")
-		} else if tempSensorCfgEnt.HigherWarningThreshold < tempSensorState.Value &&
-			sMgr.tempMsgStatus[tempSensorName] != SentHigherWarn {
-			sMgr.tempMsgStatus[tempSensorName] = SentHigherWarn
-			sMgr.logger.Info("Temp Sensor value exceeded HigherWarningThreshold")
-		} else if tempSensorCfgEnt.LowerAlarmThreshold > tempSensorState.Value &&
-			sMgr.tempMsgStatus[tempSensorName] != SentLowerAlarm {
-			sMgr.tempMsgStatus[tempSensorName] = SentLowerAlarm
-			sMgr.logger.Info("Temp Sensor value below LowerAlarmThreshold")
-		} else if tempSensorCfgEnt.LowerWarningThreshold > tempSensorState.Value &&
-			sMgr.tempMsgStatus[tempSensorName] != SentLowerWarn {
-			sMgr.tempMsgStatus[tempSensorName] = SentLowerWarn
-			sMgr.logger.Info("Temp Sensor value below lowerWarningThreshold")
-		} else if sMgr.tempMsgStatus[tempSensorName] != SentNormal {
-			sMgr.tempMsgStatus[tempSensorName] = SentNormal
-			sMgr.logger.Info("Temp Sensor value is normal")
+		if tempSensorCfgEnt.AdminState == "Enabled" {
+			eventKey := events.TemperatureSensorKey{
+				Name: tempSensorName,
+			}
+			eventData := TempSensorEventData{
+				Value: tempSensorState.Value,
+			}
+			txEvent := eventUtils.TxEvent{
+				Key:            eventKey,
+				AdditionalInfo: "",
+				AdditionalData: eventData,
+			}
+			var evts []events.EventId
+			var curEvents EventStatus
+			prevEventStatus := sMgr.tempMsgStatus[tempSensorName]
+			if tempSensorState.Value >= tempSensorCfgEnt.HigherAlarmThreshold {
+				curEvents.SentHigherAlarm = true
+			}
+			if tempSensorState.Value < tempSensorCfgEnt.HigherAlarmThreshold &&
+				tempSensorState.Value >= tempSensorCfgEnt.HigherWarningThreshold {
+				curEvents.SentHigherWarn = true
+			}
+			if tempSensorState.Value <= tempSensorCfgEnt.LowerWarningThreshold &&
+				tempSensorState.Value > tempSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerWarn = true
+			}
+			if tempSensorState.Value <= tempSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerAlarm = true
+			}
+			if prevEventStatus.SentHigherAlarm != curEvents.SentHigherAlarm {
+				if curEvents.SentHigherAlarm == true {
+					evts = append(evts, events.TemperatureHigherTCAAlarm)
+				} else {
+					evts = append(evts, events.TemperatureHigherTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentHigherWarn != curEvents.SentHigherWarn {
+				if curEvents.SentHigherWarn == true {
+					evts = append(evts, events.TemperatureHigherTCAWarn)
+				} else {
+					evts = append(evts, events.TemperatureHigherTCAWarnClear)
+				}
+			}
+			if prevEventStatus.SentLowerAlarm != curEvents.SentLowerAlarm {
+				if curEvents.SentLowerAlarm == true {
+					evts = append(evts, events.TemperatureLowerTCAAlarm)
+				} else {
+					evts = append(evts, events.TemperatureLowerTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentLowerWarn != curEvents.SentLowerWarn {
+				if curEvents.SentLowerWarn == true {
+					evts = append(evts, events.TemperatureLowerTCAWarn)
+				} else {
+					evts = append(evts, events.TemperatureLowerTCAWarnClear)
+				}
+			}
+			sMgr.tempMsgStatus[tempSensorName] = curEvents
+			for _, evt := range evts {
+				txEvent.EventId = evt
+				err := eventUtils.PublishEvents(&txEvent)
+				if err != nil {
+					sMgr.logger.Err("Error publish events")
+				}
+			}
+
 		}
+
 		switch class {
 		case "Class-A":
 			sMgr.tempClassAPMMutex.Lock()
@@ -999,26 +1143,74 @@ func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.Sens
 			TimeStamp: time.Now().String(),
 			Value:     voltageSensorState.Value,
 		}
-		if voltageSensorCfgEnt.HigherAlarmThreshold < voltageSensorState.Value &&
-			sMgr.voltageMsgStatus[voltageSensorName] != SentHigherAlarm {
-			sMgr.voltageMsgStatus[voltageSensorName] = SentHigherAlarm
-			sMgr.logger.Info("Voltage Sensor value exceeded HigherAlarmThreshold")
-		} else if voltageSensorCfgEnt.HigherWarningThreshold < voltageSensorState.Value &&
-			sMgr.voltageMsgStatus[voltageSensorName] != SentHigherWarn {
-			sMgr.voltageMsgStatus[voltageSensorName] = SentHigherWarn
-			sMgr.logger.Info("Voltage Sensor value exceeded HigherWarningThreshold")
-		} else if voltageSensorCfgEnt.LowerAlarmThreshold > voltageSensorState.Value &&
-			sMgr.voltageMsgStatus[voltageSensorName] != SentLowerAlarm {
-			sMgr.voltageMsgStatus[voltageSensorName] = SentLowerAlarm
-			sMgr.logger.Info("Voltage Sensor value below LowerAlarmThreshold")
-		} else if voltageSensorCfgEnt.LowerWarningThreshold > voltageSensorState.Value &&
-			sMgr.voltageMsgStatus[voltageSensorName] != SentLowerWarn {
-			sMgr.voltageMsgStatus[voltageSensorName] = SentLowerWarn
-			sMgr.logger.Info("Voltage Sensor value below lowerWarningThreshold")
-		} else if sMgr.voltageMsgStatus[voltageSensorName] != SentNormal {
-			sMgr.voltageMsgStatus[voltageSensorName] = SentNormal
-			sMgr.logger.Info("Voltage Sensor value is normal")
+		if voltageSensorCfgEnt.AdminState == "Enabled" {
+			eventKey := events.VoltageSensorKey{
+				Name: voltageSensorName,
+			}
+			eventData := VoltageSensorEventData{
+				Value: voltageSensorState.Value,
+			}
+			txEvent := eventUtils.TxEvent{
+				Key:            eventKey,
+				AdditionalInfo: "",
+				AdditionalData: eventData,
+			}
+			var evts []events.EventId
+			var curEvents EventStatus
+			prevEventStatus := sMgr.voltageMsgStatus[voltageSensorName]
+			if voltageSensorState.Value >= voltageSensorCfgEnt.HigherAlarmThreshold {
+				curEvents.SentHigherAlarm = true
+			}
+			if voltageSensorState.Value < voltageSensorCfgEnt.HigherAlarmThreshold &&
+				voltageSensorState.Value >= voltageSensorCfgEnt.HigherWarningThreshold {
+				curEvents.SentHigherWarn = true
+			}
+			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerWarningThreshold &&
+				voltageSensorState.Value > voltageSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerWarn = true
+			}
+			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerAlarm = true
+			}
+			if prevEventStatus.SentHigherAlarm != curEvents.SentHigherAlarm {
+				if curEvents.SentHigherAlarm == true {
+					evts = append(evts, events.VoltageHigherTCAAlarm)
+				} else {
+					evts = append(evts, events.VoltageHigherTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentHigherWarn != curEvents.SentHigherWarn {
+				if curEvents.SentHigherWarn == true {
+					evts = append(evts, events.VoltageHigherTCAWarn)
+				} else {
+					evts = append(evts, events.VoltageHigherTCAWarnClear)
+				}
+			}
+			if prevEventStatus.SentLowerAlarm != curEvents.SentLowerAlarm {
+				if curEvents.SentLowerAlarm == true {
+					evts = append(evts, events.VoltageLowerTCAAlarm)
+				} else {
+					evts = append(evts, events.VoltageLowerTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentLowerWarn != curEvents.SentLowerWarn {
+				if curEvents.SentLowerWarn == true {
+					evts = append(evts, events.VoltageLowerTCAWarn)
+				} else {
+					evts = append(evts, events.VoltageLowerTCAWarnClear)
+				}
+			}
+			sMgr.voltageMsgStatus[voltageSensorName] = curEvents
+			for _, evt := range evts {
+				txEvent.EventId = evt
+				err := eventUtils.PublishEvents(&txEvent)
+				if err != nil {
+					sMgr.logger.Err("Error publish events")
+				}
+			}
+
 		}
+
 		switch class {
 		case "Class-A":
 			sMgr.voltageClassAPMMutex.Lock()
@@ -1045,26 +1237,74 @@ func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginComm
 			TimeStamp: time.Now().String(),
 			Value:     powerConverterSensorState.Value,
 		}
-		if powerConverterSensorCfgEnt.HigherAlarmThreshold < powerConverterSensorState.Value &&
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentHigherAlarm {
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentHigherAlarm
-			sMgr.logger.Info("PowerConverter Sensor value exceeded HigherAlarmThreshold")
-		} else if powerConverterSensorCfgEnt.HigherWarningThreshold < powerConverterSensorState.Value &&
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentHigherWarn {
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentHigherWarn
-			sMgr.logger.Info("PowerConverter Sensor value exceeded HigherWarningThreshold")
-		} else if powerConverterSensorCfgEnt.LowerAlarmThreshold > powerConverterSensorState.Value &&
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentLowerAlarm {
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentLowerAlarm
-			sMgr.logger.Info("PowerConverter Sensor value below LowerAlarmThreshold")
-		} else if powerConverterSensorCfgEnt.LowerWarningThreshold > powerConverterSensorState.Value &&
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentLowerWarn {
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentLowerWarn
-			sMgr.logger.Info("PowerConverter Sensor value below lowerWarningThreshold")
-		} else if sMgr.powerConverterMsgStatus[powerConverterSensorName] != SentNormal {
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = SentNormal
-			sMgr.logger.Info("PowerConverter Sensor value is normal")
+		if powerConverterSensorCfgEnt.AdminState == "Enabled" {
+			eventKey := events.PowerConverterSensorKey{
+				Name: powerConverterSensorName,
+			}
+			eventData := PowerConverterSensorEventData{
+				Value: powerConverterSensorState.Value,
+			}
+			txEvent := eventUtils.TxEvent{
+				Key:            eventKey,
+				AdditionalInfo: "",
+				AdditionalData: eventData,
+			}
+			var evts []events.EventId
+			var curEvents EventStatus
+			prevEventStatus := sMgr.powerConverterMsgStatus[powerConverterSensorName]
+			if powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherAlarmThreshold {
+				curEvents.SentHigherAlarm = true
+			}
+			if powerConverterSensorState.Value < powerConverterSensorCfgEnt.HigherAlarmThreshold &&
+				powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherWarningThreshold {
+				curEvents.SentHigherWarn = true
+			}
+			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerWarningThreshold &&
+				powerConverterSensorState.Value > powerConverterSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerWarn = true
+			}
+			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerAlarmThreshold {
+				curEvents.SentLowerAlarm = true
+			}
+			if prevEventStatus.SentHigherAlarm != curEvents.SentHigherAlarm {
+				if curEvents.SentHigherAlarm == true {
+					evts = append(evts, events.PowerConverterHigherTCAAlarm)
+				} else {
+					evts = append(evts, events.PowerConverterHigherTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentHigherWarn != curEvents.SentHigherWarn {
+				if curEvents.SentHigherWarn == true {
+					evts = append(evts, events.PowerConverterHigherTCAWarn)
+				} else {
+					evts = append(evts, events.PowerConverterHigherTCAWarnClear)
+				}
+			}
+			if prevEventStatus.SentLowerAlarm != curEvents.SentLowerAlarm {
+				if curEvents.SentLowerAlarm == true {
+					evts = append(evts, events.PowerConverterLowerTCAAlarm)
+				} else {
+					evts = append(evts, events.PowerConverterLowerTCAAlarmClear)
+				}
+			}
+			if prevEventStatus.SentLowerWarn != curEvents.SentLowerWarn {
+				if curEvents.SentLowerWarn == true {
+					evts = append(evts, events.PowerConverterLowerTCAWarn)
+				} else {
+					evts = append(evts, events.PowerConverterLowerTCAWarnClear)
+				}
+			}
+			sMgr.powerConverterMsgStatus[powerConverterSensorName] = curEvents
+			for _, evt := range evts {
+				txEvent.EventId = evt
+				err := eventUtils.PublishEvents(&txEvent)
+				if err != nil {
+					sMgr.logger.Err("Error publish events")
+				}
+			}
+
 		}
+
 		switch class {
 		case "Class-A":
 			sMgr.powerConverterClassAPMMutex.Lock()

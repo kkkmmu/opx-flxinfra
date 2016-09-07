@@ -24,6 +24,7 @@
 package pluginCommon
 
 import (
+	"utils/dbutils"
 	"utils/logging"
 )
 
@@ -40,6 +41,7 @@ type PluginInitParams struct {
 	PluginName string
 	IpAddr     string
 	Port       string
+	EventDbHdl dbutils.DBIntf
 }
 
 type FanState struct {
