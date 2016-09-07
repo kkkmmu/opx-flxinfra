@@ -97,7 +97,6 @@ const (
 type EventStatus struct {
 	SentHigherAlarm bool
 	SentHigherWarn  bool
-	SentNormal      bool
 	SentLowerWarn   bool
 	SentLowerAlarm  bool
 }
@@ -975,10 +974,6 @@ func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorSt
 				fanSensorState.Value >= fanSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if fanSensorState.Value < fanSensorCfgEnt.HigherWarningThreshold &&
-				fanSensorState.Value > fanSensorCfgEnt.LowerWarningThreshold {
-				curEvents.SentNormal = true
-			}
 			if fanSensorState.Value <= fanSensorCfgEnt.LowerWarningThreshold &&
 				fanSensorState.Value > fanSensorCfgEnt.LowerAlarmThreshold {
 				curEvents.SentLowerWarn = true
@@ -1071,10 +1066,6 @@ func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorS
 			if tempSensorState.Value < tempSensorCfgEnt.HigherAlarmThreshold &&
 				tempSensorState.Value >= tempSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
-			}
-			if tempSensorState.Value < tempSensorCfgEnt.HigherWarningThreshold &&
-				tempSensorState.Value > tempSensorCfgEnt.LowerWarningThreshold {
-				curEvents.SentNormal = true
 			}
 			if tempSensorState.Value <= tempSensorCfgEnt.LowerWarningThreshold &&
 				tempSensorState.Value > tempSensorCfgEnt.LowerAlarmThreshold {
@@ -1170,10 +1161,6 @@ func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.Sens
 				voltageSensorState.Value >= voltageSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if voltageSensorState.Value < voltageSensorCfgEnt.HigherWarningThreshold &&
-				voltageSensorState.Value > voltageSensorCfgEnt.LowerWarningThreshold {
-				curEvents.SentNormal = true
-			}
 			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerWarningThreshold &&
 				voltageSensorState.Value > voltageSensorCfgEnt.LowerAlarmThreshold {
 				curEvents.SentLowerWarn = true
@@ -1267,10 +1254,6 @@ func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginComm
 			if powerConverterSensorState.Value < powerConverterSensorCfgEnt.HigherAlarmThreshold &&
 				powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
-			}
-			if powerConverterSensorState.Value < powerConverterSensorCfgEnt.HigherWarningThreshold &&
-				powerConverterSensorState.Value > powerConverterSensorCfgEnt.LowerWarningThreshold {
-				curEvents.SentNormal = true
 			}
 			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerWarningThreshold &&
 				powerConverterSensorState.Value > powerConverterSensorCfgEnt.LowerAlarmThreshold {

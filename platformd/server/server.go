@@ -84,7 +84,6 @@ func NewPlatformdServer(initParams *InitParams) (*PlatformdServer, error) {
 
 func (svr *PlatformdServer) initServer() error {
 	//Initialize plugin layer first
-	svr.Logger.Info("=========DMN Name=========", svr.dmnName)
 	err := eventUtils.InitEvents(strings.ToUpper(svr.dmnName), svr.eventDbHdl, svr.eventDbHdl, svr.Logger, 1000)
 	if err != nil {
 		return err
