@@ -28,7 +28,9 @@ import (
 	//"infra/platformd/objects"
 	"infra/platformd/pluginManager"
 	"infra/platformd/pluginManager/pluginCommon"
+	"strings"
 	"utils/dbutils"
+	"utils/eventUtils"
 	"utils/logging"
 )
 
@@ -36,7 +38,7 @@ type PlatformdServer struct {
 	dmnName        string
 	paramsDir      string
 	pluginMgr      *pluginManager.PluginManager
-	dbHdl          *dbutils.DBUtil
+	eventDbHdl     dbutils.DBIntf
 	Logger         logging.LoggerIntf
 	InitCompleteCh chan bool
 	ReqChan        chan *ServerRequest
@@ -47,7 +49,7 @@ type InitParams struct {
 	DmnName     string
 	ParamsDir   string
 	CfgFileName string
-	DbHdl       *dbutils.DBUtil
+	EventDbHdl  dbutils.DBIntf
 	Logger      logging.LoggerIntf
 }
 
@@ -56,7 +58,7 @@ func NewPlatformdServer(initParams *InitParams) (*PlatformdServer, error) {
 
 	svr.dmnName = initParams.DmnName
 	svr.paramsDir = initParams.ParamsDir
-	svr.dbHdl = initParams.DbHdl
+	svr.eventDbHdl = initParams.EventDbHdl
 	svr.Logger = initParams.Logger
 	svr.InitCompleteCh = make(chan bool)
 	svr.ReqChan = make(chan *ServerRequest)
@@ -71,6 +73,7 @@ func NewPlatformdServer(initParams *InitParams) (*PlatformdServer, error) {
 		PluginName: CfgFileInfo.PluginName,
 		IpAddr:     CfgFileInfo.IpAddr,
 		Port:       CfgFileInfo.Port,
+		EventDbHdl: svr.eventDbHdl,
 	}
 	svr.pluginMgr, err = pluginManager.NewPluginMgr(pluginInitParams)
 	if err != nil {
@@ -81,7 +84,12 @@ func NewPlatformdServer(initParams *InitParams) (*PlatformdServer, error) {
 
 func (svr *PlatformdServer) initServer() error {
 	//Initialize plugin layer first
-	err := svr.pluginMgr.Init()
+	svr.Logger.Info("=========DMN Name=========", svr.dmnName)
+	err := eventUtils.InitEvents(strings.ToUpper(svr.dmnName), svr.eventDbHdl, svr.eventDbHdl, svr.Logger, 1000)
+	if err != nil {
+		return err
+	}
+	err = svr.pluginMgr.Init()
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ func main() {
 		DmnName:     DMN_NAME,
 		ParamsDir:   dmn.ParamsDir,
 		CfgFileName: cfgFileName,
-		DbHdl:       dmn.DbHdl,
+		EventDbHdl:  dmn.DbHdl,
 		Logger:      dmn.FSBaseDmn.Logger,
 	}
 	dmn.server, err = server.NewPlatformdServer(InitParams)
