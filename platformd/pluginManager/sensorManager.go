@@ -415,6 +415,7 @@ func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig
 	if !(fanSensorCfgEnt.HigherAlarmThreshold >= fanSensorCfgEnt.HigherWarningThreshold &&
 		fanSensorCfgEnt.HigherWarningThreshold > fanSensorCfgEnt.LowerWarningThreshold &&
 		fanSensorCfgEnt.LowerWarningThreshold >= fanSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.fanConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, Please verify the thresholds")
 	}
 	sMgr.fanConfigDB[newCfg.Name] = fanSensorCfgEnt
@@ -574,6 +575,7 @@ func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.Tempera
 	if !(tempSensorCfgEnt.HigherAlarmThreshold >= tempSensorCfgEnt.HigherWarningThreshold &&
 		tempSensorCfgEnt.HigherWarningThreshold > tempSensorCfgEnt.LowerWarningThreshold &&
 		tempSensorCfgEnt.LowerWarningThreshold >= tempSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.tempConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, Please verify the thresholds")
 	}
 	sMgr.tempConfigDB[newCfg.Name] = tempSensorCfgEnt
@@ -733,6 +735,7 @@ func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSens
 	if !(voltageSensorCfgEnt.HigherAlarmThreshold >= voltageSensorCfgEnt.HigherWarningThreshold &&
 		voltageSensorCfgEnt.HigherWarningThreshold > voltageSensorCfgEnt.LowerWarningThreshold &&
 		voltageSensorCfgEnt.LowerWarningThreshold >= voltageSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.voltageConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, Please verify the thresholds")
 	}
 	sMgr.voltageConfigDB[newCfg.Name] = voltageSensorCfgEnt
@@ -893,6 +896,7 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 	if !(powerConverterSensorCfgEnt.HigherAlarmThreshold >= powerConverterSensorCfgEnt.HigherWarningThreshold &&
 		powerConverterSensorCfgEnt.HigherWarningThreshold > powerConverterSensorCfgEnt.LowerWarningThreshold &&
 		powerConverterSensorCfgEnt.LowerWarningThreshold >= powerConverterSensorCfgEnt.LowerAlarmThreshold) {
+		sMgr.powerConverterConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, Please verify the thresholds")
 	}
 	sMgr.powerConverterConfigDB[newCfg.Name] = powerConverterSensorCfgEnt
