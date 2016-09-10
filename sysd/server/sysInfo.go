@@ -130,6 +130,8 @@ func (svr *SYSDServer) UpdateSystemInfo(updateInfo *SystemParamUpdate) {
 			if err != nil {
 				svr.logger.Err("Updating hostname in linux failed", err)
 			}
+		case "Description":
+			svr.SysInfo.Description = updateInfo.NewCfg.Description
 		}
 	}
 }

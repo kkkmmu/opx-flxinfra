@@ -200,13 +200,12 @@ func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
 func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset []bool) ([]string, error) {
 	var updatedInfo []string
 	/*
-		1 : string Vrf
-		2 : string MgmtIp
-		3 : string Hostname
-		4 : string RouterId
-		5 : string Version
-		6 : string SwitchMac
-		7 : string Description
+		0 : string Vrf
+		1 : string MgmtIp
+		2 : string Hostname
+		3 : string Version
+		4 : string SwitchMac
+		5 : string Description
 	*/
 	for idx, _ := range attrset {
 		if attrset[idx] == false {
@@ -224,12 +223,10 @@ func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset
 			}
 			updatedInfo = append(updatedInfo, "Hostname")
 		case 3:
-			return updatedInfo, errors.New("Router ID update is not supported")
-		case 4:
 			return updatedInfo, errors.New("Version update is not supported")
-		case 5:
+		case 4:
 			return updatedInfo, errors.New("Switch Mac Address update is not supported")
-		case 6:
+		case 5:
 			updatedInfo = append(updatedInfo, "Description")
 		}
 	}
