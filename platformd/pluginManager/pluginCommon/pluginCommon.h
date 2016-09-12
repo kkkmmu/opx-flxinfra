@@ -91,7 +91,7 @@ typedef struct qsfp_info_s {
         float   RX4Power;
         float   TX1Bias;
         float   TX2Bias;
-        float   TX3Bias; 
+        float   TX3Bias;
         float   TX4Bias;
         float   TX1Power;
         float   TX2Power;
@@ -119,12 +119,46 @@ typedef struct qsfp_info_s {
         float TXPowerLowWarning;
         char VendorName[20];
         char VendorOUI [10];
-        char VendorPN[20]; 
+        char VendorPN[20];
         char VendorRev[3];
         char VendorSN[20];
         char DataCode[10];
 } qsfp_info_t;
 
+typedef enum {
+    SENSOR_ERROR = -1,
+    SENSOR_OK = 0,
+    SENSOR_MISSING = 1,
+}SENSOR_RET;
 
+typedef struct thermal_info {
+    int sensor_id;
+    unsigned int status;
+    unsigned int caps;
+    int temp;
+    int threshold_warning;
+    int threshold_error;
+    int threshold_shutdown;
+    char description[256];
+}thermal_info_t;
 
-#endif // PLUGINCOMMON_H
+typedef enum {
+    PSU_ERROR = -1,
+    PSU_OK = 0,
+    PSU_MISSING = 1,
+}PSU_RET;
+
+typedef struct psu_info {
+    int psu_id;
+    //char model[256];
+    //char serial[256];
+    unsigned int status;
+    int mvin;
+    int mvout;
+    int miin;
+    int miout;
+    int mpin;
+    int mpout;
+}psu_info_t;
+
+#endif /* PLUGINCOMMON_H */

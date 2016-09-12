@@ -111,3 +111,20 @@ func (driver *openBMCVoyagerDriver) GetMaxNumOfThermal() int {
 func (driver *openBMCVoyagerDriver) GetThermalState(thermalId int32) (state pluginCommon.ThermalState, err error) {
 	return state, errors.New("Not Supoorted")
 }
+
+func (driver *openBMCVoyagerDriver) GetAllThermalState(states []pluginCommon.ThermalState, cnt int) error {
+	return nil
+}
+
+func (driver *openBMCVoyagerDriver) GetMaxNumOfPsu() int {
+	return 0
+}
+
+func (driver *openBMCVoyagerDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, error) {
+	var retObj pluginCommon.PsuState
+	return retObj, nil
+}
+
+func (driver *openBMCVoyagerDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
+	return nil
+}

@@ -143,7 +143,7 @@ func (driver *onlpDriver) GetAllFanState(states []pluginCommon.FanState, cnt int
 			states[idx].OperMode = pluginCommon.FAN_MODE_ON_STR
 		}
 		states[idx].OperSpeed = int32(fanInfo[idx].Speed)
-		//states[idx].OperDirection = fanInfo[idx].Direction
+
 		switch int(fanInfo[idx].Direction) {
 		case pluginCommon.FAN_DIR_B2F:
 			states[idx].OperDirection = pluginCommon.FAN_DIR_B2F_STR
@@ -152,7 +152,7 @@ func (driver *onlpDriver) GetAllFanState(states []pluginCommon.FanState, cnt int
 		case pluginCommon.FAN_DIR_INVALID:
 			states[idx].OperDirection = pluginCommon.FAN_DIR_INVALID_STR
 		}
-		//states[idx].Status = fanInfo[idx].Status
+
 		switch int(fanInfo[idx].Status) {
 		case pluginCommon.FAN_STATUS_PRESENT:
 			states[idx].Status = pluginCommon.FAN_STATUS_PRESENT_STR
@@ -164,7 +164,6 @@ func (driver *onlpDriver) GetAllFanState(states []pluginCommon.FanState, cnt int
 			states[idx].Status = pluginCommon.FAN_STATUS_NORMAL_STR
 		}
 		states[idx].Model = C.GoString(&fanInfo[idx].Model[0])
-		//states[idx].Model = ""
 		states[idx].SerialNum = C.GoString(&fanInfo[idx].SerialNum[0])
 	}
 	return nil
@@ -250,11 +249,80 @@ func (driver *onlpDriver) GetPlatformState() (pluginCommon.PlatformState, error)
 }
 
 func (driver *onlpDriver) GetMaxNumOfThermal() int {
-	return 0
+	return 8
 }
 
-func (driver *onlpDriver) GetThermalState(thermalId int32) (tState pluginCommon.ThermalState, err error) {
-	return tState, err
+func (driver *onlpDriver) GetThermalState(thermalId int32) (pluginCommon.ThermalState, error) {
+	var retObj pluginCommon.ThermalState
+	var tInfo C.thermal_info_t
+
+	rt := int(C.GetThermalState(&tInfo, C.int(thermalId)))
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch sensor state of", thermalId))
+	}
+
+	retObj.ThermalId = int32(tInfo.sensor_id)
+	retObj.Location = C.GoString(&tInfo.description[0])
+	retObj.Temperature = string(tInfo.temp)
+	retObj.LowerWatermarkTemperature = string(tInfo.threshold_warning)
+	retObj.UpperWatermarkTemperature = string(tInfo.threshold_error)
+	retObj.ShutdownTemperature = string(tInfo.threshold_shutdown)
+
+	return retObj, nil
+}
+
+func (driver *onlpDriver) GetAllThermalState(states []pluginCommon.ThermalState, cnt int) error {
+
+	if cnt > driver.GetMaxNumOfThermal() {
+		return errors.New("Error GetAllThermalState Invalid Count")
+	}
+
+	for idx := 0; idx < cnt; idx++ {
+		states[idx], _ = driver.GetThermalState(int32(idx))
+	}
+	return nil
+}
+
+func (driver *onlpDriver) GetMaxNumOfPsu() int {
+	return 2
+}
+
+func (driver *onlpDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, error) {
+	var retObj pluginCommon.PsuState
+	var pInfo C.psu_info_t
+
+	rt := int(C.GetPsuState(&pInfo, C.int(psuId)))
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch PSU state of", psuId))
+	}
+
+	retObj.PsuId = int32(pInfo.psu_id)
+
+	if pInfo.status != 0 {
+		retObj.Status = "PSU Present"
+		retObj.VoltIn = int32(pInfo.mvin)
+		retObj.VoltOut = int32(pInfo.mvout)
+		retObj.AmpIn = int32(pInfo.miin)
+		retObj.AmpOut = int32(pInfo.miout)
+		retObj.PwrIn = int32(pInfo.mpin)
+		retObj.PwrOut = int32(pInfo.mpout)
+	} else {
+		retObj.Status = "PSU UNPLUGGED"
+	}
+
+	return retObj, nil
+}
+
+func (driver *onlpDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
+
+	if cnt > driver.GetMaxNumOfPsu() {
+		return errors.New("Error GetAllPsuState Invalid Count")
+	}
+
+	for idx := 0; idx < cnt; idx++ {
+		states[idx], _ = driver.GetPsuState(int32(idx))
+	}
+	return nil
 }
 
 func (driver *onlpDriver) GetAllSensorState(state *pluginCommon.SensorState) error {
