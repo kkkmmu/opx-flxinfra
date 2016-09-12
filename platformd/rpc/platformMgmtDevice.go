@@ -24,50 +24,35 @@
 package rpc
 
 import (
-	"git.apache.org/thrift.git/lib/go/thrift"
+	"infra/platformd/api"
 	"platformd"
-	"utils/logging"
 )
 
-type rpcServiceHandler struct {
-	logger logging.LoggerIntf
-}
+func (rpcHdl *rpcServiceHandler) GetPlatformMgmtDeviceState(DeviceName string) (*platformd.PlatformMgmtDeviceState, error) {
+	var rpcObj *platformd.PlatformMgmtDeviceState
+	var err error
 
-type RPCServer struct {
-	*thrift.TSimpleServer
-}
-
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-	hdl := &rpcServiceHandler{
-		logger: logger,
+	obj, err := api.GetPlatformMgmtDeviceState(DeviceName)
+	if err == nil {
+		rpcObj = convertToRPCFmtPlatformMgmtDeviceState(obj)
 	}
-	ok, err := hdl.restoreConfigFromDB()
-	if !ok {
-		logger.Err("Failed to restore configuration from DB-", err)
-	}
-	return hdl
+	return rpcObj, err
 }
 
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
-	transport, err := thrift.NewTServerSocket(rpcAddr)
+func (rpcHdl *rpcServiceHandler) GetBulkPlatformMgmtDeviceState(fromIdx, count platformd.Int) (*platformd.PlatformMgmtDeviceStateGetInfo, error) {
+	var getBulkObj platformd.PlatformMgmtDeviceStateGetInfo
+	var err error
+
+	info, err := api.GetBulkPlatformMgmtDeviceState(int(fromIdx), int(count))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	handler := newRPCServiceHandler(logger)
-	processor := platformd.NewPLATFORMDServicesProcessor(handler)
-	transportFactory := thrift.NewTBufferedTransportFactory(8192)
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
-	return &RPCServer{
-		TSimpleServer: server,
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.PlatformMgmtDeviceStateList = append(getBulkObj.PlatformMgmtDeviceStateList, convertToRPCFmtPlatformMgmtDeviceState(info.List[idx]))
 	}
-}
-
-func (rpcHdl *rpcServiceHandler) restoreConfigFromDB() (bool, error) {
-	ok, err := rpcHdl.restoreFanSensorConfigFromDB()
-	if !ok {
-		return ok, err
-	}
-
-	return true, nil
+	return &getBulkObj, err
 }
