@@ -97,7 +97,7 @@ func (svr *PlatformdServer) initServer() error {
 }
 
 func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
-	//svr.Logger.Info(fmt.Sprintln("Calling handle RPC Request for:", *req))
+	svr.Logger.Info(fmt.Sprintln("Calling handle RPC Request for:", *req))
 	switch req.Op {
 	case GET_FAN_STATE:
 		var retObj GetFanStateOutArgs
@@ -149,13 +149,15 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 		if val, ok := req.Data.(*GetPlatformStateInArgs); ok {
 			retObj.Obj, retObj.Err = svr.getPlatformState(val.ObjName)
 		}
-		//svr.Logger.Info(fmt.Sprintln("Server GET_PLATFORM_STATE request replying -", retObj))
+		svr.Logger.Info(fmt.Sprintln("Server GET_PLATFORM_STATE request replying -", retObj))
 		svr.ReplyChan <- interface{}(&retObj)
 	case GET_BULK_PLATFORM_STATE:
 		var retObj GetBulkPlatformStateOutArgs
 		if val, ok := req.Data.(*GetBulkInArgs); ok {
 			retObj.BulkInfo, retObj.Err = svr.getBulkPlatformState(val.FromIdx, val.Count)
 		}
+		svr.Logger.Info(fmt.Sprintln("Server GET BULK GET_PLATFORM_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
 		svr.ReplyChan <- interface{}(&retObj)
 	case GET_THERMAL_STATE:
 		var retObj GetThermalStateOutArgs

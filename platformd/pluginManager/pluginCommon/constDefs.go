@@ -86,3 +86,16 @@ type ThermalState struct {
 	ShutdownTemperature       string
 	Valid                     bool
 }
+
+type PsuState struct {
+	PsuId int32
+	//Model     string
+	//SerialNum string
+	Status  string
+	VoltIn  int32
+	VoltOut int32
+	AmpIn   int32
+	AmpOut  int32
+	PwrIn   int32
+	PwrOut  int32
+}
