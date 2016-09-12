@@ -15,4 +15,6 @@ int GetMaxNumOfFans();
 int GetSfpState(sfp_info_t *, int);
 int GetSfpCnt();
 
+int GetThermalState(thermal_info_t *, int);
+
 #endif //ONPL_H
