@@ -297,19 +297,19 @@ func (driver *onlpDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, error
 	}
 
 	retObj.PsuId = int32(pInfo.psu_id)
-	// TODO
-	//type PsuState struct {
-	//	PsuId     int32
-	//	Model     string
-	//	SerialNum string
-	//	Status    string
-	//	VoltIn    int32
-	//	VoltOut   int32
-	//	AmpIn     int32
-	//	AmpOut    int32
-	//	PwrIn     int32
-	//	PwrOut    int32
-	//}
+
+	if pInfo.status != 0 {
+		retObj.Status = "PSU Present"
+		retObj.VoltIn = int32(pInfo.mvin)
+		retObj.VoltOut = int32(pInfo.mvout)
+		retObj.AmpIn = int32(pInfo.miin)
+		retObj.AmpOut = int32(pInfo.miout)
+		retObj.PwrIn = int32(pInfo.mpin)
+		retObj.PwrOut = int32(pInfo.mpout)
+	} else {
+		retObj.Status = "PSU UNPLUGGED"
+	}
+
 	return retObj, nil
 }
 

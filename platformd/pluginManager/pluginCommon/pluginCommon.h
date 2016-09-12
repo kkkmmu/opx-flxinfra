@@ -150,8 +150,8 @@ typedef enum {
 
 typedef struct psu_info {
     int psu_id;
-    char model[256];
-    char serial[256];
+    //char model[256];
+    //char serial[256];
     unsigned int status;
     int mvin;
     int mvout;

@@ -403,18 +403,20 @@ GetPsuState(psu_info_t *info_p, int psu_id)
 
     rt = (onlpPsuInfoGet)(id, &p_info);
 
+
     if (rt < 0)
         return PSU_MISSING;
-#if 0
-    //TODO
-    info_p->
-    info_p->
-    info_p->
-    info_p->
-    info_p->
-    info_p->
-    info_p->
-#endif
+
+    info_p->psu_id = psu_id;
+    info_p->status = (p_info.status & ONLP_PSU_STATUS_PRESENT);
+    if (info_p->status) {
+        info_p->mvin = p_info.mvin;
+        info_p->mvout = p_info.mvout;
+        info_p->miin = p_info.miin;
+        info_p->miout = p_info.miout;
+        info_p->mpin = p_info.mpin;
+        info_p->mpout = p_info.mpout;
+    }
 
     return PSU_OK;
 }
