@@ -34,6 +34,9 @@ int (*onlpSfpEepromRead)(int, uint8_t**);
 /* Thermal */
 int (*onlpThermalInfoGet)(onlp_oid_t, onlp_thermal_info_t*);
 
+/* PSU */
+int (*onlpPsuInfoGet)(onlp_oid_t, onlp_psu_info_t*);
+
 int
 loadOnlpSym()
 {
@@ -106,6 +109,12 @@ loadOnlpSym()
     }
 
     onlpThermalInfoGet = dlsym(handle, "onlp_thermal_info_get");
+    if ((error = dlerror()) != NULL)  {
+        printf(error, stderr);
+		return -1;
+    }
+
+    onlpPsuInfoGet = dlsym(handle, "onlp_psui_info_get");
     if ((error = dlerror()) != NULL)  {
         printf(error, stderr);
 		return -1;
@@ -378,6 +387,36 @@ GetThermalState(thermal_info_t *info_p, int sensor_id)
     info_p->threshold_shutdown = t_info.thresholds.shutdown;
 
     return SENSOR_OK;
+}
+
+PSU_RET
+GetPsuState(psu_info_t *info_p, int psu_id)
+{
+    int rt;
+    onlp_oid_t id;
+    onlp_psu_info_t p_info;
+
+    id = ONLP_PSU_ID_CREATE(psu_id);
+
+    if (!onlpPsuInfoGet)
+        return PSU_ERROR;
+
+    rt = (onlpPsuInfoGet)(id, &p_info);
+
+    if (rt < 0)
+        return PSU_MISSING;
+#if 0
+    //TODO
+    info_p->
+    info_p->
+    info_p->
+    info_p->
+    info_p->
+    info_p->
+    info_p->
+#endif
+
+    return PSU_OK;
 }
 
 int

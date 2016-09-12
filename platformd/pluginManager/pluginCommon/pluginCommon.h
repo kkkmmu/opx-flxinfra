@@ -142,4 +142,23 @@ typedef struct thermal_info {
     char description[256];
 }thermal_info_t;
 
-#endif // PLUGINCOMMON_H
+typedef enum {
+    PSU_ERROR = -1,
+    PSU_OK = 0,
+    PSU_MISSING = 1,
+}PSU_RET;
+
+typedef struct psu_info {
+    int psu_id;
+    char model[256];
+    char serial[256];
+    unsigned int status;
+    int mvin;
+    int mvout;
+    int miin;
+    int miout;
+    int mpin;
+    int mpout;
+}psu_info_t;
+
+#endif /* PLUGINCOMMON_H */

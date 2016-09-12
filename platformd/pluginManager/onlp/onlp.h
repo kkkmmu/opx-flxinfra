@@ -17,4 +17,6 @@ int GetSfpCnt();
 
 int GetThermalState(thermal_info_t *, int);
 
-#endif //ONPL_H
+int GetPsuState(psu_info_t *, int);
+
+#endif /* ONPL_H */

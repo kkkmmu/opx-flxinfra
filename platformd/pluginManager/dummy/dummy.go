@@ -108,6 +108,10 @@ func (driver *dummyDriver) GetThermalState(thermalId int32) (retObj pluginCommon
 	return retObj, nil
 }
 
+func (driver *dummyDriver) GetAllThermalState(states []pluginCommon.ThermalState, cnt int) error {
+	return nil
+}
+
 func (driver *dummyDriver) GetMaxNumOfThermal() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfThermal()")
 	return 0
@@ -127,5 +131,18 @@ func (driver *dummyDriver) GetMaxNumOfQsfp() int {
 }
 
 func (driver *dummyDriver) GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error {
+	return nil
+}
+
+func (driver *dummyDriver) GetMaxNumOfPsu() int {
+	return 0
+}
+
+func (driver *dummyDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, error) {
+	var retObj pluginCommon.PsuState
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
 	return nil
 }
