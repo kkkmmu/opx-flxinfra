@@ -338,6 +338,19 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 		}
 		//svr.Logger.Info(fmt.Sprintln("Server GET_POWER_CONVERTER_SENSOR_PM_STATE request replying -", retObj))
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_PSU_STATE:
+		var retObj GetPsuStateOutArgs
+		if val, ok := req.Data.(*GetPsuStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getPsuState(val.PsuId)
+		}
+		//svr.Logger.Info(fmt.Sprintln("Server GET_PSU_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_PSU_STATE:
+		var retObj GetBulkPsuStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkPsuState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	default:
 		svr.Logger.Err(fmt.Sprintln("Error : Server recevied unrecognized request - ", req.Op))
 	}

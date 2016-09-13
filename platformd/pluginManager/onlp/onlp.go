@@ -82,7 +82,6 @@ func (driver *onlpDriver) GetFanState(fanId int32) (pluginCommon.FanState, error
 		retObj.OperMode = pluginCommon.FAN_MODE_ON_STR
 	}
 	retObj.OperSpeed = int32(fanInfo.Speed)
-	//states[idx].OperDirection = fanInfo[idx].Direction
 	switch int(fanInfo.Direction) {
 	case pluginCommon.FAN_DIR_B2F:
 		retObj.OperDirection = pluginCommon.FAN_DIR_B2F_STR
@@ -91,7 +90,6 @@ func (driver *onlpDriver) GetFanState(fanId int32) (pluginCommon.FanState, error
 	case pluginCommon.FAN_DIR_INVALID:
 		retObj.OperDirection = pluginCommon.FAN_DIR_INVALID_STR
 	}
-	//states[idx].Status = fanInfo[idx].Status
 	switch int(fanInfo.Status) {
 	case pluginCommon.FAN_STATUS_PRESENT:
 		retObj.Status = pluginCommon.FAN_STATUS_PRESENT_STR
@@ -263,10 +261,10 @@ func (driver *onlpDriver) GetThermalState(thermalId int32) (pluginCommon.Thermal
 
 	retObj.ThermalId = int32(tInfo.sensor_id)
 	retObj.Location = C.GoString(&tInfo.description[0])
-	retObj.Temperature = string(tInfo.temp)
-	retObj.LowerWatermarkTemperature = string(tInfo.threshold_warning)
-	retObj.UpperWatermarkTemperature = string(tInfo.threshold_error)
-	retObj.ShutdownTemperature = string(tInfo.threshold_shutdown)
+	retObj.Temperature = strconv.Itoa(int(tInfo.temp))
+	retObj.LowerWatermarkTemperature = strconv.Itoa(int(tInfo.threshold_warning))
+	retObj.UpperWatermarkTemperature = strconv.Itoa(int(tInfo.threshold_error))
+	retObj.ShutdownTemperature = strconv.Itoa(int(tInfo.threshold_shutdown))
 
 	return retObj, nil
 }
@@ -277,7 +275,7 @@ func (driver *onlpDriver) GetAllThermalState(states []pluginCommon.ThermalState,
 		return errors.New("Error GetAllThermalState Invalid Count")
 	}
 
-	for idx := 0; idx < cnt; idx++ {
+	for idx := 1; idx <= cnt; idx++ {
 		states[idx], _ = driver.GetThermalState(int32(idx))
 	}
 	return nil
