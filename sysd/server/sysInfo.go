@@ -63,20 +63,25 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 }
 
 // Func to send update nanomsg update notification to all the dameons on the system
-func (svr *SYSDServer) SendSystemUpdate() ([]byte, error) {
+func (svr *SYSDServer) SendSystemUpdate() {
+	svr.logger.Debug("Sysd Sending System Update Notification with type:", sysdCommonDefs.SYSTEM_Info)
 	msgBuf, err := json.Marshal(svr.SysInfo)
 	if err != nil {
-		return nil, err
+		svr.logger.Err("Failed to marshal system information, err:", err)
+		return
 	}
+	svr.logger.Debug("Sysd new system information being send out is", *svr.SysInfo)
 	notification := sysdCommonDefs.Notification{
 		Type:    uint8(sysdCommonDefs.SYSTEM_Info),
 		Payload: msgBuf,
 	}
 	notificationBuf, err := json.Marshal(notification)
 	if err != nil {
-		return nil, err
+		svr.logger.Err("Failed to marshal system notification, err:", err)
+		return
 	}
-	return notificationBuf, nil
+	svr.notificationCh <- notificationBuf
+	svr.logger.Debug("Sysd system update notification send out")
 }
 
 func getDistro() string {
@@ -152,7 +157,7 @@ func (svr *SYSDServer) GetSystemParam(name string) *objects.SystemParamState {
 
 // Update runtime system param info and send a notification
 func (svr *SYSDServer) UpdateSystemInfo(updateInfo *SystemParamUpdate) {
-	svr.copyAndSendSystemParam(*updateInfo.NewCfg)
+	svr.logger.Info("Updating System Information with newconfig:", *updateInfo.NewCfg)
 	for _, entry := range updateInfo.EntriesUpdated {
 		switch entry {
 		case "Hostname":
@@ -166,8 +171,11 @@ func (svr *SYSDServer) UpdateSystemInfo(updateInfo *SystemParamUpdate) {
 			if err != nil {
 				svr.logger.Err("Updating hostname in linux failed", err)
 			}
+			svr.logger.Info("Updated System Host Name", updateInfo.NewCfg.Hostname)
 		case "Description":
 			svr.SysInfo.Description = updateInfo.NewCfg.Description
+			svr.logger.Info("Updated System Description", updateInfo.NewCfg.Description)
 		}
 	}
+	svr.copyAndSendSystemParam(*updateInfo.NewCfg)
 }
