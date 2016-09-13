@@ -146,3 +146,16 @@ func (driver *dummyDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, erro
 func (driver *dummyDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
 	return nil
 }
+
+func (driver *dummyDriver) GetMaxNumOfLed() int {
+	return 0
+}
+
+func (driver *dummyDriver) GetLedState(ledId int32) (pluginCommon.LedState, error) {
+	var retObj pluginCommon.LedState
+	return retObj, nil
+}
+
+func (driver *dummyDriver) GetAllLedState(states []pluginCommon.LedState, cnt int) error {
+	return nil
+}

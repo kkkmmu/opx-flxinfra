@@ -380,36 +380,6 @@ func convertToRPCFmtPowerConverterSensorPMState(obj *objects.PowerConverterSenso
 
 }
 
-//type PsuState struct {
-//    baseObj
-//    PsuId      int32  `SNAPROUTE: "KEY", ACCESS:"r", MULTIPLICITY:"*", DESCRIPTION: "PSU id", DEFAULT:0`
-//    AdminState string `DESCRIPTION: "Admin UP/DOWN PSU"`
-//    ModelNum   string `DESCRIPTION: "Model Number"`
-//    SerialNum  string `DESCRIPTION: "Serial Number"`
-//    Vin        int32  `DESCRIPTION: "Voltage in"`
-//    Vout       int32  `DESCRIPTION: "Voltage out"`
-//    Iin        int32  `DESCRIPTION: "Current in"`
-//    Iout       int32  `DESCRIPTION: "Current out"`
-//    Pin        int32  `DESCRIPTION: "Power in"`
-//    Pout       int32  `DESCRIPTION: "power out"`
-//    Fan        string `DESCRIPTION: "Fan PRESENT/MISSING"`
-//    FanId      int32  `DESCRIPTION: "Fan Info"`
-//    LedId      int32  `DESCRIPTION: "LED Info"`
-//}
-//
-//type PsuState struct {
-//	PsuId      int32
-//	AdminState string
-//	ModelNum   string
-//	SerialNum  string
-//	Vin        int32
-//	Vout       int32
-//	Iin        int32
-//	Iout       int32
-//	Pin        int32
-//	Pout       int32
-//}
-
 func convertToRPCFmtPsuState(obj *objects.PsuState) *platformd.PsuState {
 	return &platformd.PsuState{
 		PsuId:      obj.PsuId,
@@ -422,5 +392,29 @@ func convertToRPCFmtPsuState(obj *objects.PsuState) *platformd.PsuState {
 		Iout:       obj.Iout,
 		Pin:        obj.Pin,
 		Pout:       obj.Pout,
+	}
+}
+
+//type LedState struct {
+//	baseObj
+//	LedId       int32  `SNAPROUTE: "KEY", ACCESS:"r", MULTIPLICITY:"*", DESCRIPTION: "LED id", DEFAULT:0`
+//	LedIdentify string `DESCRIPTION: "LED represents FAN/PSU/RESET etc"`
+//	LedState    string `DESCRIPTION: "LED State ON/OFF"`
+//	LedColor    string `DESCRIPTION: "LED Color"`
+//}
+
+//type LedState struct {
+//    LedId       int32
+//    LedIdentify string
+//    LedState    string
+//    LedColor    string
+//}
+
+func convertToRPCFmtLedState(obj *objects.LedState) *platformd.LedState {
+	return &platformd.LedState{
+		LedId:       obj.LedId,
+		LedIdentify: obj.LedIdentify,
+		LedState:    obj.LedState,
+		LedColor:    obj.LedColor,
 	}
 }

@@ -714,3 +714,34 @@ func GetBulkPsuState(fromIdx, count int) (*objects.PsuStateGetInfo, error) {
 
 	return &obj, nil
 }
+
+func GetLedState(ledId int32) (*objects.LedState, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_LED_STATE,
+		Data: interface{}(&server.GetLedStateInArgs{
+			LedId: ledId,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetLedStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetLedState")
+	}
+}
+
+func GetBulkLedState(fromIdx, count int) (*objects.LedStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_LED_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkLedStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkLedState")
+	}
+}

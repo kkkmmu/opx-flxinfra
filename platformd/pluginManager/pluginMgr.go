@@ -61,6 +61,10 @@ type PluginIntf interface {
 	GetAllPsuState(state []pluginCommon.PsuState, count int) error
 	GetMaxNumOfPsu() int
 
+	GetLedState(ledId int32) (pluginCommon.LedState, error)
+	GetAllLedState(state []pluginCommon.LedState, count int) error
+	GetMaxNumOfLed() int
+
 	GetAllSensorState(state *pluginCommon.SensorState) error
 	GetMaxNumOfQsfp() int
 	GetQsfpState(id int32) (pluginCommon.QsfpState, error)
