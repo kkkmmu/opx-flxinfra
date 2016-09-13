@@ -675,3 +675,42 @@ func GetPowerConverterSensorPMDataState(name string, class string) (*objects.Pow
 		return nil, errors.New("Error: Invalid response received from server during GetPowerConverterSensorState")
 	}
 }
+
+func GetPsuState(psuId int32) (*objects.PsuState, error) {
+	var obj objects.PsuState
+
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_PSU_STATE,
+		Data: interface{}(&server.GetPsuStateInArgs{
+			PsuId: psuId,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetPsuStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during PsuStateGet")
+	}
+
+	return &obj, nil
+}
+
+func GetBulkPsuState(fromIdx, count int) (*objects.PsuStateGetInfo, error) {
+	var obj objects.PsuStateGetInfo
+
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_PSU_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkPsuStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkPsuState")
+	}
+
+	return &obj, nil
+}

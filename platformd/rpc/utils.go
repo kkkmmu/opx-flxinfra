@@ -379,3 +379,48 @@ func convertToRPCFmtPowerConverterSensorPMState(obj *objects.PowerConverterSenso
 	}
 
 }
+
+//type PsuState struct {
+//    baseObj
+//    PsuId      int32  `SNAPROUTE: "KEY", ACCESS:"r", MULTIPLICITY:"*", DESCRIPTION: "PSU id", DEFAULT:0`
+//    AdminState string `DESCRIPTION: "Admin UP/DOWN PSU"`
+//    ModelNum   string `DESCRIPTION: "Model Number"`
+//    SerialNum  string `DESCRIPTION: "Serial Number"`
+//    Vin        int32  `DESCRIPTION: "Voltage in"`
+//    Vout       int32  `DESCRIPTION: "Voltage out"`
+//    Iin        int32  `DESCRIPTION: "Current in"`
+//    Iout       int32  `DESCRIPTION: "Current out"`
+//    Pin        int32  `DESCRIPTION: "Power in"`
+//    Pout       int32  `DESCRIPTION: "power out"`
+//    Fan        string `DESCRIPTION: "Fan PRESENT/MISSING"`
+//    FanId      int32  `DESCRIPTION: "Fan Info"`
+//    LedId      int32  `DESCRIPTION: "LED Info"`
+//}
+//
+//type PsuState struct {
+//	PsuId      int32
+//	AdminState string
+//	ModelNum   string
+//	SerialNum  string
+//	Vin        int32
+//	Vout       int32
+//	Iin        int32
+//	Iout       int32
+//	Pin        int32
+//	Pout       int32
+//}
+
+func convertToRPCFmtPsuState(obj *objects.PsuState) *platformd.PsuState {
+	return &platformd.PsuState{
+		PsuId:      obj.PsuId,
+		AdminState: obj.AdminState,
+		ModelNum:   obj.ModelNum,
+		SerialNum:  obj.SerialNum,
+		Vin:        obj.Vin,
+		Vout:       obj.Vout,
+		Iin:        obj.Iin,
+		Iout:       obj.Iout,
+		Pin:        obj.Pin,
+		Pout:       obj.Pout,
+	}
+}

@@ -366,3 +366,17 @@ type GetPowerConverterSensorPMStateOutArgs struct {
 	Obj *objects.PowerConverterSensorPMState
 	Err error
 }
+
+type GetPsuStateInArgs struct {
+	PsuId int32
+}
+
+type GetPsuStateOutArgs struct {
+	Obj *objects.PsuState
+	Err error
+}
+
+type GetBulkPsuStateOutArgs struct {
+	BulkInfo *objects.PsuStateGetInfo
+	Err      error
+}
