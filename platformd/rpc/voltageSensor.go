@@ -23,6 +23,7 @@ package rpc
 import (
 	"errors"
 	"infra/platformd/api"
+	"models/objects"
 	"platformd"
 )
 
@@ -105,4 +106,23 @@ func (rpcHdl *rpcServiceHandler) GetVoltageSensorPMDataState(Name string, Class 
 
 func (rpcHdl *rpcServiceHandler) GetBulkVoltageSensorPMDataState(fromIdx, count platformd.Int) (*platformd.VoltageSensorPMDataStateGetInfo, error) {
 	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) restoreVoltageSensorConfigFromDB() (bool, error) {
+	var voltageSensorCfg objects.VoltageSensor
+	voltageSensorCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(voltageSensorCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrieve VoltageSensor config object from DB")
+	}
+	for idx := 0; idx < len(voltageSensorCfgList); idx++ {
+		dbObj := voltageSensorCfgList[idx].(objects.VoltageSensor)
+		obj := new(platformd.VoltageSensor)
+		objects.ConvertplatformdVoltageSensorObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtVoltageSensorConfig(obj)
+		ok, err := api.UpdateVoltageSensor(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
+	return true, nil
 }

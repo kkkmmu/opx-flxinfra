@@ -26,20 +26,23 @@ package rpc
 import (
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"platformd"
+	"utils/dbutils"
 	"utils/logging"
 )
 
 type rpcServiceHandler struct {
 	logger logging.LoggerIntf
+	dbHdl  dbutils.DBIntf
 }
 
 type RPCServer struct {
 	*thrift.TSimpleServer
 }
 
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
+func newRPCServiceHandler(logger logging.LoggerIntf, dbHdl dbutils.DBIntf) *rpcServiceHandler {
 	hdl := &rpcServiceHandler{
 		logger: logger,
+		dbHdl:  dbHdl,
 	}
 	ok, err := hdl.restoreConfigFromDB()
 	if !ok {
@@ -48,12 +51,12 @@ func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
 	return hdl
 }
 
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
+func NewRPCServer(rpcAddr string, logger logging.LoggerIntf, dbHdl dbutils.DBIntf) *RPCServer {
 	transport, err := thrift.NewTServerSocket(rpcAddr)
 	if err != nil {
 		panic(err)
 	}
-	handler := newRPCServiceHandler(logger)
+	handler := newRPCServiceHandler(logger, dbHdl)
 	processor := platformd.NewPLATFORMDServicesProcessor(handler)
 	transportFactory := thrift.NewTBufferedTransportFactory(8192)
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -69,5 +72,19 @@ func (rpcHdl *rpcServiceHandler) restoreConfigFromDB() (bool, error) {
 		return ok, err
 	}
 
+	ok, err = rpcHdl.restoreTemperatureSensorConfigFromDB()
+	if !ok {
+		return ok, err
+	}
+
+	ok, err = rpcHdl.restoreVoltageSensorConfigFromDB()
+	if !ok {
+		return ok, err
+	}
+
+	ok, err = rpcHdl.restorePowerConverterSensorConfigFromDB()
+	if !ok {
+		return ok, err
+	}
 	return true, nil
 }

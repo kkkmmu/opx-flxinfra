@@ -26,6 +26,7 @@ package rpc
 import (
 	"errors"
 	"infra/platformd/api"
+	"models/objects"
 	"platformd"
 )
 
@@ -111,5 +112,20 @@ func (rpcHdl *rpcServiceHandler) GetBulkFanSensorPMDataState(fromIdx, count plat
 }
 
 func (rpcHdl *rpcServiceHandler) restoreFanSensorConfigFromDB() (bool, error) {
+	var fanSensorCfg objects.FanSensor
+	fanSensorCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(fanSensorCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrieve FanSensor config object from DB")
+	}
+	for idx := 0; idx < len(fanSensorCfgList); idx++ {
+		dbObj := fanSensorCfgList[idx].(objects.FanSensor)
+		obj := new(platformd.FanSensor)
+		objects.ConvertplatformdFanSensorObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtFanSensorConfig(obj)
+		ok, err := api.UpdateFanSensor(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
 	return true, nil
 }

@@ -26,6 +26,7 @@ package rpc
 import (
 	"errors"
 	"infra/platformd/api"
+	"models/objects"
 	"platformd"
 )
 
@@ -108,4 +109,23 @@ func (rpcHdl *rpcServiceHandler) GetPowerConverterSensorPMDataState(Name string,
 
 func (rpcHdl *rpcServiceHandler) GetBulkPowerConverterSensorPMDataState(fromIdx, count platformd.Int) (*platformd.PowerConverterSensorPMDataStateGetInfo, error) {
 	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) restorePowerConverterSensorConfigFromDB() (bool, error) {
+	var powerConverterSensorCfg objects.PowerConverterSensor
+	powerConverterSensorCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(powerConverterSensorCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrieve PowerConverterSensor config object from DB")
+	}
+	for idx := 0; idx < len(powerConverterSensorCfgList); idx++ {
+		dbObj := powerConverterSensorCfgList[idx].(objects.PowerConverterSensor)
+		obj := new(platformd.PowerConverterSensor)
+		objects.ConvertplatformdPowerConverterSensorObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtPowerConverterSensorConfig(obj)
+		ok, err := api.UpdatePowerConverterSensor(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
+	return true, nil
 }

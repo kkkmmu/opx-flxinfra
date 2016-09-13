@@ -23,6 +23,7 @@ package rpc
 import (
 	"errors"
 	"infra/platformd/api"
+	"models/objects"
 	"platformd"
 )
 
@@ -105,4 +106,23 @@ func (rpcHdl *rpcServiceHandler) GetTemperatureSensorPMDataState(Name string, Cl
 
 func (rpcHdl *rpcServiceHandler) GetBulkTemperatureSensorPMDataState(fromIdx, count platformd.Int) (*platformd.TemperatureSensorPMDataStateGetInfo, error) {
 	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) restoreTemperatureSensorConfigFromDB() (bool, error) {
+	var temperatureSensorCfg objects.TemperatureSensor
+	temperatureSensorCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(temperatureSensorCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrieve TemperatureSensor config object from DB")
+	}
+	for idx := 0; idx < len(temperatureSensorCfgList); idx++ {
+		dbObj := temperatureSensorCfgList[idx].(objects.TemperatureSensor)
+		obj := new(platformd.TemperatureSensor)
+		objects.ConvertplatformdTemperatureSensorObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtTemperatureSensorConfig(obj)
+		ok, err := api.UpdateTemperatureSensor(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
+	return true, nil
 }

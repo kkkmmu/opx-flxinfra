@@ -620,7 +620,7 @@ func GetTempSensorPMDataState(name string, class string) (*objects.TemperatureSe
 		return nil, errors.New("Invalid Class")
 	}
 	svr.ReqChan <- &server.ServerRequest{
-		Op: server.GET_TEMPERATURE_SENSOR_STATE,
+		Op: server.GET_TEMPERATURE_SENSOR_PM_STATE,
 		Data: interface{}(&server.GetTempSensorPMStateInArgs{
 			Name:  name,
 			Class: class,
