@@ -37,6 +37,9 @@ int (*onlpThermalInfoGet)(onlp_oid_t, onlp_thermal_info_t*);
 /* PSU */
 int (*onlpPsuInfoGet)(onlp_oid_t, onlp_psu_info_t*);
 
+/* LED */
+int (*onlpLedInfoGet)(onlp_oid_t, onlp_led_info_t*);
+
 int
 loadOnlpSym()
 {
@@ -120,6 +123,11 @@ loadOnlpSym()
 		return -1;
     }
 
+    onlpLedInfoGet = dlsym(handle, "onlp_ledi_info_get");
+    if ((error = dlerror()) != NULL)  {
+        printf(error, stderr);
+		return -1;
+    }
     return 0;
 }
 
@@ -368,7 +376,7 @@ GetThermalState(thermal_info_t *info_p, int sensor_id)
     onlp_oid_t id;
     onlp_thermal_info_t t_info;
 
-    id = ONLP_THERMAL_ID_CREATE(sensor_id);
+    id = ONLP_THERMAL_ID_CREATE(sensor_id + 1);
 
     if (!onlpThermalInfoGet)
         return SENSOR_ERROR;
@@ -378,6 +386,7 @@ GetThermalState(thermal_info_t *info_p, int sensor_id)
     if (rt < 0)
         return SENSOR_MISSING;
 
+    memcpy(info_p->description, t_info.hdr.description, sizeof(t_info.hdr.description));
     info_p->sensor_id = sensor_id;
     info_p->status = t_info.status;
     info_p->caps = t_info.caps;
@@ -417,8 +426,38 @@ GetPsuState(psu_info_t *info_p, int psu_id)
         info_p->mpin = p_info.mpin;
         info_p->mpout = p_info.mpout;
     }
-
     return PSU_OK;
+}
+
+LED_RET
+GetLedState(led_info_t *info_p, int led_id)
+{
+    int rt;
+    onlp_oid_t id;
+    onlp_led_info_t led_info;
+
+    id = ONLP_LED_ID_CREATE(led_id + 1);
+
+    if (!onlpLedInfoGet)
+        return LED_ERROR;
+
+    rt = (onlpLedInfoGet)(id, &led_info);
+
+
+    if (rt < 0)
+        return LED_MISSING;
+
+    info_p->led_id = led_id;
+    info_p->status = (led_info.status & ONLP_LED_STATUS_PRESENT);
+
+    if (info_p->status) {
+        memcpy(info_p->description, led_info.hdr.description, sizeof(led_info.hdr.description));
+        if (led_info.mode != ONLP_LED_MODE_OFF)
+            sprintf(info_p->color, "ON");
+    } else {
+        sprintf(info_p->description, "LED NOT PRESENT");
+    }
+    return LED_OK;
 }
 
 int

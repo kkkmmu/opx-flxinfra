@@ -75,6 +75,8 @@ const (
 	UPDATE_QSFP_CONFIG
 	GET_PLATFORM_MGMT_DEVICE_STATE
 	GET_BULK_PLATFORM_MGMT_DEVICE_STATE
+	GET_LED_STATE
+	GET_BULK_LED_STATE
 )
 
 type ServerRequest struct {
@@ -378,5 +380,19 @@ type GetPsuStateOutArgs struct {
 
 type GetBulkPsuStateOutArgs struct {
 	BulkInfo *objects.PsuStateGetInfo
+	Err      error
+}
+
+type GetLedStateInArgs struct {
+	LedId int32
+}
+
+type GetLedStateOutArgs struct {
+	Obj *objects.LedState
+	Err error
+}
+
+type GetBulkLedStateOutArgs struct {
+	BulkInfo *objects.LedStateGetInfo
 	Err      error
 }

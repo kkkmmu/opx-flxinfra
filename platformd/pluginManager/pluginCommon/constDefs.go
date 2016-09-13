@@ -99,3 +99,10 @@ type PsuState struct {
 	PwrIn     int32
 	PwrOut    int32
 }
+
+type LedState struct {
+	LedId       int32
+	LedIdentify string
+	LedState    string
+	LedColor    string
+}

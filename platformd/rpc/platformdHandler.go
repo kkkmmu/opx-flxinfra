@@ -205,15 +205,32 @@ func (rpcHdl *rpcServiceHandler) GetLed(ledID int32) (*platformd.Led, error) {
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkLedState(fromIdx, count platformd.Int) (*platformd.LedStateGetInfo, error) {
-	var obj platformd.LedStateGetInfo
+	var getBulkObj platformd.LedStateGetInfo
+	var err error
 
-	return &obj, nil
+	info, err := api.GetBulkLedState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.LedStateList = append(getBulkObj.LedStateList, convertToRPCFmtLedState(info.List[idx]))
+	}
+	return &getBulkObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetLedState(sfpId int32) (*platformd.LedState, error) {
-	var obj platformd.LedState
+func (rpcHdl *rpcServiceHandler) GetLedState(ledId int32) (*platformd.LedState, error) {
+	var rpcObj *platformd.LedState
+	var err error
 
-	return &obj, nil
+	obj, err := api.GetLedState(ledId)
+	if err == nil {
+		rpcObj = convertToRPCFmtLedState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkThermalState(fromIdx, count platformd.Int) (*platformd.ThermalStateGetInfo, error) {
