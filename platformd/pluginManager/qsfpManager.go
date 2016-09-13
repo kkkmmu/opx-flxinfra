@@ -94,7 +94,7 @@ func (qMgr *QsfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	qMgr.configDB = make([]QsfpConfig, numOfQsfps)
 	for id := 0; id < numOfQsfps; id++ {
 		qsfpCfgEnt := qMgr.configDB[id]
-		qsfpCfgEnt.AdminState = "Enabled"
+		qsfpCfgEnt.AdminState = "Enable"
 		qsfpCfgEnt.HigherAlarmTemperature = 100.0
 		qsfpCfgEnt.HigherAlarmVoltage = 10.0
 		qsfpCfgEnt.HigherAlarmRXPower = 100.0

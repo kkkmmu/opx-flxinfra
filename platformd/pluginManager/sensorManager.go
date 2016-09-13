@@ -192,7 +192,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf, ev
 		sMgr.fanConfigMutex.Lock()
 		fanCfgEnt, _ := sMgr.fanConfigDB[name]
 		// TODO: Read Json
-		fanCfgEnt.AdminState = "Enabled"
+		fanCfgEnt.AdminState = "Enable"
 		fanCfgEnt.HigherAlarmThreshold = 11000
 		fanCfgEnt.HigherWarningThreshold = 11000
 		fanCfgEnt.LowerAlarmThreshold = 1000
@@ -209,7 +209,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf, ev
 		sMgr.tempConfigMutex.Lock()
 		tempCfgEnt, _ := sMgr.tempConfigDB[name]
 		// TODO: Read Json
-		tempCfgEnt.AdminState = "Enabled"
+		tempCfgEnt.AdminState = "Enable"
 		tempCfgEnt.HigherAlarmThreshold = 11000.0
 		tempCfgEnt.HigherWarningThreshold = 11000.0
 		tempCfgEnt.LowerAlarmThreshold = -1000.0
@@ -226,7 +226,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf, ev
 		sMgr.voltageConfigMutex.Lock()
 		voltageCfgEnt, _ := sMgr.voltageConfigDB[name]
 		// TODO: Read Json
-		voltageCfgEnt.AdminState = "Enabled"
+		voltageCfgEnt.AdminState = "Enable"
 		voltageCfgEnt.HigherAlarmThreshold = 11000
 		voltageCfgEnt.HigherWarningThreshold = 11000
 		voltageCfgEnt.LowerAlarmThreshold = 0
@@ -243,7 +243,7 @@ func (sMgr *SensorManager) Init(logger logging.LoggerIntf, plugin PluginIntf, ev
 		sMgr.powerConverterConfigMutex.Lock()
 		powerConverterCfgEnt, _ := sMgr.powerConverterConfigDB[name]
 		// TODO: Read Json
-		powerConverterCfgEnt.AdminState = "Enabled"
+		powerConverterCfgEnt.AdminState = "Enable"
 		powerConverterCfgEnt.HigherAlarmThreshold = 11000
 		powerConverterCfgEnt.HigherWarningThreshold = 11000
 		powerConverterCfgEnt.LowerAlarmThreshold = 0
@@ -364,21 +364,30 @@ func (sMgr *SensorManager) GetBulkFanSensorConfig(fromIdx int, cnt int) (*object
 
 func genFanSensorUpdateMask(attrset []bool) uint32 {
 	var mask uint32 = 0
-	for idx, val := range attrset {
-		if true == val {
-			switch idx {
-			case 0:
-				//ObjKey Fan Name
-			case 1:
-				mask |= objects.FAN_SENSOR_UPDATE_ADMIN_STATE
-			case 2:
-				mask |= objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
-			case 3:
-				mask |= objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
-			case 4:
-				mask |= objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
-			case 5:
-				mask |= objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+
+	if attrset == nil {
+		mask = objects.FAN_SENSOR_UPDATE_ADMIN_STATE |
+			objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD |
+			objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD |
+			objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD |
+			objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	} else {
+		for idx, val := range attrset {
+			if true == val {
+				switch idx {
+				case 0:
+					//ObjKey Fan Name
+				case 1:
+					mask |= objects.FAN_SENSOR_UPDATE_ADMIN_STATE
+				case 2:
+					mask |= objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+				case 3:
+					mask |= objects.FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+				case 4:
+					mask |= objects.FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+				case 5:
+					mask |= objects.FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+				}
 			}
 		}
 	}
@@ -397,6 +406,10 @@ func (sMgr *SensorManager) UpdateFanSensorConfig(oldCfg *objects.FanSensorConfig
 	}
 	mask := genFanSensorUpdateMask(attrset)
 	if mask&objects.FAN_SENSOR_UPDATE_ADMIN_STATE == objects.FAN_SENSOR_UPDATE_ADMIN_STATE {
+		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
+			sMgr.fanConfigMutex.Unlock()
+			return false, errors.New("Invalid AdminState Value")
+		}
 		fanSensorCfgEnt.AdminState = newCfg.AdminState
 	}
 	if mask&objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.FAN_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
@@ -525,21 +538,29 @@ func (sMgr *SensorManager) GetBulkTemperatureSensorConfig(fromIdx int, cnt int) 
 
 func genTempSensorUpdateMask(attrset []bool) uint32 {
 	var mask uint32 = 0
-	for idx, val := range attrset {
-		if true == val {
-			switch idx {
-			case 0:
-				//ObjKey Temp Sensor Name
-			case 1:
-				mask |= objects.TEMP_SENSOR_UPDATE_ADMIN_STATE
-			case 2:
-				mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
-			case 3:
-				mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
-			case 4:
-				mask |= objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
-			case 5:
-				mask |= objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	if attrset == nil {
+		mask = objects.TEMP_SENSOR_UPDATE_ADMIN_STATE |
+			objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD |
+			objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD |
+			objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD |
+			objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	} else {
+		for idx, val := range attrset {
+			if true == val {
+				switch idx {
+				case 0:
+					//ObjKey Temp Sensor Name
+				case 1:
+					mask |= objects.TEMP_SENSOR_UPDATE_ADMIN_STATE
+				case 2:
+					mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+				case 3:
+					mask |= objects.TEMP_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+				case 4:
+					mask |= objects.TEMP_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+				case 5:
+					mask |= objects.TEMP_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+				}
 			}
 		}
 	}
@@ -558,6 +579,10 @@ func (sMgr *SensorManager) UpdateTemperatureSensorConfig(oldCfg *objects.Tempera
 	}
 	mask := genTempSensorUpdateMask(attrset)
 	if mask&objects.TEMP_SENSOR_UPDATE_ADMIN_STATE == objects.TEMP_SENSOR_UPDATE_ADMIN_STATE {
+		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
+			sMgr.tempConfigMutex.Unlock()
+			return false, errors.New("Invalid AdminState Value")
+		}
 		tempSensorCfgEnt.AdminState = newCfg.AdminState
 	}
 	if mask&objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.TEMP_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
@@ -685,21 +710,29 @@ func (sMgr *SensorManager) GetBulkVoltageSensorConfig(fromIdx int, cnt int) (*ob
 
 func genVoltageSensorUpdateMask(attrset []bool) uint32 {
 	var mask uint32 = 0
-	for idx, val := range attrset {
-		if true == val {
-			switch idx {
-			case 0:
-				//ObjKey Voltage Sensor Name
-			case 1:
-				mask |= objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE
-			case 2:
-				mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
-			case 3:
-				mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
-			case 4:
-				mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
-			case 5:
-				mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	if attrset == nil {
+		mask = objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE |
+			objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD |
+			objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD |
+			objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD |
+			objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	} else {
+		for idx, val := range attrset {
+			if true == val {
+				switch idx {
+				case 0:
+					//ObjKey Voltage Sensor Name
+				case 1:
+					mask |= objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE
+				case 2:
+					mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+				case 3:
+					mask |= objects.VOLTAGE_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+				case 4:
+					mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+				case 5:
+					mask |= objects.VOLTAGE_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+				}
 			}
 		}
 	}
@@ -718,6 +751,10 @@ func (sMgr *SensorManager) UpdateVoltageSensorConfig(oldCfg *objects.VoltageSens
 	}
 	mask := genVoltageSensorUpdateMask(attrset)
 	if mask&objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE == objects.VOLTAGE_SENSOR_UPDATE_ADMIN_STATE {
+		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
+			sMgr.voltageConfigMutex.Unlock()
+			return false, errors.New("Invalid AdminState Value")
+		}
 		voltageSensorCfgEnt.AdminState = newCfg.AdminState
 	}
 	if mask&objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.VOLTAGE_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
@@ -846,21 +883,30 @@ func (sMgr *SensorManager) GetBulkPowerConverterSensorConfig(fromIdx int, cnt in
 
 func genPowerConverterSensorUpdateMask(attrset []bool) uint32 {
 	var mask uint32 = 0
-	for idx, val := range attrset {
-		if true == val {
-			switch idx {
-			case 0:
-				//ObjKey PowerConverter Sensor Name
-			case 1:
-				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE
-			case 2:
-				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
-			case 3:
-				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
-			case 4:
-				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
-			case 5:
-				mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+
+	if attrset == nil {
+		mask = objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE |
+			objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD |
+			objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD |
+			objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD |
+			objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+	} else {
+		for idx, val := range attrset {
+			if true == val {
+				switch idx {
+				case 0:
+					//ObjKey PowerConverter Sensor Name
+				case 1:
+					mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE
+				case 2:
+					mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD
+				case 3:
+					mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD
+				case 4:
+					mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_WARN_THRESHOLD
+				case 5:
+					mask |= objects.POWER_CONVERTER_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD
+				}
 			}
 		}
 	}
@@ -879,6 +925,10 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 	}
 	mask := genPowerConverterSensorUpdateMask(attrset)
 	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE == objects.POWER_CONVERTER_SENSOR_UPDATE_ADMIN_STATE {
+		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
+			sMgr.powerConverterConfigMutex.Unlock()
+			return false, errors.New("Invalid AdminState Value")
+		}
 		powerConverterSensorCfgEnt.AdminState = newCfg.AdminState
 	}
 	if mask&objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD == objects.POWER_CONVERTER_SENSOR_UPDATE_HIGHER_ALARM_THRESHOLD {
@@ -956,7 +1006,7 @@ func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorSt
 			TimeStamp: time.Now().String(),
 			Value:     fanSensorState.Value,
 		}
-		if fanSensorCfgEnt.AdminState == "Enabled" {
+		if fanSensorCfgEnt.AdminState == "Enable" {
 			eventKey := events.FanSensorKey{
 				Name: fanSensorName,
 			}
@@ -974,12 +1024,10 @@ func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorSt
 			if fanSensorState.Value >= fanSensorCfgEnt.HigherAlarmThreshold {
 				curEvents.SentHigherAlarm = true
 			}
-			if fanSensorState.Value < fanSensorCfgEnt.HigherAlarmThreshold &&
-				fanSensorState.Value >= fanSensorCfgEnt.HigherWarningThreshold {
+			if fanSensorState.Value >= fanSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if fanSensorState.Value <= fanSensorCfgEnt.LowerWarningThreshold &&
-				fanSensorState.Value > fanSensorCfgEnt.LowerAlarmThreshold {
+			if fanSensorState.Value <= fanSensorCfgEnt.LowerWarningThreshold {
 				curEvents.SentLowerWarn = true
 			}
 			if fanSensorState.Value <= fanSensorCfgEnt.LowerAlarmThreshold {
@@ -1013,15 +1061,17 @@ func (sMgr *SensorManager) ProcessFanSensorPM(sensorState *pluginCommon.SensorSt
 					evts = append(evts, events.FanLowerTCAWarnClear)
 				}
 			}
-			sMgr.fanMsgStatus[fanSensorName] = curEvents
+			if prevEventStatus != curEvents {
+				sMgr.fanMsgStatus[fanSensorName] = curEvents
+			}
 			for _, evt := range evts {
 				txEvent.EventId = evt
-				err := eventUtils.PublishEvents(&txEvent)
+				txEvt := txEvent
+				err := eventUtils.PublishEvents(&txEvt)
 				if err != nil {
 					sMgr.logger.Err("Error publish events")
 				}
 			}
-
 		}
 		switch class {
 		case "Class-A":
@@ -1049,7 +1099,7 @@ func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorS
 			TimeStamp: time.Now().String(),
 			Value:     tempSensorState.Value,
 		}
-		if tempSensorCfgEnt.AdminState == "Enabled" {
+		if tempSensorCfgEnt.AdminState == "Enable" {
 			eventKey := events.TemperatureSensorKey{
 				Name: tempSensorName,
 			}
@@ -1067,12 +1117,10 @@ func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorS
 			if tempSensorState.Value >= tempSensorCfgEnt.HigherAlarmThreshold {
 				curEvents.SentHigherAlarm = true
 			}
-			if tempSensorState.Value < tempSensorCfgEnt.HigherAlarmThreshold &&
-				tempSensorState.Value >= tempSensorCfgEnt.HigherWarningThreshold {
+			if tempSensorState.Value >= tempSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if tempSensorState.Value <= tempSensorCfgEnt.LowerWarningThreshold &&
-				tempSensorState.Value > tempSensorCfgEnt.LowerAlarmThreshold {
+			if tempSensorState.Value <= tempSensorCfgEnt.LowerWarningThreshold {
 				curEvents.SentLowerWarn = true
 			}
 			if tempSensorState.Value <= tempSensorCfgEnt.LowerAlarmThreshold {
@@ -1106,10 +1154,13 @@ func (sMgr *SensorManager) ProcessTempSensorPM(sensorState *pluginCommon.SensorS
 					evts = append(evts, events.TemperatureLowerTCAWarnClear)
 				}
 			}
-			sMgr.tempMsgStatus[tempSensorName] = curEvents
+			if prevEventStatus != curEvents {
+				sMgr.tempMsgStatus[tempSensorName] = curEvents
+			}
 			for _, evt := range evts {
 				txEvent.EventId = evt
-				err := eventUtils.PublishEvents(&txEvent)
+				txEvt := txEvent
+				err := eventUtils.PublishEvents(&txEvt)
 				if err != nil {
 					sMgr.logger.Err("Error publish events")
 				}
@@ -1143,7 +1194,7 @@ func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.Sens
 			TimeStamp: time.Now().String(),
 			Value:     voltageSensorState.Value,
 		}
-		if voltageSensorCfgEnt.AdminState == "Enabled" {
+		if voltageSensorCfgEnt.AdminState == "Enable" {
 			eventKey := events.VoltageSensorKey{
 				Name: voltageSensorName,
 			}
@@ -1161,12 +1212,10 @@ func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.Sens
 			if voltageSensorState.Value >= voltageSensorCfgEnt.HigherAlarmThreshold {
 				curEvents.SentHigherAlarm = true
 			}
-			if voltageSensorState.Value < voltageSensorCfgEnt.HigherAlarmThreshold &&
-				voltageSensorState.Value >= voltageSensorCfgEnt.HigherWarningThreshold {
+			if voltageSensorState.Value >= voltageSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerWarningThreshold &&
-				voltageSensorState.Value > voltageSensorCfgEnt.LowerAlarmThreshold {
+			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerWarningThreshold {
 				curEvents.SentLowerWarn = true
 			}
 			if voltageSensorState.Value <= voltageSensorCfgEnt.LowerAlarmThreshold {
@@ -1200,10 +1249,13 @@ func (sMgr *SensorManager) ProcessVoltageSensorPM(sensorState *pluginCommon.Sens
 					evts = append(evts, events.VoltageLowerTCAWarnClear)
 				}
 			}
-			sMgr.voltageMsgStatus[voltageSensorName] = curEvents
+			if prevEventStatus != curEvents {
+				sMgr.voltageMsgStatus[voltageSensorName] = curEvents
+			}
 			for _, evt := range evts {
 				txEvent.EventId = evt
-				err := eventUtils.PublishEvents(&txEvent)
+				txEvt := txEvent
+				err := eventUtils.PublishEvents(&txEvt)
 				if err != nil {
 					sMgr.logger.Err("Error publish events")
 				}
@@ -1237,7 +1289,7 @@ func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginComm
 			TimeStamp: time.Now().String(),
 			Value:     powerConverterSensorState.Value,
 		}
-		if powerConverterSensorCfgEnt.AdminState == "Enabled" {
+		if powerConverterSensorCfgEnt.AdminState == "Enable" {
 			eventKey := events.PowerConverterSensorKey{
 				Name: powerConverterSensorName,
 			}
@@ -1255,12 +1307,10 @@ func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginComm
 			if powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherAlarmThreshold {
 				curEvents.SentHigherAlarm = true
 			}
-			if powerConverterSensorState.Value < powerConverterSensorCfgEnt.HigherAlarmThreshold &&
-				powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherWarningThreshold {
+			if powerConverterSensorState.Value >= powerConverterSensorCfgEnt.HigherWarningThreshold {
 				curEvents.SentHigherWarn = true
 			}
-			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerWarningThreshold &&
-				powerConverterSensorState.Value > powerConverterSensorCfgEnt.LowerAlarmThreshold {
+			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerWarningThreshold {
 				curEvents.SentLowerWarn = true
 			}
 			if powerConverterSensorState.Value <= powerConverterSensorCfgEnt.LowerAlarmThreshold {
@@ -1294,10 +1344,13 @@ func (sMgr *SensorManager) ProcessPowerConverterSensorPM(sensorState *pluginComm
 					evts = append(evts, events.PowerConverterLowerTCAWarnClear)
 				}
 			}
-			sMgr.powerConverterMsgStatus[powerConverterSensorName] = curEvents
+			if prevEventStatus != curEvents {
+				sMgr.powerConverterMsgStatus[powerConverterSensorName] = curEvents
+			}
 			for _, evt := range evts {
 				txEvent.EventId = evt
-				err := eventUtils.PublishEvents(&txEvent)
+				txEvt := txEvent
+				err := eventUtils.PublishEvents(&txEvt)
 				if err != nil {
 					sMgr.logger.Err("Error publish events")
 				}
@@ -1417,6 +1470,8 @@ func (sMgr *SensorManager) GetFanSensorPMState(Name string, Class string) (*obje
 		sMgr.fanClassCPMMutex.RLock()
 		fanSensorPMObj.Data = sMgr.fanSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
 		sMgr.fanClassCPMMutex.RUnlock()
+	default:
+		return nil, errors.New("Invalid Class")
 	}
 	return &fanSensorPMObj, nil
 }
@@ -1446,6 +1501,8 @@ func (sMgr *SensorManager) GetTempSensorPMState(Name string, Class string) (*obj
 		sMgr.tempClassCPMMutex.RLock()
 		tempSensorPMObj.Data = sMgr.tempSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
 		sMgr.tempClassCPMMutex.RUnlock()
+	default:
+		return nil, errors.New("Invalid Class")
 	}
 	return &tempSensorPMObj, nil
 }
@@ -1475,6 +1532,8 @@ func (sMgr *SensorManager) GetVoltageSensorPMState(Name string, Class string) (*
 		sMgr.voltageClassCPMMutex.RLock()
 		voltageSensorPMObj.Data = sMgr.voltageSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
 		sMgr.voltageClassCPMMutex.RUnlock()
+	default:
+		return nil, errors.New("Invalid Class")
 	}
 	return &voltageSensorPMObj, nil
 }
@@ -1504,6 +1563,8 @@ func (sMgr *SensorManager) GetPowerConverterSensorPMState(Name string, Class str
 		sMgr.powerConverterClassCPMMutex.RLock()
 		powerConverterSensorPMObj.Data = sMgr.powerConverterSensorClassCPM[Name].GetListOfEntriesFromRingBuffer()
 		sMgr.powerConverterClassCPMMutex.RUnlock()
+	default:
+		return nil, errors.New("Invalid Class")
 	}
 	return &powerConverterSensorPMObj, nil
 }
