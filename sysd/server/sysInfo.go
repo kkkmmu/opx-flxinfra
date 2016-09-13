@@ -49,12 +49,17 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 		}
 		svr.logger.Info("Total System Entries are", len(objList))
 		for idx := 0; idx < len(objList); idx++ {
+			if svr.SysInfo == nil {
+				svr.SysInfo = &objects.SystemParam{}
+			}
 			dbObject := objList[idx].(objects.SystemParam)
+			svr.SysInfo.Vrf = dbObject.Vrf
 			svr.SysInfo.SwitchMac = dbObject.SwitchMac
 			svr.SysInfo.MgmtIp = dbObject.MgmtIp
 			svr.SysInfo.SwVersion = dbObject.SwVersion
 			svr.SysInfo.Description = dbObject.Description
 			svr.SysInfo.Hostname = dbObject.Hostname
+			svr.logger.Info("System Information:", *svr.SysInfo)
 			break
 		}
 	}
@@ -128,7 +133,9 @@ func (svr *SYSDServer) copyAndSendSystemParam(cfg objects.SystemParam) {
 
 // Initialize system information using json file...or whatever other means are
 func (svr *SYSDServer) InitSystemInfo(cfg objects.SystemParam) {
-	svr.SysInfo = &objects.SystemParam{}
+	if svr.SysInfo == nil {
+		svr.SysInfo = &objects.SystemParam{}
+	}
 	svr.copyAndSendSystemParam(cfg)
 }
 
