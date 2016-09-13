@@ -174,7 +174,7 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 func convertSystemParamThriftToModel(cfg *sysd.SystemParam) objects.SystemParam {
 	confg := objects.SystemParam{
 		Description: cfg.Description,
-		Version:     cfg.Version,
+		SwVersion:   cfg.SwVersion,
 		MgmtIp:      cfg.MgmtIp,
 		Hostname:    cfg.Hostname,
 		SwitchMac:   cfg.SwitchMac,
@@ -260,9 +260,11 @@ func convertSystemParamStateToThrift(info objects.SystemParamState, entry *sysd.
 	entry.Vrf = string(info.Vrf)
 	entry.SwitchMac = string(info.SwitchMac)
 	entry.MgmtIp = string(info.MgmtIp)
-	entry.Version = string(info.Version)
+	entry.SwVersion = string(info.SwVersion)
 	entry.Description = string(info.Description)
 	entry.Hostname = string(info.Hostname)
+	entry.Distro = string(info.Distro)
+	entry.Kernel = string(info.Kernel)
 }
 
 func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, error) {
