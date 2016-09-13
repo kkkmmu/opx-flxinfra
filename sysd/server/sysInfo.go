@@ -23,10 +23,13 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"infra/sysd/sysdCommonDefs"
 	"models/objects"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 type SystemParamUpdate struct {
@@ -49,7 +52,7 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 			dbObject := objList[idx].(objects.SystemParam)
 			svr.SysInfo.SwitchMac = dbObject.SwitchMac
 			svr.SysInfo.MgmtIp = dbObject.MgmtIp
-			svr.SysInfo.Version = dbObject.Version
+			svr.SysInfo.SwVersion = dbObject.SwVersion
 			svr.SysInfo.Description = dbObject.Description
 			svr.SysInfo.Hostname = dbObject.Hostname
 			break
@@ -76,14 +79,45 @@ func (svr *SYSDServer) SendSystemUpdate() ([]byte, error) {
 	return notificationBuf, nil
 }
 
+func getDistro() string {
+	inFile, _ := os.Open("/etc/os-release")
+	defer inFile.Close()
+	scanner := bufio.NewScanner(inFile)
+	scanner.Split(bufio.ScanLines)
+	idStr := ""
+	idLikeStr := ""
+	versionStr := ""
+	for scanner.Scan() {
+		str := scanner.Text()
+		strs := strings.Split(str, "=")
+		switch strs[0] {
+		case "ID":
+			idStr = strs[1]
+		case "ID_LIKE":
+			idLikeStr = strs[1]
+		case "VERSION":
+			versionStr = strs[1]
+		}
+	}
+	distroStr := idStr + " " + idLikeStr + " " + versionStr
+	return distroStr
+}
+
+func getKernel() string {
+	cmd := exec.Command("uname", "-a")
+	cmdOut, _ := cmd.Output()
+	cmdOuts := strings.Split(string(cmdOut), " ")
+	return cmdOuts[2]
+}
+
 func (svr *SYSDServer) copyAndSendSystemParam(cfg objects.SystemParam) {
 	sysInfo := svr.SysInfo
+	sysInfo.Vrf = cfg.Vrf
 	sysInfo.SwitchMac = cfg.SwitchMac
 	sysInfo.MgmtIp = cfg.MgmtIp
-	sysInfo.Version = cfg.Version
+	sysInfo.SwVersion = cfg.SwVersion
 	sysInfo.Description = cfg.Description
 	sysInfo.Hostname = cfg.Hostname
-	sysInfo.Vrf = cfg.Vrf
 	svr.SendSystemUpdate()
 }
 
@@ -108,9 +142,11 @@ func (svr *SYSDServer) GetSystemParam(name string) *objects.SystemParamState {
 	sysParamsInfo.Vrf = svr.SysInfo.Vrf
 	sysParamsInfo.SwitchMac = svr.SysInfo.SwitchMac
 	sysParamsInfo.MgmtIp = svr.SysInfo.MgmtIp
-	sysParamsInfo.Version = svr.SysInfo.Version
+	sysParamsInfo.SwVersion = svr.SysInfo.SwVersion
 	sysParamsInfo.Description = svr.SysInfo.Description
 	sysParamsInfo.Hostname = svr.SysInfo.Hostname
+	sysParamsInfo.Distro = getDistro()
+	sysParamsInfo.Kernel = getKernel()
 	return sysParamsInfo
 }
 
