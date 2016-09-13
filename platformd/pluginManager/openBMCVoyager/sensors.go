@@ -281,7 +281,7 @@ func extractVoltageData(state *pluginCommon.SensorState, info interface{}) error
 
 	ent, _ = state.VoltageSensor["+3.3 VMON6"]
 	ent.Value = getVoltageValue(sensor.VMON6)
-	state.VoltageSensor["+3.3 VMON5"] = ent
+	state.VoltageSensor["+3.3 VMON6"] = ent
 
 	ent, _ = state.VoltageSensor["+1.0 VMON2"]
 	ent.Value = getVoltageValue(sensor.VMON2)
