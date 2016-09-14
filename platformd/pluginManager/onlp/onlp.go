@@ -331,6 +331,10 @@ func (driver *onlpDriver) GetQsfpState(Id int32) (retObj pluginCommon.QsfpState,
 	return retObj, nil
 }
 
+func (driver *onlpDriver) GetQsfpPMData(Id int32) (retObj pluginCommon.QsfpPMData, err error) {
+	return retObj, nil
+}
+
 func (driver *onlpDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0

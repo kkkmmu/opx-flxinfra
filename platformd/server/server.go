@@ -337,6 +337,13 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.Obj, retObj.Err = svr.getPowerConverterSensorPMState(val.Name, val.Class)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_QSFP_PM_STATE:
+		var retObj GetQsfpPMStateOutArgs
+		if val, ok := req.Data.(*GetQsfpPMStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getQsfpPMState(val.QsfpId, val.Resource, val.Class)
+		}
+		//svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_PM_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
 	case GET_PSU_STATE:
 		var retObj GetPsuStateOutArgs
 		if val, ok := req.Data.(*GetPsuStateInArgs); ok {

@@ -125,6 +125,10 @@ func (driver *dummyDriver) GetQsfpState(Id int32) (retObj pluginCommon.QsfpState
 	return retObj, nil
 }
 
+func (driver *dummyDriver) GetQsfpPMData(Id int32) (retObj pluginCommon.QsfpPMData, err error) {
+	return retObj, nil
+}
+
 func (driver *dummyDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0

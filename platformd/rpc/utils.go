@@ -380,6 +380,24 @@ func convertToRPCFmtPowerConverterSensorPMState(obj *objects.PowerConverterSenso
 
 }
 
+func convertToRPCFmtQsfpPMState(obj *objects.QsfpPMState) *platformd.QsfpPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.QsfpPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.QsfpPMData)
+		data[idx] = new(platformd.QsfpPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.QsfpPMDataState{
+		QsfpId:   obj.QsfpId,
+		Resource: obj.Resource,
+		Class:    obj.Class,
+		Data:     data,
+	}
+}
+
 func convertToRPCFmtPsuState(obj *objects.PsuState) *platformd.PsuState {
 	return &platformd.PsuState{
 		PsuId:      obj.PsuId,

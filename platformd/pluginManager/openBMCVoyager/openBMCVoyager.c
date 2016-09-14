@@ -305,3 +305,74 @@ int GetQsfpState(qsfp_info_t *info, int port) {
 	//printData(info);
 	return 0;
 }
+
+int GetQsfpPMData(qsfp_pm_info_t *pmInfo, int port) {
+	int err = 0;
+	int bit = 0;
+	qsfp_info_t *info;
+
+	err = i2cSet(0, 0x70, 0x0, 0x00);
+	if (err != 0) {
+		printf("Error in i2cset: %d\n", err);
+		return -1;
+	}	
+	err = i2cSet(0, 0x71, 0x0, 0x00);
+	if (err != 0) {
+		printf("Error in i2cset: %d\n", err);
+		return -1;
+	}
+
+	if ((port >= 1) && (port <= 8)) {
+		bit = (1 << (port - 1)) & 0xff;
+		err = i2cSet(0, 0x70, 0x0, bit);
+		if (err != 0) {
+			printf("Error in i2cset: %d\n", err);
+			return -1;
+		}	
+		err = i2cSet(0, 0x71, 0x0, 0x00);
+		if (err != 0) {
+			printf("Error in i2cset: %d\n", err);
+			return -1;
+		}
+	} else if ((port >= 9) && (port <= 16)) {
+		bit = (1 << (port - 9)) & 0xff;
+		err = i2cSet(0, 0x71, 0x0, bit);
+		if (err != 0) {
+			printf("Error in i2cset: %d\n", err);
+			return -1;
+		}	
+		err = i2cSet(0, 0x70, 0x0, 0x00);
+		if (err != 0) {
+			printf("Error in i2cset: %d\n", err);
+			return -1;
+		}
+	} else {
+		printf("Invalid Port Number");
+		return -1;
+	}
+
+
+	info = (qsfp_info_t *)malloc(sizeof(qsfp_info_t));
+	err = get_data_from_lower_memory(2, info);
+	if (err != 0) {
+		free(info);
+		return err;
+	}
+	//printData(info);
+	pmInfo->Temperature = info->Temperature;
+	pmInfo->SupplyVoltage = info->SupplyVoltage;
+	pmInfo->RX1Power = info->RX1Power;
+	pmInfo->RX2Power = info->RX2Power;
+	pmInfo->RX3Power = info->RX3Power;
+	pmInfo->RX4Power = info->RX4Power;
+	pmInfo->TX1Power = info->TX1Power;
+	pmInfo->TX2Power = info->TX2Power;
+	pmInfo->TX3Power = info->TX3Power;
+	pmInfo->TX4Power = info->TX4Power;
+	pmInfo->TX1Bias = info->TX1Bias;
+	pmInfo->TX2Bias = info->TX2Bias;
+	pmInfo->TX3Bias = info->TX3Bias;
+	pmInfo->TX4Bias = info->TX4Bias;
+	free(info);
+	return 0;
+}

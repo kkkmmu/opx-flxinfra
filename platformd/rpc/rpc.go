@@ -86,5 +86,10 @@ func (rpcHdl *rpcServiceHandler) restoreConfigFromDB() (bool, error) {
 	if !ok {
 		return ok, err
 	}
+
+	ok, err = rpcHdl.restoreQsfpConfigFromDB()
+	if !ok {
+		return ok, err
+	}
 	return true, nil
 }
