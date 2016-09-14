@@ -128,3 +128,16 @@ func (driver *openBMCVoyagerDriver) GetPsuState(psuId int32) (pluginCommon.PsuSt
 func (driver *openBMCVoyagerDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
 	return nil
 }
+
+func (driver *openBMCVoyagerDriver) GetMaxNumOfLed() int {
+	return 0
+}
+
+func (driver *openBMCVoyagerDriver) GetLedState(ledId int32) (pluginCommon.LedState, error) {
+	var retObj pluginCommon.LedState
+	return retObj, nil
+}
+
+func (driver *openBMCVoyagerDriver) GetAllLedState(states []pluginCommon.LedState, cnt int) error {
+	return nil
+}

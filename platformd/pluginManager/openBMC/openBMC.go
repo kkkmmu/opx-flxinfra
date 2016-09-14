@@ -329,3 +329,16 @@ func (driver *openBMCDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, er
 func (driver *openBMCDriver) GetAllPsuState(states []pluginCommon.PsuState, cnt int) error {
 	return nil
 }
+
+func (driver *openBMCDriver) GetMaxNumOfLed() int {
+	return 0
+}
+
+func (driver *openBMCDriver) GetLedState(ledId int32) (pluginCommon.LedState, error) {
+	var retObj pluginCommon.LedState
+	return retObj, nil
+}
+
+func (driver *openBMCDriver) GetAllLedState(states []pluginCommon.LedState, cnt int) error {
+	return nil
+}

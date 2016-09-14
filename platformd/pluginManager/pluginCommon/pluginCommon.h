@@ -150,8 +150,8 @@ typedef enum {
 
 typedef struct psu_info {
     int psu_id;
-    //char model[256];
-    //char serial[256];
+    char model[256];
+    char serial[256];
     unsigned int status;
     int mvin;
     int mvout;
@@ -160,5 +160,19 @@ typedef struct psu_info {
     int mpin;
     int mpout;
 }psu_info_t;
+
+typedef enum {
+    LED_ERROR = -1,
+    LED_OK = 0,
+    LED_MISSING = 1,
+}LED_RET;
+
+typedef struct led_info {
+    int led_id;
+    unsigned int status;
+    char color[64];
+    char description[256];
+}led_info_t;
+
 
 #endif /* PLUGINCOMMON_H */

@@ -19,4 +19,6 @@ int GetThermalState(thermal_info_t *, int);
 
 int GetPsuState(psu_info_t *, int);
 
+int GetLedState(led_info_t *, int);
+
 #endif /* ONPL_H */

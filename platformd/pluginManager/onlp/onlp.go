@@ -297,7 +297,7 @@ func (driver *onlpDriver) GetPsuState(psuId int32) (pluginCommon.PsuState, error
 	retObj.PsuId = int32(pInfo.psu_id)
 
 	if pInfo.status != 0 {
-		retObj.Status = "PSU Present"
+		retObj.Status = "PSU PRESENT"
 		retObj.VoltIn = int32(pInfo.mvin)
 		retObj.VoltOut = int32(pInfo.mvout)
 		retObj.AmpIn = int32(pInfo.miin)
@@ -338,4 +338,42 @@ func (driver *onlpDriver) GetMaxNumOfQsfp() int {
 
 func (driver *onlpDriver) GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error {
 	return errors.New("Not supported")
+}
+
+func (driver *onlpDriver) GetMaxNumOfLed() int {
+	return 12
+}
+
+func (driver *onlpDriver) GetLedState(ledId int32) (pluginCommon.LedState, error) {
+	var retObj pluginCommon.LedState
+	var ledInfo C.led_info_t
+
+	rt := int(C.GetLedState(&ledInfo, C.int(ledId)))
+	if rt < 0 {
+		return retObj, errors.New(fmt.Sprintln("Unable to fetch Led state of", ledId))
+	}
+
+	retObj.LedId = int32(ledInfo.led_id)
+
+	if ledInfo.status != 0 {
+		retObj.LedState = "LED PRESENT"
+		retObj.LedIdentify = C.GoString(&ledInfo.description[0])
+		retObj.LedColor = C.GoString(&ledInfo.color[0])
+	} else {
+		retObj.LedState = "LED NOT PRESENT"
+	}
+
+	return retObj, nil
+}
+
+func (driver *onlpDriver) GetAllLedState(states []pluginCommon.LedState, cnt int) error {
+
+	if cnt > driver.GetMaxNumOfLed() {
+		return errors.New("Error GetAllLedState Invalid Count")
+	}
+
+	for idx := 0; idx < cnt; idx++ {
+		states[idx], _ = driver.GetLedState(int32(idx))
+	}
+	return nil
 }
