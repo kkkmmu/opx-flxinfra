@@ -28,8 +28,10 @@ import (
 	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"models/events"
 	"sync"
 	"time"
+	"utils/eventUtils"
 	"utils/logging"
 	"utils/ringBuffer"
 )
@@ -109,6 +111,19 @@ const (
 	MaxNumRes      uint8 = 14 // Should be always last
 )
 
+type QsfpEventStatus [MaxNumRes]EventStatus
+
+type QsfpEventData struct {
+	Value    float64
+	Resource string
+}
+
+type QsfpEvent struct {
+	EventId    events.EventId
+	EventData  QsfpEventData
+	ChannelNum uint8
+}
+
 func getQsfpResourcId(res string) (uint8, error) {
 	switch res {
 	case "Temperature":
@@ -146,20 +161,22 @@ func getQsfpResourcId(res string) (uint8, error) {
 }
 
 type QsfpManager struct {
-	logger        logging.LoggerIntf
-	plugin        PluginIntf
-	configMutex   sync.RWMutex
-	stateMutex    sync.RWMutex
-	configDB      []QsfpConfig
-	classAPMTimer *time.Timer
-	classAMutex   sync.RWMutex
-	classAPM      []map[uint8]*ringBuffer.RingBuffer
-	classBPMTimer *time.Timer
-	classBMutex   sync.RWMutex
-	classBPM      []map[uint8]*ringBuffer.RingBuffer
-	classCPMTimer *time.Timer
-	classCMutex   sync.RWMutex
-	classCPM      []map[uint8]*ringBuffer.RingBuffer
+	logger         logging.LoggerIntf
+	plugin         PluginIntf
+	configMutex    sync.RWMutex
+	stateMutex     sync.RWMutex
+	configDB       []QsfpConfig
+	classAPMTimer  *time.Timer
+	classAMutex    sync.RWMutex
+	classAPM       []map[uint8]*ringBuffer.RingBuffer
+	classBPMTimer  *time.Timer
+	classBMutex    sync.RWMutex
+	classBPM       []map[uint8]*ringBuffer.RingBuffer
+	classCPMTimer  *time.Timer
+	classCMutex    sync.RWMutex
+	classCPM       []map[uint8]*ringBuffer.RingBuffer
+	eventMsgStatus []QsfpEventStatus
+	qsfpStatus     []bool
 }
 
 var QsfpMgr QsfpManager
@@ -172,6 +189,8 @@ func (qMgr *QsfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	qMgr.classAPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
 	qMgr.classBPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
 	qMgr.classCPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
+	qMgr.eventMsgStatus = make([]QsfpEventStatus, numOfQsfps)
+	qMgr.qsfpStatus = make([]bool, numOfQsfps)
 	for idx := 0; idx < numOfQsfps; idx++ {
 		qMgr.classAPM[idx] = make(map[uint8]*ringBuffer.RingBuffer)
 		qMgr.classBPM[idx] = make(map[uint8]*ringBuffer.RingBuffer)
@@ -182,7 +201,7 @@ func (qMgr *QsfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	qMgr.configDB = make([]QsfpConfig, numOfQsfps)
 	for id := 0; id < numOfQsfps; id++ {
 		qsfpCfgEnt := qMgr.configDB[id]
-		qsfpCfgEnt.AdminState = "Enable"
+		qsfpCfgEnt.AdminState = "Disable"
 		qsfpCfgEnt.HigherAlarmTemperature = 100.0
 		qsfpCfgEnt.HigherAlarmVoltage = 10.0
 		qsfpCfgEnt.HigherAlarmRXPower = 100.0
@@ -440,6 +459,7 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 		return false, errors.New("Invalid Qsfp Id")
 	}
 	qMgr.configMutex.Lock()
+	var cfgEnt QsfpConfig
 	qsfpCfgEnt := qMgr.configDB[newCfg.QsfpId-1]
 	mask := genQsfpUpdateMask(attrset)
 	if mask&objects.QSFP_UPDATE_ADMIN_STATE == objects.QSFP_UPDATE_ADMIN_STATE {
@@ -448,68 +468,158 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 			return false, errors.New("Invalid AdminState Value")
 		}
 
-		qsfpCfgEnt.AdminState = newCfg.AdminState
+		cfgEnt.AdminState = newCfg.AdminState
+	} else {
+		cfgEnt.AdminState = qsfpCfgEnt.AdminState
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE == objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE {
-		qsfpCfgEnt.HigherAlarmTemperature = newCfg.HigherAlarmTemperature
+		cfgEnt.HigherAlarmTemperature = newCfg.HigherAlarmTemperature
+	} else {
+		cfgEnt.HigherAlarmTemperature = qsfpCfgEnt.HigherAlarmTemperature
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE == objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE {
-		qsfpCfgEnt.HigherAlarmVoltage = newCfg.HigherAlarmVoltage
+		cfgEnt.HigherAlarmVoltage = newCfg.HigherAlarmVoltage
+	} else {
+		cfgEnt.HigherAlarmVoltage = qsfpCfgEnt.HigherAlarmVoltage
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER {
-		qsfpCfgEnt.HigherAlarmRXPower = newCfg.HigherAlarmRXPower
+		cfgEnt.HigherAlarmRXPower = newCfg.HigherAlarmRXPower
+	} else {
+		cfgEnt.HigherAlarmRXPower = qsfpCfgEnt.HigherAlarmRXPower
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER {
-		qsfpCfgEnt.HigherAlarmTXPower = newCfg.HigherAlarmTXPower
+		cfgEnt.HigherAlarmTXPower = newCfg.HigherAlarmTXPower
+	} else {
+		cfgEnt.HigherAlarmTXPower = qsfpCfgEnt.HigherAlarmTXPower
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS == objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS {
-		qsfpCfgEnt.HigherAlarmTXBias = newCfg.HigherAlarmTXBias
+		cfgEnt.HigherAlarmTXBias = newCfg.HigherAlarmTXBias
+	} else {
+		cfgEnt.HigherAlarmTXBias = qsfpCfgEnt.HigherAlarmTXBias
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE == objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE {
-		qsfpCfgEnt.HigherWarningTemperature = newCfg.HigherWarningTemperature
+		cfgEnt.HigherWarningTemperature = newCfg.HigherWarningTemperature
+	} else {
+		cfgEnt.HigherWarningTemperature = qsfpCfgEnt.HigherWarningTemperature
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE == objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE {
-		qsfpCfgEnt.HigherWarningVoltage = newCfg.HigherWarningVoltage
+		cfgEnt.HigherWarningVoltage = newCfg.HigherWarningVoltage
+	} else {
+		cfgEnt.HigherWarningVoltage = qsfpCfgEnt.HigherWarningVoltage
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER {
-		qsfpCfgEnt.HigherWarningRXPower = newCfg.HigherWarningRXPower
+		cfgEnt.HigherWarningRXPower = newCfg.HigherWarningRXPower
+	} else {
+		cfgEnt.HigherWarningRXPower = qsfpCfgEnt.HigherWarningRXPower
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER {
-		qsfpCfgEnt.HigherWarningTXPower = newCfg.HigherWarningTXPower
+		cfgEnt.HigherWarningTXPower = newCfg.HigherWarningTXPower
+	} else {
+		cfgEnt.HigherWarningTXPower = qsfpCfgEnt.HigherWarningTXPower
 	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS == objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS {
-		qsfpCfgEnt.HigherWarningTXBias = newCfg.HigherWarningTXBias
+		cfgEnt.HigherWarningTXBias = newCfg.HigherWarningTXBias
+	} else {
+		cfgEnt.HigherWarningTXBias = qsfpCfgEnt.HigherWarningTXBias
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE == objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE {
-		qsfpCfgEnt.LowerAlarmTemperature = newCfg.LowerAlarmTemperature
+		cfgEnt.LowerAlarmTemperature = newCfg.LowerAlarmTemperature
+	} else {
+		cfgEnt.LowerAlarmTemperature = qsfpCfgEnt.LowerAlarmTemperature
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE == objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE {
-		qsfpCfgEnt.LowerAlarmVoltage = newCfg.LowerAlarmVoltage
+		cfgEnt.LowerAlarmVoltage = newCfg.LowerAlarmVoltage
+	} else {
+		cfgEnt.LowerAlarmVoltage = qsfpCfgEnt.LowerAlarmVoltage
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER {
-		qsfpCfgEnt.LowerAlarmRXPower = newCfg.LowerAlarmRXPower
+		cfgEnt.LowerAlarmRXPower = newCfg.LowerAlarmRXPower
+	} else {
+		cfgEnt.LowerAlarmRXPower = qsfpCfgEnt.LowerAlarmRXPower
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER {
-		qsfpCfgEnt.LowerAlarmTXPower = newCfg.LowerAlarmTXPower
+		cfgEnt.LowerAlarmTXPower = newCfg.LowerAlarmTXPower
+	} else {
+		cfgEnt.LowerAlarmTXPower = qsfpCfgEnt.LowerAlarmTXPower
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS == objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS {
-		qsfpCfgEnt.LowerAlarmTXBias = newCfg.LowerAlarmTXBias
+		cfgEnt.LowerAlarmTXBias = newCfg.LowerAlarmTXBias
+	} else {
+		cfgEnt.LowerAlarmTXBias = qsfpCfgEnt.LowerAlarmTXBias
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE == objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE {
-		qsfpCfgEnt.LowerWarningTemperature = newCfg.LowerWarningTemperature
+		cfgEnt.LowerWarningTemperature = newCfg.LowerWarningTemperature
+	} else {
+		cfgEnt.LowerWarningTemperature = qsfpCfgEnt.LowerWarningTemperature
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE == objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE {
-		qsfpCfgEnt.LowerWarningVoltage = newCfg.LowerWarningVoltage
+		cfgEnt.LowerWarningVoltage = newCfg.LowerWarningVoltage
+	} else {
+		cfgEnt.LowerWarningVoltage = qsfpCfgEnt.LowerWarningVoltage
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_RX_POWER == objects.QSFP_UPDATE_LOWER_WARN_RX_POWER {
-		qsfpCfgEnt.LowerWarningRXPower = newCfg.LowerWarningRXPower
+		cfgEnt.LowerWarningRXPower = newCfg.LowerWarningRXPower
+	} else {
+		cfgEnt.LowerWarningRXPower = qsfpCfgEnt.LowerWarningRXPower
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_POWER == objects.QSFP_UPDATE_LOWER_WARN_TX_POWER {
-		qsfpCfgEnt.LowerWarningTXPower = newCfg.LowerWarningTXPower
+		cfgEnt.LowerWarningTXPower = newCfg.LowerWarningTXPower
+	} else {
+		cfgEnt.LowerWarningTXPower = qsfpCfgEnt.LowerWarningTXPower
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS == objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS {
-		qsfpCfgEnt.LowerWarningTXBias = newCfg.LowerWarningTXBias
+		cfgEnt.LowerWarningTXBias = newCfg.LowerWarningTXBias
+	} else {
+		cfgEnt.LowerWarningTXBias = qsfpCfgEnt.LowerWarningTXBias
 	}
+
+	if !(cfgEnt.HigherAlarmTemperature >= cfgEnt.HigherWarningTemperature &&
+		cfgEnt.HigherWarningTemperature > cfgEnt.LowerWarningTemperature &&
+		cfgEnt.LowerWarningTemperature >= cfgEnt.LowerAlarmTemperature) {
+		qMgr.configMutex.Unlock()
+		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if !(cfgEnt.HigherAlarmVoltage >= cfgEnt.HigherWarningVoltage &&
+		cfgEnt.HigherWarningVoltage > cfgEnt.LowerWarningVoltage &&
+		cfgEnt.LowerWarningVoltage >= cfgEnt.LowerAlarmVoltage) {
+		qMgr.configMutex.Unlock()
+		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if !(cfgEnt.HigherAlarmRXPower >= cfgEnt.HigherWarningRXPower &&
+		cfgEnt.HigherWarningRXPower > cfgEnt.LowerWarningRXPower &&
+		cfgEnt.LowerWarningRXPower >= cfgEnt.LowerAlarmRXPower) {
+		qMgr.configMutex.Unlock()
+		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if !(cfgEnt.HigherAlarmTXPower >= cfgEnt.HigherWarningTXPower &&
+		cfgEnt.HigherWarningTXPower > cfgEnt.LowerWarningTXPower &&
+		cfgEnt.LowerWarningTXPower >= cfgEnt.LowerAlarmTXPower) {
+		qMgr.configMutex.Unlock()
+		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if !(cfgEnt.HigherAlarmTXBias >= cfgEnt.HigherWarningTXBias &&
+		cfgEnt.HigherWarningTXBias > cfgEnt.LowerWarningTXBias &&
+		cfgEnt.LowerWarningTXBias >= cfgEnt.LowerAlarmTXBias) {
+		qMgr.configMutex.Unlock()
+		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if qsfpCfgEnt.AdminState != cfgEnt.AdminState {
+		qMgr.stateMutex.Lock()
+		switch cfgEnt.AdminState {
+		case "Enable":
+			qMgr.qsfpStatus[newCfg.QsfpId-1] = true
+		case "Disable":
+			//Clear all the existing Faults
+		}
+		qMgr.stateMutex.Unlock()
+	}
+	qMgr.configDB[newCfg.QsfpId-1] = cfgEnt
+
 	qMgr.configMutex.Unlock()
 
 	return true, nil
@@ -596,8 +706,400 @@ func getPMData(data *pluginCommon.QsfpPMData, resId uint8) (objects.QsfpPMData, 
 	return qsfpPMData, nil
 }
 
+func getCurrentEventStatus(pmData *pluginCommon.QsfpPMData, qsfpCfgEnt QsfpConfig) QsfpEventStatus {
+	var curEventStatus QsfpEventStatus
+	var data float64
+	var highAlarmData float64
+	var highWarnData float64
+	var lowWarnData float64
+	var lowAlarmData float64
+	for idx := 0; idx < int(MaxNumRes); idx++ {
+		resId := uint8(idx)
+		switch resId {
+		case TemperatureRes:
+			data = pmData.Temperature
+			highAlarmData = qsfpCfgEnt.HigherAlarmTemperature
+			highWarnData = qsfpCfgEnt.HigherWarningTemperature
+			lowWarnData = qsfpCfgEnt.LowerWarningTemperature
+			lowAlarmData = qsfpCfgEnt.LowerAlarmTemperature
+		case VoltageRes:
+			data = pmData.Voltage
+			highAlarmData = qsfpCfgEnt.HigherAlarmVoltage
+			highWarnData = qsfpCfgEnt.HigherWarningVoltage
+			lowWarnData = qsfpCfgEnt.LowerWarningVoltage
+			lowAlarmData = qsfpCfgEnt.LowerAlarmVoltage
+		case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+			switch resId {
+			case RX1PowerRes:
+				data = pmData.RX1Power
+			case RX2PowerRes:
+				data = pmData.RX2Power
+			case RX3PowerRes:
+				data = pmData.RX3Power
+			case RX4PowerRes:
+				data = pmData.RX4Power
+			}
+			highAlarmData = qsfpCfgEnt.HigherAlarmRXPower
+			highWarnData = qsfpCfgEnt.HigherWarningRXPower
+			lowWarnData = qsfpCfgEnt.LowerWarningRXPower
+			lowAlarmData = qsfpCfgEnt.LowerAlarmRXPower
+		case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+			switch resId {
+			case TX1PowerRes:
+				data = pmData.TX1Power
+			case TX2PowerRes:
+				data = pmData.TX2Power
+			case TX3PowerRes:
+				data = pmData.TX3Power
+			case TX4PowerRes:
+				data = pmData.TX4Power
+			}
+			highAlarmData = qsfpCfgEnt.HigherAlarmTXPower
+			highWarnData = qsfpCfgEnt.HigherWarningTXPower
+			lowWarnData = qsfpCfgEnt.LowerWarningTXPower
+			lowAlarmData = qsfpCfgEnt.LowerAlarmTXPower
+		case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+			switch resId {
+			case TX1BiasRes:
+				data = pmData.TX1Bias
+			case TX2BiasRes:
+				data = pmData.TX2Bias
+			case TX3BiasRes:
+				data = pmData.TX3Bias
+			case TX4BiasRes:
+				data = pmData.TX4Bias
+			}
+			highAlarmData = qsfpCfgEnt.HigherAlarmTXBias
+			highWarnData = qsfpCfgEnt.HigherWarningTXBias
+			lowWarnData = qsfpCfgEnt.LowerWarningTXBias
+			lowAlarmData = qsfpCfgEnt.LowerAlarmTXBias
+		}
+		if data >= highAlarmData {
+			curEventStatus[idx].SentHigherAlarm = true
+		}
+		if data >= highWarnData {
+			curEventStatus[idx].SentHigherWarn = true
+		}
+		if data <= lowAlarmData {
+			curEventStatus[idx].SentLowerAlarm = true
+		}
+		if data <= lowWarnData {
+			curEventStatus[idx].SentLowerWarn = true
+		}
+	}
+	return curEventStatus
+}
+
+func getQsfpHigherAlarmEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
+	var evt QsfpEvent
+	resId := uint8(idx)
+	if prevEventStatus[idx].SentHigherAlarm != curEventStatus[idx].SentHigherAlarm {
+		if curEventStatus[idx].SentHigherAlarm == true {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureHigherTCAAlarm
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageHigherTCAAlarm
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerHigherTCAAlarm
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerHigherTCAAlarm
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasHigherTCAAlarm
+			}
+		} else {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureHigherTCAAlarmClear
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageHigherTCAAlarmClear
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerHigherTCAAlarmClear
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerHigherTCAAlarmClear
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasHigherTCAAlarmClear
+			}
+		}
+		switch resId {
+		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
+			evt.ChannelNum = 1
+		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
+			evt.ChannelNum = 2
+		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
+			evt.ChannelNum = 3
+		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
+			evt.ChannelNum = 4
+		}
+		return evt, nil
+	}
+	return evt, errors.New("No Event")
+}
+
+func getQsfpHigherWarnEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
+	var evt QsfpEvent
+	resId := uint8(idx)
+	if prevEventStatus[idx].SentHigherWarn != curEventStatus[idx].SentHigherWarn {
+		if curEventStatus[idx].SentHigherWarn == true {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureHigherTCAWarn
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageHigherTCAWarn
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerHigherTCAWarn
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerHigherTCAWarn
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasHigherTCAWarn
+			}
+		} else {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureHigherTCAWarnClear
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageHigherTCAWarnClear
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerHigherTCAWarnClear
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerHigherTCAWarnClear
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasHigherTCAWarnClear
+			}
+		}
+		switch resId {
+		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
+			evt.ChannelNum = 1
+		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
+			evt.ChannelNum = 2
+		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
+			evt.ChannelNum = 3
+		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
+			evt.ChannelNum = 4
+		}
+		return evt, nil
+	}
+	return evt, errors.New("No Event")
+}
+
+func getQsfpLowerAlarmEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
+	var evt QsfpEvent
+	resId := uint8(idx)
+	if prevEventStatus[idx].SentLowerAlarm != curEventStatus[idx].SentLowerAlarm {
+		if curEventStatus[idx].SentLowerAlarm == true {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureLowerTCAAlarm
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageLowerTCAAlarm
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerLowerTCAAlarm
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerLowerTCAAlarm
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasLowerTCAAlarm
+			}
+		} else {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureLowerTCAAlarmClear
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageLowerTCAAlarmClear
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerLowerTCAAlarmClear
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerLowerTCAAlarmClear
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasLowerTCAAlarmClear
+			}
+		}
+		switch resId {
+		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
+			evt.ChannelNum = 1
+		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
+			evt.ChannelNum = 2
+		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
+			evt.ChannelNum = 3
+		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
+			evt.ChannelNum = 4
+		}
+		return evt, nil
+	}
+	return evt, errors.New("No Event")
+}
+
+func getQsfpLowerWarnEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
+	var evt QsfpEvent
+	resId := uint8(idx)
+	if prevEventStatus[idx].SentLowerWarn != curEventStatus[idx].SentLowerWarn {
+		if curEventStatus[idx].SentLowerWarn == true {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureLowerTCAWarn
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageLowerTCAWarn
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerLowerTCAWarn
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerLowerTCAWarn
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasLowerTCAWarn
+			}
+		} else {
+			switch resId {
+			case TemperatureRes:
+				evt.EventId = events.QsfpTemperatureLowerTCAWarnClear
+			case VoltageRes:
+				evt.EventId = events.QsfpVoltageLowerTCAWarnClear
+			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
+				evt.EventId = events.QsfpRXPowerLowerTCAWarnClear
+			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
+				evt.EventId = events.QsfpTXPowerLowerTCAWarnClear
+			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
+				evt.EventId = events.QsfpTXBiasLowerTCAWarnClear
+			}
+		}
+		switch resId {
+		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
+			evt.ChannelNum = 1
+		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
+			evt.ChannelNum = 2
+		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
+			evt.ChannelNum = 3
+		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
+			evt.ChannelNum = 4
+		}
+		return evt, nil
+	}
+	return evt, errors.New("No Event")
+}
+
+func getListofQsfpEvent(prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) []QsfpEvent {
+	var evts []QsfpEvent
+	for idx := 0; idx < int(MaxNumRes); idx++ {
+		evt, err := getQsfpHigherAlarmEvent(idx, prevEventStatus, curEventStatus)
+		if err == nil {
+			evts = append(evts, evt)
+		}
+		evt, err = getQsfpHigherWarnEvent(idx, prevEventStatus, curEventStatus)
+		if err == nil {
+			evts = append(evts, evt)
+		}
+		evt, err = getQsfpLowerAlarmEvent(idx, prevEventStatus, curEventStatus)
+		if err == nil {
+			evts = append(evts, evt)
+		}
+		evt, err = getQsfpLowerWarnEvent(idx, prevEventStatus, curEventStatus)
+		if err == nil {
+			evts = append(evts, evt)
+		}
+	}
+	return evts
+}
+
+func (qMgr *QsfpManager) publishQsfpEvents(qsfpId int32, data *pluginCommon.QsfpPMData, evts []QsfpEvent) {
+	eventKey := events.QsfpKey{
+		QsfpId: qsfpId,
+	}
+	txEvent := eventUtils.TxEvent{
+		Key:            eventKey,
+		AdditionalInfo: "",
+	}
+
+	for _, evt := range evts {
+		txEvent.EventId = evt.EventId
+		switch evt.EventId {
+		case events.QsfpTemperatureHigherTCAAlarm,
+			events.QsfpTemperatureHigherTCAWarn,
+			events.QsfpTemperatureLowerTCAAlarm,
+			events.QsfpTemperatureLowerTCAWarn:
+			evt.EventData.Resource = "Temperature"
+			evt.EventData.Value = data.Temperature
+		case events.QsfpVoltageHigherTCAAlarm,
+			events.QsfpVoltageHigherTCAWarn,
+			events.QsfpVoltageLowerTCAAlarm,
+			events.QsfpVoltageLowerTCAWarn:
+			evt.EventData.Resource = "Voltage"
+			evt.EventData.Value = data.Voltage
+		case events.QsfpRXPowerHigherTCAAlarm,
+			events.QsfpRXPowerHigherTCAWarn,
+			events.QsfpRXPowerLowerTCAAlarm,
+			events.QsfpRXPowerLowerTCAWarn:
+			switch evt.ChannelNum {
+			case 1:
+				evt.EventData.Resource = "RX1Power"
+				evt.EventData.Value = data.RX1Power
+			case 2:
+				evt.EventData.Resource = "RX2Power"
+				evt.EventData.Value = data.RX2Power
+			case 3:
+				evt.EventData.Resource = "RX3Power"
+				evt.EventData.Value = data.RX3Power
+			case 4:
+				evt.EventData.Resource = "RX4Power"
+				evt.EventData.Value = data.RX4Power
+			}
+		case events.QsfpTXPowerHigherTCAAlarm,
+			events.QsfpTXPowerHigherTCAWarn,
+			events.QsfpTXPowerLowerTCAAlarm,
+			events.QsfpTXPowerLowerTCAWarn:
+			switch evt.ChannelNum {
+			case 1:
+				evt.EventData.Resource = "TX1Power"
+				evt.EventData.Value = data.TX1Power
+			case 2:
+				evt.EventData.Resource = "TX2Power"
+				evt.EventData.Value = data.TX2Power
+			case 3:
+				evt.EventData.Resource = "TX3Power"
+				evt.EventData.Value = data.TX3Power
+			case 4:
+				evt.EventData.Resource = "TX4Power"
+				evt.EventData.Value = data.TX4Power
+			}
+		case events.QsfpTXBiasHigherTCAAlarm,
+			events.QsfpTXBiasHigherTCAWarn,
+			events.QsfpTXBiasLowerTCAAlarm,
+			events.QsfpTXBiasLowerTCAWarn:
+			switch evt.ChannelNum {
+			case 1:
+				evt.EventData.Resource = "TX1Bias"
+				evt.EventData.Value = data.TX1Bias
+			case 2:
+				evt.EventData.Resource = "TX2Bias"
+				evt.EventData.Value = data.TX2Bias
+			case 3:
+				evt.EventData.Resource = "TX3Bias"
+				evt.EventData.Value = data.TX3Bias
+			case 4:
+				evt.EventData.Resource = "TX4Bias"
+				evt.EventData.Value = data.TX4Bias
+			}
+		}
+		txEvent.AdditionalData = evt.EventData
+		txEvt := txEvent
+		err := eventUtils.PublishEvents(&txEvt)
+		if err != nil {
+			qMgr.logger.Err("Error publishing event:", txEvt)
+		}
+	}
+}
+
+func (qMgr *QsfpManager) processQsfpEvents(data *pluginCommon.QsfpPMData, qsfpId int32) {
+	qsfpCfgEnt := qMgr.configDB[qsfpId-1]
+
+	var evts []QsfpEvent
+	prevEventStatus := qMgr.eventMsgStatus[qsfpId-1]
+	curEventStatus := getCurrentEventStatus(data, qsfpCfgEnt)
+	evts = append(evts, getListofQsfpEvent(prevEventStatus, curEventStatus)...)
+	if prevEventStatus != curEventStatus {
+		qMgr.eventMsgStatus[qsfpId-1] = curEventStatus
+	}
+	qMgr.publishQsfpEvents(qsfpId, data, evts)
+}
+
 func (qMgr *QsfpManager) ProcessQsfpPMData(data *pluginCommon.QsfpPMData, qsfpId int32, class string) {
-	//qsfpCfgEnt := qMgr.configDB[qsfpId]
+	qMgr.processQsfpEvents(data, qsfpId)
 	switch class {
 	case "Class-A":
 		qMgr.classAMutex.Lock()
@@ -640,13 +1142,27 @@ func (qMgr *QsfpManager) ProcessQsfpPMData(data *pluginCommon.QsfpPMData, qsfpId
 
 func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
 	qMgr.stateMutex.Lock()
+	qMgr.configMutex.RLock()
 	for idx := 0; idx < len(qMgr.configDB); idx++ {
 		qsfpId := int32(idx + 1)
-		qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
-		if err == nil {
-			qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
+		qsfpCfgEnt := qMgr.configDB[idx]
+		if qsfpCfgEnt.AdminState == "Enable" {
+			qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
+			if err == nil {
+				if qMgr.qsfpStatus[idx] == false {
+					qMgr.qsfpStatus[idx] = true
+					// Raise Qsfp Present Event
+				}
+				qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
+			} else {
+				if qMgr.qsfpStatus[idx] == true {
+					qMgr.qsfpStatus[idx] = false
+					// Raise Qsfp Missing Event
+				}
+			}
 		}
 	}
+	qMgr.configMutex.RUnlock()
 	qMgr.stateMutex.Unlock()
 	switch class {
 	case "Class-A":
@@ -659,9 +1175,16 @@ func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
 				if qsfpCfgEnt.AdminState == "Enable" {
 					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
 					if err == nil {
+						if qMgr.qsfpStatus[idx] == false {
+							qMgr.qsfpStatus[idx] = true
+							// Raise Qsfp Present Event
+						}
 						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 					} else {
-						// Raise Alarm
+						if qMgr.qsfpStatus[idx] == true {
+							qMgr.qsfpStatus[idx] = false
+							// Raise Qsfp Missing Event
+						}
 					}
 				}
 			}
@@ -680,9 +1203,16 @@ func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
 				if qsfpCfgEnt.AdminState == "Enable" {
 					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
 					if err == nil {
+						if qMgr.qsfpStatus[idx] == false {
+							qMgr.qsfpStatus[idx] = true
+							// Raise Qsfp Present Event
+						}
 						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 					} else {
-						// Raise Alarm
+						if qMgr.qsfpStatus[idx] == true {
+							qMgr.qsfpStatus[idx] = false
+							// Raise Qsfp Missing Event
+						}
 					}
 				}
 			}
@@ -701,9 +1231,16 @@ func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
 				if qsfpCfgEnt.AdminState == "Enable" {
 					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
 					if err == nil {
+						if qMgr.qsfpStatus[idx] == false {
+							qMgr.qsfpStatus[idx] = true
+							// Raise Qsfp Present Event
+						}
 						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 					} else {
-						// Raise Alarm
+						if qMgr.qsfpStatus[idx] == true {
+							qMgr.qsfpStatus[idx] = false
+							// Raise Qsfp Missing Event
+						}
 					}
 				}
 			}
