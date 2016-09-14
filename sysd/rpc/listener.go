@@ -241,6 +241,7 @@ func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemP
 	}
 	entriesUpdated, err := h.validatUpdateSystemParam(new, attrset)
 	if err != nil {
+		h.logger.Err("Failed to update system params:", err)
 		return false, err
 	}
 	cfg := convertSystemParamThriftToModel(new)
@@ -249,6 +250,7 @@ func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemP
 		NewCfg:         &cfg,
 	}
 	h.server.SysUpdCh <- &updInfo
+	h.logger.Info("Returning true from update system param information")
 	return true, nil
 }
 

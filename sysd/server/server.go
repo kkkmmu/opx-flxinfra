@@ -216,7 +216,7 @@ func (server *SYSDServer) StartServer() {
 	go server.PublishSysdNotifications()
 	// Start watchdog routine
 	go server.StartWDRoutine()
-
+	server.ReadSystemInfoFromDB()
 	server.ServerStartedCh <- true
 	// Now, wait on below channels to process
 	for {
