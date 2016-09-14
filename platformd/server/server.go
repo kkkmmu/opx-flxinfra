@@ -158,7 +158,6 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 		}
 		svr.Logger.Info(fmt.Sprintln("Server GET BULK GET_PLATFORM_STATE request replying -", retObj))
 		svr.ReplyChan <- interface{}(&retObj)
-		svr.ReplyChan <- interface{}(&retObj)
 	case GET_THERMAL_STATE:
 		var retObj GetThermalStateOutArgs
 		if val, ok := req.Data.(*GetThermalStateInArgs); ok {
