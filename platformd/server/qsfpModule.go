@@ -46,3 +46,8 @@ func (svr *PlatformdServer) updateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg 
 	ret, err := svr.pluginMgr.UpdateQsfpConfig(oldCfg, newCfg, attrset)
 	return ret, err
 }
+
+func (svr *PlatformdServer) getQsfpPMState(QsfpId int32, Resource string, Class string) (*objects.QsfpPMState, error) {
+	retObj, err := svr.pluginMgr.GetQsfpPMState(QsfpId, Resource, Class)
+	return retObj, err
+}

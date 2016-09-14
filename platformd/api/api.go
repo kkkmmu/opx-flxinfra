@@ -609,7 +609,8 @@ func GetFanSensorPMDataState(name string, class string) (*objects.FanSensorPMSta
 	if retObj, ok := ret.(*server.GetFanSensorPMStateOutArgs); ok {
 		return retObj.Obj, retObj.Err
 	} else {
-		return nil, errors.New("Error: Invalid response received from server during GetFanSensorState")
+		return nil, errors.New("Error: Invalid response received from server during GetFanSensorPMDataState")
+
 	}
 }
 
@@ -630,7 +631,7 @@ func GetTempSensorPMDataState(name string, class string) (*objects.TemperatureSe
 	if retObj, ok := ret.(*server.GetTempSensorPMStateOutArgs); ok {
 		return retObj.Obj, retObj.Err
 	} else {
-		return nil, errors.New("Error: Invalid response received from server during GetTempSensorState")
+		return nil, errors.New("Error: Invalid response received from server during GetTempSensorPMDataState")
 	}
 }
 
@@ -651,7 +652,7 @@ func GetVoltageSensorPMDataState(name string, class string) (*objects.VoltageSen
 	if retObj, ok := ret.(*server.GetVoltageSensorPMStateOutArgs); ok {
 		return retObj.Obj, retObj.Err
 	} else {
-		return nil, errors.New("Error: Invalid response received from server during GetVoltageSensorState")
+		return nil, errors.New("Error: Invalid response received from server during GetVoltageSensorPMDataState")
 	}
 }
 
@@ -672,7 +673,29 @@ func GetPowerConverterSensorPMDataState(name string, class string) (*objects.Pow
 	if retObj, ok := ret.(*server.GetPowerConverterSensorPMStateOutArgs); ok {
 		return retObj.Obj, retObj.Err
 	} else {
-		return nil, errors.New("Error: Invalid response received from server during GetPowerConverterSensorState")
+		return nil, errors.New("Error: Invalid response received from server during GetPowerConverterSensorPMDataState")
+	}
+}
+
+func GetQsfpPMDataState(qsfpId int32, resource string, class string) (*objects.QsfpPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_QSFP_PM_STATE,
+		Data: interface{}(&server.GetQsfpPMStateInArgs{
+			QsfpId:   qsfpId,
+			Resource: resource,
+			Class:    class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetQsfpPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetQsfpPMDataState")
 	}
 }
 

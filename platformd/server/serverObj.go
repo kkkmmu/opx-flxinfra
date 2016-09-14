@@ -73,6 +73,7 @@ const (
 	GET_BULK_QSFP_STATE
 	GET_BULK_QSFP_CONFIG
 	UPDATE_QSFP_CONFIG
+	GET_QSFP_PM_STATE
 	GET_PLATFORM_MGMT_DEVICE_STATE
 	GET_BULK_PLATFORM_MGMT_DEVICE_STATE
 	GET_LED_STATE
@@ -313,6 +314,17 @@ type UpdateQsfpConfigInArgs struct {
 	QsfpOldCfg *objects.QsfpConfig
 	QsfpNewCfg *objects.QsfpConfig
 	AttrSet    []bool
+}
+
+type GetQsfpPMStateInArgs struct {
+	QsfpId   int32
+	Resource string
+	Class    string
+}
+
+type GetQsfpPMStateOutArgs struct {
+	Obj *objects.QsfpPMState
+	Err error
 }
 
 type GetPlatformMgmtDeviceStateInArgs struct {

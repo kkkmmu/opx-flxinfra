@@ -86,12 +86,12 @@ type PowerConverterSensorEventData struct {
 }
 
 const (
-	classAInterval time.Duration = time.Duration(10) * time.Second // Polling Interval 10 sec
-	classABufSize  int           = 6 * 60 * 24                     //Storage for 24 hrs
-	classBInterval time.Duration = time.Duration(15) * time.Minute // Polling Interval 15 mins
-	classBBufSize  int           = 4 * 24                          // Storage for 24 hrs
-	classCInterval time.Duration = time.Duration(24) * time.Hour   // Polling Interval 24 Hrs
-	classCBufSize  int           = 365                             // Storage for 365 days
+	sensorClassAInterval time.Duration = time.Duration(10) * time.Second // Polling Interval 10 sec
+	sensorClassABufSize  int           = 6 * 60 * 24                     //Storage for 24 hrs
+	sensorClassBInterval time.Duration = time.Duration(15) * time.Minute // Polling Interval 15 mins
+	sensorClassBBufSize  int           = 4 * 24                          // Storage for 24 hrs
+	sensorClassCInterval time.Duration = time.Duration(24) * time.Hour   // Polling Interval 24 Hrs
+	sensorClassCBufSize  int           = 365                             // Storage for 365 days
 )
 
 type EventStatus struct {
@@ -958,36 +958,36 @@ func (sMgr *SensorManager) UpdatePowerConverterSensorConfig(oldCfg *objects.Powe
 func (sMgr *SensorManager) InitSensorPM() {
 	for fanSensorName, _ := range sMgr.fanConfigDB {
 		sMgr.fanSensorClassAPM[fanSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.fanSensorClassAPM[fanSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.fanSensorClassAPM[fanSensorName].SetRingBufferCapacity(sensorClassABufSize)
 		sMgr.fanSensorClassBPM[fanSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.fanSensorClassBPM[fanSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.fanSensorClassBPM[fanSensorName].SetRingBufferCapacity(sensorClassBBufSize)
 		sMgr.fanSensorClassCPM[fanSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.fanSensorClassCPM[fanSensorName].SetRingBufferCapacity(classCBufSize)
+		sMgr.fanSensorClassCPM[fanSensorName].SetRingBufferCapacity(sensorClassCBufSize)
 	}
 	for tempSensorName, _ := range sMgr.tempConfigDB {
 		sMgr.tempSensorClassAPM[tempSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.tempSensorClassAPM[tempSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.tempSensorClassAPM[tempSensorName].SetRingBufferCapacity(sensorClassABufSize)
 		sMgr.tempSensorClassBPM[tempSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.tempSensorClassBPM[tempSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.tempSensorClassBPM[tempSensorName].SetRingBufferCapacity(sensorClassBBufSize)
 		sMgr.tempSensorClassCPM[tempSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.tempSensorClassCPM[tempSensorName].SetRingBufferCapacity(classCBufSize)
+		sMgr.tempSensorClassCPM[tempSensorName].SetRingBufferCapacity(sensorClassCBufSize)
 	}
 
 	for voltageSensorName, _ := range sMgr.voltageConfigDB {
 		sMgr.voltageSensorClassAPM[voltageSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.voltageSensorClassAPM[voltageSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.voltageSensorClassAPM[voltageSensorName].SetRingBufferCapacity(sensorClassABufSize)
 		sMgr.voltageSensorClassBPM[voltageSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.voltageSensorClassBPM[voltageSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.voltageSensorClassBPM[voltageSensorName].SetRingBufferCapacity(sensorClassBBufSize)
 		sMgr.voltageSensorClassCPM[voltageSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.voltageSensorClassCPM[voltageSensorName].SetRingBufferCapacity(classCBufSize)
+		sMgr.voltageSensorClassCPM[voltageSensorName].SetRingBufferCapacity(sensorClassCBufSize)
 	}
 	for powerConverterSensorName, _ := range sMgr.powerConverterConfigDB {
 		sMgr.powerConverterSensorClassAPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.powerConverterSensorClassAPM[powerConverterSensorName].SetRingBufferCapacity(classABufSize)
+		sMgr.powerConverterSensorClassAPM[powerConverterSensorName].SetRingBufferCapacity(sensorClassABufSize)
 		sMgr.powerConverterSensorClassBPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.powerConverterSensorClassBPM[powerConverterSensorName].SetRingBufferCapacity(classBBufSize)
+		sMgr.powerConverterSensorClassBPM[powerConverterSensorName].SetRingBufferCapacity(sensorClassBBufSize)
 		sMgr.powerConverterSensorClassCPM[powerConverterSensorName] = new(ringBuffer.RingBuffer)
-		sMgr.powerConverterSensorClassCPM[powerConverterSensorName].SetRingBufferCapacity(classCBufSize)
+		sMgr.powerConverterSensorClassCPM[powerConverterSensorName].SetRingBufferCapacity(sensorClassCBufSize)
 	}
 }
 
@@ -1404,9 +1404,9 @@ func (sMgr *SensorManager) StartSensorPMClass(class string) {
 			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
 			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
 			sMgr.SensorStateMutex.Unlock()
-			sMgr.classAPMTimer.Reset(classAInterval)
+			sMgr.classAPMTimer.Reset(sensorClassAInterval)
 		}
-		sMgr.classAPMTimer = time.AfterFunc(classAInterval, classAPMFunc)
+		sMgr.classAPMTimer = time.AfterFunc(sensorClassAInterval, classAPMFunc)
 	case "Class-B":
 		classBPMFunc := func() {
 			sMgr.SensorStateMutex.Lock()
@@ -1421,9 +1421,9 @@ func (sMgr *SensorManager) StartSensorPMClass(class string) {
 			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
 			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
 			sMgr.SensorStateMutex.Unlock()
-			sMgr.classBPMTimer.Reset(classBInterval)
+			sMgr.classBPMTimer.Reset(sensorClassBInterval)
 		}
-		sMgr.classBPMTimer = time.AfterFunc(classBInterval, classBPMFunc)
+		sMgr.classBPMTimer = time.AfterFunc(sensorClassBInterval, classBPMFunc)
 	case "Class-C":
 		classCPMFunc := func() {
 			sMgr.SensorStateMutex.Lock()
@@ -1438,9 +1438,9 @@ func (sMgr *SensorManager) StartSensorPMClass(class string) {
 			sMgr.ProcessVoltageSensorPM(sMgr.SensorState, class)
 			sMgr.ProcessPowerConverterSensorPM(sMgr.SensorState, class)
 			sMgr.SensorStateMutex.Unlock()
-			sMgr.classCPMTimer.Reset(classCInterval)
+			sMgr.classCPMTimer.Reset(sensorClassCInterval)
 		}
-		sMgr.classCPMTimer = time.AfterFunc(classCInterval, classCPMFunc)
+		sMgr.classCPMTimer = time.AfterFunc(sensorClassCInterval, classCPMFunc)
 	}
 
 }

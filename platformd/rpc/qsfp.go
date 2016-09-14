@@ -25,8 +25,8 @@ package rpc
 
 import (
 	"errors"
-	//"fmt"
 	"infra/platformd/api"
+	"models/objects"
 	"platformd"
 )
 
@@ -96,10 +96,36 @@ func (rpcHdl *rpcServiceHandler) GetBulkQsfpState(fromIdx, count platformd.Int) 
 	return &getBulkObj, err
 }
 
-func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(QspfId int32, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
-	return nil, nil
+func (rpcHdl *rpcServiceHandler) GetQsfpPMDataState(QsfpId int32, Resource string, Class string) (*platformd.QsfpPMDataState, error) {
+	var rpcObj *platformd.QsfpPMDataState
+	var err error
+
+	obj, err := api.GetQsfpPMDataState(QsfpId, Resource, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtQsfpPMState(obj)
+	}
+	return rpcObj, err
 }
 
 func (rpcHdl *rpcServiceHandler) GetBulkQsfpPMDataState(fromIdx, count platformd.Int) (*platformd.QsfpPMDataStateGetInfo, error) {
 	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) restoreQsfpConfigFromDB() (bool, error) {
+	var qsfpCfg objects.Qsfp
+	qsfpCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(qsfpCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrive Qsfp config object from DB")
+	}
+	for idx := 0; idx < len(qsfpCfgList); idx++ {
+		dbObj := qsfpCfgList[idx].(objects.Qsfp)
+		obj := new(platformd.Qsfp)
+		objects.ConvertplatformdQsfpObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtQsfpConfig(obj)
+		ok, err := api.UpdateQsfp(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
+	return true, nil
 }

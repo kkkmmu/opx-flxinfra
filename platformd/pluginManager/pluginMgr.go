@@ -68,6 +68,7 @@ type PluginIntf interface {
 	GetAllSensorState(state *pluginCommon.SensorState) error
 	GetMaxNumOfQsfp() int
 	GetQsfpState(id int32) (pluginCommon.QsfpState, error)
+	GetQsfpPMData(id int32) (pluginCommon.QsfpPMData, error)
 	GetPlatformMgmtDeviceState(state *pluginCommon.PlatformMgmtDeviceState) error
 }
 

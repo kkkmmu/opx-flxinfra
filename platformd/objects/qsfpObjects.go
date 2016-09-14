@@ -110,3 +110,15 @@ const (
 	QSFP_UPDATE_LOWER_WARN_TX_POWER      = 0x80000
 	QSFP_UPDATE_LOWER_WARN_TX_BIAS       = 0x100000
 )
+
+type QsfpPMData struct {
+	TimeStamp string
+	Value     float64
+}
+
+type QsfpPMState struct {
+	QsfpId   int32
+	Resource string
+	Class    string
+	Data     []interface{}
+}

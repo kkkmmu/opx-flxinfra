@@ -308,6 +308,10 @@ func (driver *openBMCDriver) GetQsfpState(Id int32) (retObj pluginCommon.QsfpSta
 	return retObj, nil
 }
 
+func (driver *openBMCDriver) GetQsfpPMData(Id int32) (retObj pluginCommon.QsfpPMData, err error) {
+	return retObj, nil
+}
+
 func (driver *openBMCDriver) GetMaxNumOfQsfp() int {
 	driver.logger.Info("Inside Dummy: GetMaxNumOfQsfps()")
 	return 0
