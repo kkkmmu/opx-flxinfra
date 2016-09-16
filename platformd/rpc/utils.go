@@ -107,6 +107,9 @@ func convertToRPCFmtFanSensorConfig(obj *objects.FanSensorConfig) *platformd.Fan
 		HigherWarningThreshold: obj.HigherWarningThreshold,
 		LowerAlarmThreshold:    obj.LowerAlarmThreshold,
 		LowerWarningThreshold:  obj.LowerWarningThreshold,
+		PMClassAAdminState:     obj.PMClassAAdminState,
+		PMClassBAdminState:     obj.PMClassBAdminState,
+		PMClassCAdminState:     obj.PMClassCAdminState,
 	}
 }
 
@@ -118,6 +121,9 @@ func convertRPCToObjFmtFanSensorConfig(rpcObj *platformd.FanSensor) *objects.Fan
 		HigherWarningThreshold: rpcObj.HigherWarningThreshold,
 		LowerAlarmThreshold:    rpcObj.LowerAlarmThreshold,
 		LowerWarningThreshold:  rpcObj.LowerWarningThreshold,
+		PMClassAAdminState:     rpcObj.PMClassAAdminState,
+		PMClassBAdminState:     rpcObj.PMClassBAdminState,
+		PMClassCAdminState:     rpcObj.PMClassCAdminState,
 	}
 }
 
@@ -136,6 +142,9 @@ func convertToRPCFmtTemperatureSensorConfig(obj *objects.TemperatureSensorConfig
 		HigherWarningThreshold: obj.HigherWarningThreshold,
 		LowerAlarmThreshold:    obj.LowerAlarmThreshold,
 		LowerWarningThreshold:  obj.LowerWarningThreshold,
+		PMClassAAdminState:     obj.PMClassAAdminState,
+		PMClassBAdminState:     obj.PMClassBAdminState,
+		PMClassCAdminState:     obj.PMClassCAdminState,
 	}
 }
 
@@ -147,6 +156,9 @@ func convertRPCToObjFmtTemperatureSensorConfig(rpcObj *platformd.TemperatureSens
 		HigherWarningThreshold: rpcObj.HigherWarningThreshold,
 		LowerAlarmThreshold:    rpcObj.LowerAlarmThreshold,
 		LowerWarningThreshold:  rpcObj.LowerWarningThreshold,
+		PMClassAAdminState:     rpcObj.PMClassAAdminState,
+		PMClassBAdminState:     rpcObj.PMClassBAdminState,
+		PMClassCAdminState:     rpcObj.PMClassCAdminState,
 	}
 }
 
@@ -165,6 +177,9 @@ func convertToRPCFmtVoltageSensorConfig(obj *objects.VoltageSensorConfig) *platf
 		HigherWarningThreshold: obj.HigherWarningThreshold,
 		LowerAlarmThreshold:    obj.LowerAlarmThreshold,
 		LowerWarningThreshold:  obj.LowerWarningThreshold,
+		PMClassAAdminState:     obj.PMClassAAdminState,
+		PMClassBAdminState:     obj.PMClassBAdminState,
+		PMClassCAdminState:     obj.PMClassCAdminState,
 	}
 }
 
@@ -176,6 +191,9 @@ func convertRPCToObjFmtVoltageSensorConfig(rpcObj *platformd.VoltageSensor) *obj
 		HigherWarningThreshold: rpcObj.HigherWarningThreshold,
 		LowerAlarmThreshold:    rpcObj.LowerAlarmThreshold,
 		LowerWarningThreshold:  rpcObj.LowerWarningThreshold,
+		PMClassAAdminState:     rpcObj.PMClassAAdminState,
+		PMClassBAdminState:     rpcObj.PMClassBAdminState,
+		PMClassCAdminState:     rpcObj.PMClassCAdminState,
 	}
 }
 
@@ -194,6 +212,9 @@ func convertToRPCFmtPowerConverterSensorConfig(obj *objects.PowerConverterSensor
 		HigherWarningThreshold: obj.HigherWarningThreshold,
 		LowerAlarmThreshold:    obj.LowerAlarmThreshold,
 		LowerWarningThreshold:  obj.LowerWarningThreshold,
+		PMClassAAdminState:     obj.PMClassAAdminState,
+		PMClassBAdminState:     obj.PMClassBAdminState,
+		PMClassCAdminState:     obj.PMClassCAdminState,
 	}
 }
 
@@ -205,6 +226,9 @@ func convertRPCToObjFmtPowerConverterSensorConfig(rpcObj *platformd.PowerConvert
 		HigherWarningThreshold: rpcObj.HigherWarningThreshold,
 		LowerAlarmThreshold:    rpcObj.LowerAlarmThreshold,
 		LowerWarningThreshold:  rpcObj.LowerWarningThreshold,
+		PMClassAAdminState:     rpcObj.PMClassAAdminState,
+		PMClassBAdminState:     rpcObj.PMClassBAdminState,
+		PMClassCAdminState:     rpcObj.PMClassCAdminState,
 	}
 }
 
@@ -239,6 +263,9 @@ func convertToRPCFmtQsfpConfig(obj *objects.QsfpConfig) *platformd.Qsfp {
 		LowerWarningRXPower:      obj.LowerWarningRXPower,
 		LowerWarningTXPower:      obj.LowerWarningTXPower,
 		LowerWarningTXBias:       obj.LowerWarningTXBias,
+		PMClassAAdminState:       obj.PMClassAAdminState,
+		PMClassBAdminState:       obj.PMClassBAdminState,
+		PMClassCAdminState:       obj.PMClassCAdminState,
 	}
 }
 
@@ -266,6 +293,9 @@ func convertRPCToObjFmtQsfpConfig(rpcObj *platformd.Qsfp) *objects.QsfpConfig {
 		LowerWarningRXPower:      rpcObj.LowerWarningRXPower,
 		LowerWarningTXPower:      rpcObj.LowerWarningTXPower,
 		LowerWarningTXBias:       rpcObj.LowerWarningTXBias,
+		PMClassAAdminState:       rpcObj.PMClassAAdminState,
+		PMClassBAdminState:       rpcObj.PMClassBAdminState,
+		PMClassCAdminState:       rpcObj.PMClassCAdminState,
 	}
 }
 

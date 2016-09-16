@@ -42,6 +42,9 @@ type FanSensorConfig struct {
 	HigherWarningThreshold int32
 	LowerWarningThreshold  int32
 	LowerAlarmThreshold    int32
+	PMClassAAdminState     string
+	PMClassBAdminState     string
+	PMClassCAdminState     string
 }
 
 type FanSensorConfigGetInfo struct {
@@ -57,6 +60,9 @@ const (
 	FAN_SENSOR_UPDATE_HIGHER_WARN_THRESHOLD  = 0x4
 	FAN_SENSOR_UPDATE_LOWER_WARN_THRESHOLD   = 0x8
 	FAN_SENSOR_UPDATE_LOWER_ALARM_THRESHOLD  = 0x10
+	FAN_SENSOR_UPDATE_PM_CLASS_A_ADMIN_STATE = 0x20
+	FAN_SENSOR_UPDATE_PM_CLASS_B_ADMIN_STATE = 0x40
+	FAN_SENSOR_UPDATE_PM_CLASS_C_ADMIN_STATE = 0x80
 )
 
 type FanSensorPMData struct {

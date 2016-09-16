@@ -78,6 +78,9 @@ type QsfpConfig struct {
 	LowerWarningRXPower      float64
 	LowerWarningTXPower      float64
 	LowerWarningTXBias       float64
+	PMClassAAdminState       string
+	PMClassBAdminState       string
+	PMClassCAdminState       string
 }
 
 type QsfpConfigGetInfo struct {
@@ -109,6 +112,9 @@ const (
 	QSFP_UPDATE_LOWER_WARN_RX_POWER      = 0x40000
 	QSFP_UPDATE_LOWER_WARN_TX_POWER      = 0x80000
 	QSFP_UPDATE_LOWER_WARN_TX_BIAS       = 0x100000
+	QSFP_UPDATE_PM_CLASS_A_ADMIN_STATE   = 0x200000
+	QSFP_UPDATE_PM_CLASS_B_ADMIN_STATE   = 0x400000
+	QSFP_UPDATE_PM_CLASS_C_ADMIN_STATE   = 0x800000
 )
 
 type QsfpPMData struct {
