@@ -297,6 +297,31 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.RetVal, retObj.Err = svr.updateQsfpConfig(val.QsfpOldCfg, val.QsfpNewCfg, val.AttrSet)
 		}
 		svr.ReplyChan <- interface{}(&retObj)
+	case GET_QSFP_CHANNEL_STATE:
+		var retObj GetQsfpChannelStateOutArgs
+		if val, ok := req.Data.(*GetQsfpChannelStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getQsfpChannelState(val.QsfpId, val.ChannelNum)
+		}
+		//svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_CHANNEL_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_QSFP_CHANNEL_STATE:
+		var retObj GetBulkQsfpChannelStateOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkQsfpChannelState(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_BULK_QSFP_CHANNEL_CONFIG:
+		var retObj GetBulkQsfpChannelConfigOutArgs
+		if val, ok := req.Data.(*GetBulkInArgs); ok {
+			retObj.BulkInfo, retObj.Err = svr.getBulkQsfpChannelConfig(val.FromIdx, val.Count)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
+	case UPDATE_QSFP_CHANNEL_CONFIG:
+		var retObj UpdateConfigOutArgs
+		if val, ok := req.Data.(*UpdateQsfpChannelConfigInArgs); ok {
+			retObj.RetVal, retObj.Err = svr.updateQsfpChannelConfig(val.QsfpChannelOldCfg, val.QsfpChannelNewCfg, val.AttrSet)
+		}
+		svr.ReplyChan <- interface{}(&retObj)
 	case GET_PLATFORM_MGMT_DEVICE_STATE:
 		var retObj GetPlatformMgmtDeviceStateOutArgs
 		if val, ok := req.Data.(*GetPlatformMgmtDeviceStateInArgs); ok {
@@ -343,6 +368,13 @@ func (svr *PlatformdServer) handleRPCRequest(req *ServerRequest) {
 			retObj.Obj, retObj.Err = svr.getQsfpPMState(val.QsfpId, val.Resource, val.Class)
 		}
 		//svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_PM_STATE request replying -", retObj))
+		svr.ReplyChan <- interface{}(&retObj)
+	case GET_QSFP_CHANNEL_PM_STATE:
+		var retObj GetQsfpChannelPMStateOutArgs
+		if val, ok := req.Data.(*GetQsfpChannelPMStateInArgs); ok {
+			retObj.Obj, retObj.Err = svr.getQsfpChannelPMState(val.QsfpId, val.ChannelNum, val.Resource, val.Class)
+		}
+		//svr.Logger.Info(fmt.Sprintln("Server GET_QSFP_CHANNEL_PM_STATE request replying -", retObj))
 		svr.ReplyChan <- interface{}(&retObj)
 	case GET_PSU_STATE:
 		var retObj GetPsuStateOutArgs

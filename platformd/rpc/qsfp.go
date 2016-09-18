@@ -129,3 +129,103 @@ func (rpcHdl *rpcServiceHandler) restoreQsfpConfigFromDB() (bool, error) {
 	}
 	return true, nil
 }
+
+func (rpcHdl *rpcServiceHandler) CreateQsfpChannel(config *platformd.QsfpChannel) (bool, error) {
+	return false, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) DeleteQsfpChannel(config *platformd.QsfpChannel) (bool, error) {
+	return false, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) UpdateQsfpChannel(oldConfig *platformd.QsfpChannel, newConfig *platformd.QsfpChannel, attrset []bool, op []*platformd.PatchOpInfo) (bool, error) {
+	oldCfg := convertRPCToObjFmtQsfpChannelConfig(oldConfig)
+	newCfg := convertRPCToObjFmtQsfpChannelConfig(newConfig)
+	rv, err := api.UpdateQsfpChannel(oldCfg, newCfg, attrset)
+	return rv, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfpChannel(QsfpId int32, ChannelNum int32) (*platformd.QsfpChannel, error) {
+	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfpChannel(fromIdx, count platformd.Int) (*platformd.QsfpChannelGetInfo, error) {
+	var getBulkObj platformd.QsfpChannelGetInfo
+	var err error
+
+	info, err := api.GetBulkQsfpChannelConfig(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.QsfpChannelList = append(getBulkObj.QsfpChannelList, convertToRPCFmtQsfpChannelConfig(info.List[idx]))
+	}
+	return &getBulkObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfpChannelState(QsfpId int32, ChannelNum int32) (*platformd.QsfpChannelState, error) {
+	var rpcObj *platformd.QsfpChannelState
+	var err error
+
+	obj, err := api.GetQsfpChannelState(QsfpId, ChannelNum)
+	if err == nil {
+		rpcObj = convertToRPCFmtQsfpChannelState(obj)
+	}
+	return rpcObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfpChannelState(fromIdx, count platformd.Int) (*platformd.QsfpChannelStateGetInfo, error) {
+	var getBulkObj platformd.QsfpChannelStateGetInfo
+	var err error
+
+	info, err := api.GetBulkQsfpChannelState(int(fromIdx), int(count))
+	if err != nil {
+		return nil, err
+	}
+	getBulkObj.StartIdx = fromIdx
+	getBulkObj.EndIdx = platformd.Int(info.EndIdx)
+	getBulkObj.More = info.More
+	getBulkObj.Count = platformd.Int(len(info.List))
+	for idx := 0; idx < len(info.List); idx++ {
+		getBulkObj.QsfpChannelStateList = append(getBulkObj.QsfpChannelStateList, convertToRPCFmtQsfpChannelState(info.List[idx]))
+	}
+	return &getBulkObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetQsfpChannelPMDataState(QsfpId int32, ChannelNum int32, Resource string, Class string) (*platformd.QsfpChannelPMDataState, error) {
+	var rpcObj *platformd.QsfpChannelPMDataState
+	var err error
+
+	obj, err := api.GetQsfpChannelPMDataState(QsfpId, ChannelNum, Resource, Class)
+	if err == nil {
+		rpcObj = convertToRPCFmtQsfpChannelPMState(obj)
+	}
+	return rpcObj, err
+}
+
+func (rpcHdl *rpcServiceHandler) GetBulkQsfpChannelPMDataState(fromIdx, count platformd.Int) (*platformd.QsfpChannelPMDataStateGetInfo, error) {
+	return nil, errors.New("Not supported")
+}
+
+func (rpcHdl *rpcServiceHandler) restoreQsfpChannelConfigFromDB() (bool, error) {
+	var qsfpCfg objects.QsfpChannel
+	qsfpCfgList, err := rpcHdl.dbHdl.GetAllObjFromDb(qsfpCfg)
+	if err != nil {
+		return false, errors.New("Failed to retrive Qsfp Channel config object from DB")
+	}
+	for idx := 0; idx < len(qsfpCfgList); idx++ {
+		dbObj := qsfpCfgList[idx].(objects.QsfpChannel)
+		obj := new(platformd.QsfpChannel)
+		objects.ConvertplatformdQsfpChannelObjToThrift(&dbObj, obj)
+		convNewCfg := convertRPCToObjFmtQsfpChannelConfig(obj)
+		ok, err := api.UpdateQsfpChannel(nil, convNewCfg, nil)
+		if !ok {
+			return ok, err
+		}
+	}
+	return true, nil
+}

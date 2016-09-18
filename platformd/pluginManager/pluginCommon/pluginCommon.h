@@ -82,21 +82,14 @@ typedef struct sfp_info {
    char eeprom[256];
 } sfp_info_t;
 
+#define QsfpNumChannel 4
+
 typedef struct qsfp_info_s {
         float   Temperature;
         float   SupplyVoltage;
-        float   RX1Power;
-        float   RX2Power;
-        float   RX3Power;
-        float   RX4Power;
-        float   TX1Bias;
-        float   TX2Bias;
-        float   TX3Bias;
-        float   TX4Bias;
-        float   TX1Power;
-        float   TX2Power;
-        float   TX3Power;
-        float   TX4Power;
+        float   RXPower[QsfpNumChannel];
+        float   TXBias[QsfpNumChannel];
+        float   TXPower[QsfpNumChannel];
         float   TempHighAlarm;
         float   TempLowAlarm;
         float   TempHighWarning;
@@ -128,18 +121,9 @@ typedef struct qsfp_info_s {
 typedef struct qsfp_pm_info_s {
         float   Temperature;
         float   SupplyVoltage;
-        float   RX1Power;
-        float   RX2Power;
-        float   RX3Power;
-        float   RX4Power;
-        float   TX1Bias;
-        float   TX2Bias;
-        float   TX3Bias;
-        float   TX4Bias;
-        float   TX1Power;
-        float   TX2Power;
-        float   TX3Power;
-        float   TX4Power;
+        float   RXPower[QsfpNumChannel];
+        float   TXBias[QsfpNumChannel];
+        float   TXPower[QsfpNumChannel];
 } qsfp_pm_info_t;
 
 

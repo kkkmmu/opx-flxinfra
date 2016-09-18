@@ -561,6 +561,70 @@ func GetBulkQsfpConfig(fromIdx, count int) (*objects.QsfpConfigGetInfo, error) {
 	}
 }
 
+func GetQsfpChannelState(QsfpId int32, ChannelNum int32) (*objects.QsfpChannelState, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_QSFP_CHANNEL_STATE,
+		Data: interface{}(&server.GetQsfpChannelStateInArgs{
+			QsfpId:     QsfpId,
+			ChannelNum: ChannelNum,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetQsfpChannelStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetQsfpChannelState")
+	}
+}
+
+func GetBulkQsfpChannelState(fromIdx, count int) (*objects.QsfpChannelStateGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_QSFP_CHANNEL_STATE,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkQsfpChannelStateOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkQsfpChannelState")
+	}
+}
+
+func UpdateQsfpChannel(oldCfg *objects.QsfpChannelConfig, newCfg *objects.QsfpChannelConfig, attrset []bool) (bool, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.UPDATE_QSFP_CHANNEL_CONFIG,
+		Data: interface{}(&server.UpdateQsfpChannelConfigInArgs{
+			QsfpChannelOldCfg: oldCfg,
+			QsfpChannelNewCfg: newCfg,
+			AttrSet:           attrset,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.UpdateConfigOutArgs); ok {
+		return retObj.RetVal, retObj.Err
+	}
+	return false, errors.New("Error: Invalid response received from server during UpdateQsfpChannel")
+}
+
+func GetBulkQsfpChannelConfig(fromIdx, count int) (*objects.QsfpChannelConfigGetInfo, error) {
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_BULK_QSFP_CHANNEL_CONFIG,
+		Data: interface{}(&server.GetBulkInArgs{
+			FromIdx: fromIdx,
+			Count:   count,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetBulkQsfpChannelConfigOutArgs); ok {
+		return retObj.BulkInfo, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetBulkQsfpChannelConfig")
+	}
+}
+
 func GetPlatformMgmtDeviceState(deviceName string) (*objects.PlatformMgmtDeviceState, error) {
 	svr.ReqChan <- &server.ServerRequest{
 		Op: server.GET_PLATFORM_MGMT_DEVICE_STATE,
@@ -696,6 +760,28 @@ func GetQsfpPMDataState(qsfpId int32, resource string, class string) (*objects.Q
 		return retObj.Obj, retObj.Err
 	} else {
 		return nil, errors.New("Error: Invalid response received from server during GetQsfpPMDataState")
+	}
+}
+func GetQsfpChannelPMDataState(qsfpId int32, channelNum int32, resource string, class string) (*objects.QsfpChannelPMState, error) {
+	if class != "Class-A" &&
+		class != "Class-B" &&
+		class != "Class-C" {
+		return nil, errors.New("Invalid Class")
+	}
+	svr.ReqChan <- &server.ServerRequest{
+		Op: server.GET_QSFP_CHANNEL_PM_STATE,
+		Data: interface{}(&server.GetQsfpChannelPMStateInArgs{
+			QsfpId:     qsfpId,
+			ChannelNum: channelNum,
+			Resource:   resource,
+			Class:      class,
+		}),
+	}
+	ret := <-svr.ReplyChan
+	if retObj, ok := ret.(*server.GetQsfpChannelPMStateOutArgs); ok {
+		return retObj.Obj, retObj.Err
+	} else {
+		return nil, errors.New("Error: Invalid response received from server during GetQsfpChannelPMDataState")
 	}
 }
 
