@@ -1597,7 +1597,7 @@ func (qMgr *QsfpManager) clearExistingQsfpChannelFaults(qsfpId int32, channelNum
 			ResId:       resId,
 		}
 		qMgr.qsfpChannelEventMsgStatusMutex.RLock()
-		eventStatus := qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource]
+		eventStatus, _ := qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource]
 		qMgr.qsfpChannelEventMsgStatusMutex.RUnlock()
 		switch resId {
 		case RXPowerRes:
@@ -1651,11 +1651,11 @@ func (qMgr *QsfpManager) clearExistingQsfpChannelFaults(qsfpId int32, channelNum
 				evts = append(evts, events.QsfpTXBiasLowerTCAWarnClear)
 				eventStatus.SentLowerWarn = false
 			}
-			qMgr.qsfpChannelEventMsgStatusMutex.Lock()
-			qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource] = eventStatus
-			qMgr.qsfpChannelEventMsgStatusMutex.Unlock()
-			qMgr.publishQsfpChannelEvents(qsfpId, uint8(channelNum), resId, nil, evts)
 		}
+		qMgr.qsfpChannelEventMsgStatusMutex.Lock()
+		qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource] = eventStatus
+		qMgr.qsfpChannelEventMsgStatusMutex.Unlock()
+		qMgr.publishQsfpChannelEvents(qsfpId, uint8(channelNum), resId, nil, evts)
 	}
 }
 
