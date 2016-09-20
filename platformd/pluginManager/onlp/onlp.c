@@ -10,16 +10,15 @@
 
 /* ONLP init */
 int (*onlpInit)(void);
-void *handle;
+static void *handle;
 
 /* System EEPROM */
 int (*onlpSysInfoGet)(onlp_sys_info_t*);
-onlp_sys_info_t si;
 
 /* FAN */
 int (*onlpFanInfoGet)(onlp_oid_t, onlp_fan_info_t*);
-onlp_oid_t fan_oid_table[ONLP_OID_TABLE_SIZE];
-onlp_fan_info_t fan_info_table[ONLP_OID_TABLE_SIZE];
+static onlp_oid_t fan_oid_table[ONLP_OID_TABLE_SIZE];
+static onlp_fan_info_t fan_info_table[ONLP_OID_TABLE_SIZE];
 int flag[ONLP_OID_TABLE_SIZE] = {0};
 
 /* SFP */
@@ -138,8 +137,9 @@ Init()
 	int i = 0;
 	onlp_oid_t* oidp;
 
-	ret = loadOnlpSym();
+    onlp_sys_info_t sysi;
 
+	ret = loadOnlpSym();
     if (ret < 0) {
 		printf("Error loading the ONLP symbols");
 		return -1;
@@ -149,21 +149,19 @@ Init()
 		printf("onlpInit ptr to onlp_init() is NULL\n");
 		return -1;
 	}
-
     (*onlpInit)();
 
     if (onlpSysInfoGet == NULL) {
 		printf("onlpSysInfoGet ptr to onlp_sys_info_get is NULL\n");
 		return -1;
 	}
-
-    ret = (*onlpSysInfoGet)(&si);
+    ret = (*onlpSysInfoGet)(&sysi);
 	if (ret < 0) {
 		printf("onlp_sys_info_get() failed during init. Return Value:%d\n", ret);
 		return ret;
 	}
 
-    ONLP_OID_TABLE_ITER_TYPE(si.hdr.coids, oidp, FAN) {
+    ONLP_OID_TABLE_ITER_TYPE(sysi.hdr.coids, oidp, FAN) {
 		fan_oid_table[i++] = *oidp;
 	}
 
@@ -319,7 +317,7 @@ GetSfpCnt()
     int rt;
     onlp_sfp_bitmap_t bMap;
 
-    onlpSfpBitmapInit(&bMap);
+    (*onlpSfpBitmapInit)(&bMap);
     if (onlpSfpBitmapGet == NULL) {
 		printf("onlpSfpBitmapGet NULL\n");
 		return 0;
@@ -339,6 +337,7 @@ GetSfpState(sfp_info_t *sfpInfo, int sfpId)
     int rt, rval;
     unsigned char *eeprom_p = NULL;
 
+    memset(sfpInfo, 0, sizeof(sfp_info_t));
     if (!sfpId) {
         return SFP_MISSING;
     }
@@ -349,7 +348,6 @@ GetSfpState(sfp_info_t *sfpInfo, int sfpId)
 		return SFP_ERROR;
     }
 
-    memset(sfpInfo, 0, sizeof(sfp_info_t));
     if (!rt)
         return SFP_MISSING;
 
@@ -381,7 +379,7 @@ GetThermalState(thermal_info_t *info_p, int sensor_id)
     if (!onlpThermalInfoGet)
         return SENSOR_ERROR;
 
-    rt = (onlpThermalInfoGet)(id, &t_info);
+    rt = (*onlpThermalInfoGet)(id, &t_info);
 
     if (rt < 0)
         return SENSOR_MISSING;
@@ -410,7 +408,7 @@ GetPsuState(psu_info_t *info_p, int psu_id)
     if (!onlpPsuInfoGet)
         return PSU_ERROR;
 
-    rt = (onlpPsuInfoGet)(id, &p_info);
+    rt = (*onlpPsuInfoGet)(id, &p_info);
 
 
     if (rt < 0)
@@ -441,7 +439,7 @@ GetLedState(led_info_t *info_p, int led_id)
     if (!onlpLedInfoGet)
         return LED_ERROR;
 
-    rt = (onlpLedInfoGet)(id, &led_info);
+    rt = (*onlpLedInfoGet)(id, &led_info);
 
 
     if (rt < 0)
