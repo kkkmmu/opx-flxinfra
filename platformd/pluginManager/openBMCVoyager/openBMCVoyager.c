@@ -115,24 +115,24 @@ float get_bias_data(int msb, int lsb) {
 
 
 void get_rx_power_data(qsfp_info_t *portData, int *value) {
-	portData->RX1Power = get_power_data(value[34], value[35]);
-	portData->RX2Power = get_power_data(value[36], value[37]);
-	portData->RX3Power = get_power_data(value[38], value[39]);
-	portData->RX4Power = get_power_data(value[40], value[41]);
+	int ch = 0;
+	for (ch = 0; ch < QsfpNumChannel; ch++) {
+		portData->RXPower[ch] = get_power_data(value[34+(ch*2)], value[35+(ch*2)]);
+	}
 }
 
 void get_tx_power_data(qsfp_info_t *portData, int *value) {
-	portData->TX1Power = get_power_data(value[50], value[51]);
-	portData->TX2Power = get_power_data(value[52], value[53]);
-	portData->TX3Power = get_power_data(value[54], value[55]);
-	portData->TX4Power = get_power_data(value[56], value[57]);
+	int ch = 0;
+	for (ch = 0; ch < QsfpNumChannel; ch++) {
+		portData->TXPower[ch] = get_power_data(value[50+(ch*2)], value[51+(ch*2)]);
+	}
 }
 
 void get_tx_bias_data(qsfp_info_t *portData, int *value) {
-	portData->TX1Bias = get_bias_data(value[42], value[43]);
-	portData->TX2Bias = get_bias_data(value[44], value[45]);
-	portData->TX3Bias = get_bias_data(value[46], value[47]);
-	portData->TX4Bias = get_bias_data(value[48], value[49]);
+	int ch = 0;
+	for (ch = 0; ch < QsfpNumChannel; ch++) {
+		portData->TXBias[ch] = get_power_data(value[42+(ch*2)], value[43+(ch*2)]);
+	}
 }
 
 
@@ -229,6 +229,7 @@ int get_data_from_upper_page00h(int page, qsfp_info_t *portData) {
 void printData(qsfp_info_t *portData) {
 	printf("Port Temperature: %f\n", portData->Temperature);
 	printf("Port SupplyVoltage: %f\n", portData->SupplyVoltage);
+#if 0
 	printf("RX1Power: %f\n", portData->RX1Power);
 	printf("RX2Power: %f\n", portData->RX2Power);
 	printf("RX3Power: %f\n", portData->RX3Power);
@@ -241,6 +242,7 @@ void printData(qsfp_info_t *portData) {
 	printf("TX2Bias: %f\n", portData->TX2Bias);
 	printf("TX3Bias: %f\n", portData->TX3Bias);
 	printf("TX4Bias: %f\n", portData->TX4Bias);
+#endif
 	printf("VendorName: %s\n", portData->VendorName);
 	printf("VendorOUI: %s\n", portData->VendorOUI);
 	printf("VendorPN: %s\n", portData->VendorPN);
@@ -309,6 +311,7 @@ int GetQsfpState(qsfp_info_t *info, int port) {
 int GetQsfpPMData(qsfp_pm_info_t *pmInfo, int port) {
 	int err = 0;
 	int bit = 0;
+	int idx = 0;
 	qsfp_info_t *info;
 
 	err = i2cSet(0, 0x70, 0x0, 0x00);
@@ -361,18 +364,11 @@ int GetQsfpPMData(qsfp_pm_info_t *pmInfo, int port) {
 	//printData(info);
 	pmInfo->Temperature = info->Temperature;
 	pmInfo->SupplyVoltage = info->SupplyVoltage;
-	pmInfo->RX1Power = info->RX1Power;
-	pmInfo->RX2Power = info->RX2Power;
-	pmInfo->RX3Power = info->RX3Power;
-	pmInfo->RX4Power = info->RX4Power;
-	pmInfo->TX1Power = info->TX1Power;
-	pmInfo->TX2Power = info->TX2Power;
-	pmInfo->TX3Power = info->TX3Power;
-	pmInfo->TX4Power = info->TX4Power;
-	pmInfo->TX1Bias = info->TX1Bias;
-	pmInfo->TX2Bias = info->TX2Bias;
-	pmInfo->TX3Bias = info->TX3Bias;
-	pmInfo->TX4Bias = info->TX4Bias;
+	for (idx = 0; idx < QsfpNumChannel; idx++) {
+		pmInfo->RXPower[idx] = info->RXPower[idx];
+		pmInfo->TXPower[idx] = info->TXPower[idx];
+		pmInfo->TXBias[idx] = info->TXBias[idx];
+	}
 	free(info);
 	return 0;
 }

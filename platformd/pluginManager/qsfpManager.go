@@ -25,7 +25,6 @@ package pluginManager
 
 import (
 	"errors"
-	"fmt"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
 	"models/events"
@@ -36,55 +35,60 @@ import (
 	"utils/ringBuffer"
 )
 
-type QsfpState struct {
-	Present            bool
-	VendorName         string
-	VendorOUI          string
-	VendorPartNumber   string
-	VendorRevision     string
-	VendorSerialNumber string
-	DataCode           string
-	Temperature        float64
-	Voltage            float64
-	RX1Power           float64
-	RX2Power           float64
-	RX3Power           float64
-	RX4Power           float64
-	TX1Power           float64
-	TX2Power           float64
-	TX3Power           float64
-	TX4Power           float64
-	TX1Bias            float64
-	TX2Bias            float64
-	TX3Bias            float64
-	TX4Bias            float64
-}
-
 type QsfpConfig struct {
 	AdminState               string
 	HigherAlarmTemperature   float64
 	HigherAlarmVoltage       float64
-	HigherAlarmRXPower       float64
-	HigherAlarmTXPower       float64
-	HigherAlarmTXBias        float64
 	HigherWarningTemperature float64
 	HigherWarningVoltage     float64
-	HigherWarningRXPower     float64
-	HigherWarningTXPower     float64
-	HigherWarningTXBias      float64
 	LowerAlarmTemperature    float64
 	LowerAlarmVoltage        float64
-	LowerAlarmRXPower        float64
-	LowerAlarmTXPower        float64
-	LowerAlarmTXBias         float64
 	LowerWarningTemperature  float64
 	LowerWarningVoltage      float64
-	LowerWarningRXPower      float64
-	LowerWarningTXPower      float64
-	LowerWarningTXBias       float64
 	PMClassAAdminState       string
 	PMClassBAdminState       string
 	PMClassCAdminState       string
+}
+
+type QsfpChannelState struct {
+	Present bool
+	RXPower float64
+	TXPower float64
+	TXBias  float64
+}
+
+type QsfpChannelConfig struct {
+	AdminState           string
+	HigherAlarmRXPower   float64
+	HigherAlarmTXPower   float64
+	HigherAlarmTXBias    float64
+	HigherWarningRXPower float64
+	HigherWarningTXPower float64
+	HigherWarningTXBias  float64
+	LowerAlarmRXPower    float64
+	LowerAlarmTXPower    float64
+	LowerAlarmTXBias     float64
+	LowerWarningRXPower  float64
+	LowerWarningTXPower  float64
+	LowerWarningTXBias   float64
+	PMClassAAdminState   string
+	PMClassBAdminState   string
+	PMClassCAdminState   string
+}
+
+type QsfpResource struct {
+	QsfpId int32
+	ResId  uint8
+}
+
+type QsfpChannel struct {
+	QsfpId     int32
+	ChannelNum uint8
+}
+
+type QsfpChannelResource struct {
+	QsfpChannel QsfpChannel
+	ResId       uint8
 }
 
 const (
@@ -99,32 +103,28 @@ const (
 const (
 	TemperatureRes uint8 = 0
 	VoltageRes     uint8 = 1
-	RX1PowerRes    uint8 = 2
-	RX2PowerRes    uint8 = 3
-	RX3PowerRes    uint8 = 4
-	RX4PowerRes    uint8 = 5
-	TX1PowerRes    uint8 = 6
-	TX2PowerRes    uint8 = 7
-	TX3PowerRes    uint8 = 8
-	TX4PowerRes    uint8 = 9
-	TX1BiasRes     uint8 = 10
-	TX2BiasRes     uint8 = 11
-	TX3BiasRes     uint8 = 12
-	TX4BiasRes     uint8 = 13
-	MaxNumRes      uint8 = 14 // Should be always last
+	MaxNumQsfpRes  uint8 = 2 // Should be always last
+)
+const (
+	RXPowerRes           uint8 = 0
+	TXPowerRes           uint8 = 1
+	TXBiasRes            uint8 = 2
+	MaxNumQsfpChannelRes uint8 = 3 // Should be always last
 )
 
-type QsfpEventStatus [MaxNumRes]EventStatus
+const (
+	MaxNumOfQsfpChannel uint8 = 4
+)
+
+type QsfpEventStatus [MaxNumQsfpRes]EventStatus
+type QsfpChannelEventStatus [MaxNumQsfpChannelRes]EventStatus
 
 type QsfpEventData struct {
-	Value    float64
-	Resource string
+	Value float64
 }
 
-type QsfpEvent struct {
-	EventId    events.EventId
-	EventData  QsfpEventData
-	ChannelNum uint8
+type QsfpChannelEventData struct {
+	Value float64
 }
 
 func getQsfpResourcId(res string) (uint8, error) {
@@ -133,30 +133,20 @@ func getQsfpResourcId(res string) (uint8, error) {
 		return 0, nil
 	case "Voltage":
 		return 1, nil
-	case "RX1Power":
+	default:
+		return 0, errors.New("Invalid Resource Name")
+	}
+	return 0, errors.New("Invalid Resource Name")
+}
+
+func getQsfpChannelResourcId(res string) (uint8, error) {
+	switch res {
+	case "RXPower":
+		return 0, nil
+	case "TXPower":
+		return 1, nil
+	case "TXBias":
 		return 2, nil
-	case "RX2Power":
-		return 3, nil
-	case "RX3Power":
-		return 4, nil
-	case "RX4Power":
-		return 5, nil
-	case "TX1Power":
-		return 6, nil
-	case "TX2Power":
-		return 7, nil
-	case "TX3Power":
-		return 8, nil
-	case "TX4Power":
-		return 9, nil
-	case "TX1Bias":
-		return 10, nil
-	case "TX2Bias":
-		return 11, nil
-	case "TX3Bias":
-		return 12, nil
-	case "TX4Bias":
-		return 13, nil
 	default:
 		return 0, errors.New("Invalid Resource Name")
 	}
@@ -164,23 +154,34 @@ func getQsfpResourcId(res string) (uint8, error) {
 }
 
 type QsfpManager struct {
-	logger              logging.LoggerIntf
-	plugin              PluginIntf
-	configMutex         sync.RWMutex
-	stateMutex          sync.RWMutex
-	configDB            []QsfpConfig
-	classAPMTimer       *time.Timer
-	classAMutex         sync.RWMutex
-	classAPM            []map[uint8]*ringBuffer.RingBuffer
-	classBPMTimer       *time.Timer
-	classBMutex         sync.RWMutex
-	classBPM            []map[uint8]*ringBuffer.RingBuffer
-	classCPMTimer       *time.Timer
-	classCMutex         sync.RWMutex
-	classCPM            []map[uint8]*ringBuffer.RingBuffer
-	eventMsgStatusMutex sync.RWMutex
-	eventMsgStatus      []QsfpEventStatus
-	qsfpStatus          []bool
+	logger                         logging.LoggerIntf
+	plugin                         PluginIntf
+	stateMutex                     sync.RWMutex
+	numOfQsfps                     int32
+	qsfpConfigMutex                sync.RWMutex
+	qsfpConfigDB                   map[int32]QsfpConfig
+	classAPMTimer                  *time.Timer
+	qsfpClassAMutex                sync.RWMutex
+	qsfpClassAPM                   map[QsfpResource]*ringBuffer.RingBuffer
+	classBPMTimer                  *time.Timer
+	qsfpClassBMutex                sync.RWMutex
+	qsfpClassBPM                   map[QsfpResource]*ringBuffer.RingBuffer
+	classCPMTimer                  *time.Timer
+	qsfpClassCMutex                sync.RWMutex
+	qsfpClassCPM                   map[QsfpResource]*ringBuffer.RingBuffer
+	qsfpChannelConfigMutex         sync.RWMutex
+	qsfpChannelConfigDB            map[QsfpChannel]QsfpChannelConfig
+	qsfpChannelClassAMutex         sync.RWMutex
+	qsfpChannelClassAPM            map[QsfpChannelResource]*ringBuffer.RingBuffer
+	qsfpChannelClassBMutex         sync.RWMutex
+	qsfpChannelClassBPM            map[QsfpChannelResource]*ringBuffer.RingBuffer
+	qsfpChannelClassCMutex         sync.RWMutex
+	qsfpChannelClassCPM            map[QsfpChannelResource]*ringBuffer.RingBuffer
+	qsfpEventMsgStatusMutex        sync.RWMutex
+	qsfpEventMsgStatus             map[QsfpResource]EventStatus
+	qsfpChannelEventMsgStatusMutex sync.RWMutex
+	qsfpChannelEventMsgStatus      map[QsfpChannelResource]EventStatus
+	//	qsfpStatus                []bool
 }
 
 var QsfpMgr QsfpManager
@@ -189,49 +190,65 @@ func (qMgr *QsfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	qMgr.logger = logger
 	qMgr.plugin = plugin
 	numOfQsfps := qMgr.plugin.GetMaxNumOfQsfp()
+	qMgr.numOfQsfps = int32(numOfQsfps)
 
-	qMgr.classAPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
-	qMgr.classBPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
-	qMgr.classCPM = make([]map[uint8]*ringBuffer.RingBuffer, numOfQsfps)
-	qMgr.eventMsgStatus = make([]QsfpEventStatus, numOfQsfps)
-	qMgr.qsfpStatus = make([]bool, numOfQsfps)
-	for idx := 0; idx < numOfQsfps; idx++ {
-		qMgr.classAPM[idx] = make(map[uint8]*ringBuffer.RingBuffer)
-		qMgr.classBPM[idx] = make(map[uint8]*ringBuffer.RingBuffer)
-		qMgr.classCPM[idx] = make(map[uint8]*ringBuffer.RingBuffer)
-	}
+	qMgr.qsfpClassAPM = make(map[QsfpResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumQsfpRes))
+	qMgr.qsfpClassBPM = make(map[QsfpResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumQsfpRes))
+	qMgr.qsfpClassCPM = make(map[QsfpResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumQsfpRes))
+	qMgr.qsfpEventMsgStatus = make(map[QsfpResource]EventStatus, numOfQsfps*int(MaxNumQsfpRes))
+	qMgr.qsfpChannelClassAPM = make(map[QsfpChannelResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumOfQsfpChannel)*int(MaxNumQsfpChannelRes))
+	qMgr.qsfpChannelClassBPM = make(map[QsfpChannelResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumOfQsfpChannel)*int(MaxNumQsfpChannelRes))
+	qMgr.qsfpChannelClassCPM = make(map[QsfpChannelResource]*ringBuffer.RingBuffer, numOfQsfps*int(MaxNumOfQsfpChannel)*int(MaxNumQsfpChannelRes))
+	qMgr.qsfpChannelEventMsgStatus = make(map[QsfpChannelResource]EventStatus, numOfQsfps*int(MaxNumOfQsfpChannel)*int(MaxNumQsfpChannelRes))
+	//	qMgr.qsfpStatus = make([]bool, numOfQsfps)
 
-	qMgr.configMutex.Lock()
-	qMgr.configDB = make([]QsfpConfig, numOfQsfps)
-	for id := 0; id < numOfQsfps; id++ {
-		qsfpCfgEnt := qMgr.configDB[id]
+	qMgr.qsfpConfigMutex.Lock()
+	qMgr.qsfpChannelConfigMutex.Lock()
+	qMgr.qsfpConfigDB = make(map[int32]QsfpConfig, numOfQsfps)
+	qMgr.qsfpChannelConfigDB = make(map[QsfpChannel]QsfpChannelConfig, numOfQsfps*int(MaxNumOfQsfpChannel))
+	for id := 1; id <= numOfQsfps; id++ {
+		qsfpId := int32(id)
+		qsfpCfgEnt, _ := qMgr.qsfpConfigDB[qsfpId]
 		qsfpCfgEnt.AdminState = "Disable"
 		qsfpCfgEnt.HigherAlarmTemperature = 100.0
 		qsfpCfgEnt.HigherAlarmVoltage = 10.0
-		qsfpCfgEnt.HigherAlarmRXPower = 100.0
-		qsfpCfgEnt.HigherAlarmTXPower = 100.0
-		qsfpCfgEnt.HigherAlarmTXBias = 100.0
 		qsfpCfgEnt.HigherWarningTemperature = 100.0
 		qsfpCfgEnt.HigherWarningVoltage = 10.0
-		qsfpCfgEnt.HigherWarningRXPower = 100.0
-		qsfpCfgEnt.HigherWarningTXPower = 100.0
-		qsfpCfgEnt.HigherWarningTXBias = 100.0
 		qsfpCfgEnt.LowerAlarmTemperature = -100.0
 		qsfpCfgEnt.LowerAlarmVoltage = -10.0
-		qsfpCfgEnt.LowerAlarmRXPower = -100.0
-		qsfpCfgEnt.LowerAlarmTXPower = -100.0
-		qsfpCfgEnt.LowerAlarmTXBias = -100.0
 		qsfpCfgEnt.LowerWarningTemperature = -100.0
 		qsfpCfgEnt.LowerWarningVoltage = -10.0
-		qsfpCfgEnt.LowerWarningRXPower = -100.0
-		qsfpCfgEnt.LowerWarningTXPower = -100.0
-		qsfpCfgEnt.LowerWarningTXBias = -100.0
 		qsfpCfgEnt.PMClassAAdminState = "Disable"
 		qsfpCfgEnt.PMClassBAdminState = "Disable"
 		qsfpCfgEnt.PMClassCAdminState = "Disable"
-		qMgr.configDB[id] = qsfpCfgEnt
+		qMgr.qsfpConfigDB[qsfpId] = qsfpCfgEnt
+		for ch := 1; ch <= int(MaxNumOfQsfpChannel); ch++ {
+			qsfpChannel := QsfpChannel{
+				QsfpId:     qsfpId,
+				ChannelNum: uint8(ch),
+			}
+			qsfpChCfgEnt, _ := qMgr.qsfpChannelConfigDB[qsfpChannel]
+			qsfpChCfgEnt.AdminState = "Disable"
+			qsfpChCfgEnt.HigherAlarmRXPower = 100.0
+			qsfpChCfgEnt.HigherAlarmTXPower = 100.0
+			qsfpChCfgEnt.HigherAlarmTXBias = 100.0
+			qsfpChCfgEnt.HigherWarningRXPower = 100.0
+			qsfpChCfgEnt.HigherWarningTXPower = 100.0
+			qsfpChCfgEnt.HigherWarningTXBias = 100.0
+			qsfpChCfgEnt.LowerAlarmRXPower = -100.0
+			qsfpChCfgEnt.LowerAlarmTXPower = -100.0
+			qsfpChCfgEnt.LowerAlarmTXBias = -100.0
+			qsfpChCfgEnt.LowerWarningRXPower = -100.0
+			qsfpChCfgEnt.LowerWarningTXPower = -100.0
+			qsfpChCfgEnt.LowerWarningTXBias = -100.0
+			qsfpChCfgEnt.PMClassAAdminState = "Disable"
+			qsfpChCfgEnt.PMClassBAdminState = "Disable"
+			qsfpChCfgEnt.PMClassCAdminState = "Disable"
+			qMgr.qsfpChannelConfigDB[qsfpChannel] = qsfpChCfgEnt
+		}
 	}
-	qMgr.configMutex.Unlock()
+	qMgr.qsfpChannelConfigMutex.Unlock()
+	qMgr.qsfpConfigMutex.Unlock()
 	qMgr.StartQsfpPM()
 	qMgr.logger.Info("Qsfp Manager Init()")
 }
@@ -245,11 +262,11 @@ func (qMgr *QsfpManager) GetQsfpState(id int32) (*objects.QsfpState, error) {
 	if qMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
-	numOfQsfp := int32(len(qMgr.configDB))
-	if (id > numOfQsfp) && (id < 1) {
+
+	_, exist := qMgr.qsfpConfigDB[id]
+	if !exist {
 		return nil, errors.New("Invalid QsfpId")
 	}
-
 	qMgr.stateMutex.Lock()
 	qsfpState, err := qMgr.plugin.GetQsfpState(id)
 	qMgr.stateMutex.Unlock()
@@ -267,20 +284,44 @@ func (qMgr *QsfpManager) GetQsfpState(id int32) (*objects.QsfpState, error) {
 		qsfpObj.DataCode = qsfpState.DataCode
 		qsfpObj.Temperature = qsfpState.Temperature
 		qsfpObj.Voltage = qsfpState.Voltage
-		qsfpObj.RX1Power = qsfpState.RX1Power
-		qsfpObj.RX2Power = qsfpState.RX2Power
-		qsfpObj.RX3Power = qsfpState.RX3Power
-		qsfpObj.RX4Power = qsfpState.RX4Power
-		qsfpObj.TX1Power = qsfpState.TX1Power
-		qsfpObj.TX2Power = qsfpState.TX2Power
-		qsfpObj.TX3Power = qsfpState.TX3Power
-		qsfpObj.TX4Power = qsfpState.TX4Power
-		qsfpObj.TX1Bias = qsfpState.TX1Bias
-		qsfpObj.TX2Bias = qsfpState.TX2Bias
-		qsfpObj.TX3Bias = qsfpState.TX3Bias
-		qsfpObj.TX4Bias = qsfpState.TX4Bias
 	}
-	return &qsfpObj, err
+	return &qsfpObj, nil
+}
+
+func (qMgr *QsfpManager) GetQsfpChannelState(id int32, channelNum int32) (*objects.QsfpChannelState, error) {
+	var qsfpChannelObj objects.QsfpChannelState
+	if qMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if channelNum > int32(MaxNumOfQsfpChannel) {
+		return nil, errors.New("Invalid ChannelNum")
+	}
+	qsfpChannel := QsfpChannel{
+		QsfpId:     id,
+		ChannelNum: uint8(channelNum),
+	}
+	_, exist := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	if !exist {
+		return nil, errors.New("Invalid QsfpId")
+	}
+
+	qMgr.stateMutex.Lock()
+	qsfpState, err := qMgr.plugin.GetQsfpState(id)
+	qMgr.stateMutex.Unlock()
+	if err != nil {
+		qsfpChannelObj.QsfpId = id
+		qsfpChannelObj.ChannelNum = channelNum
+		qsfpChannelObj.Present = false
+	} else {
+		qsfpChannelObj.QsfpId = id
+		qsfpChannelObj.ChannelNum = channelNum
+		qsfpChannelObj.Present = true
+		qsfpChannelObj.RXPower = qsfpState.RXPower[channelNum-1]
+		qsfpChannelObj.TXPower = qsfpState.TXPower[channelNum-1]
+		qsfpChannelObj.TXBias = qsfpState.TXBias[channelNum-1]
+	}
+
+	return &qsfpChannelObj, nil
 }
 
 func (qMgr *QsfpManager) GetBulkQsfpState(fromIdx int, cnt int) (*objects.QsfpStateGetInfo, error) {
@@ -288,22 +329,51 @@ func (qMgr *QsfpManager) GetBulkQsfpState(fromIdx int, cnt int) (*objects.QsfpSt
 	if qMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
-	if fromIdx >= len(qMgr.configDB) {
+	if fromIdx >= int(qMgr.numOfQsfps) {
 		return nil, errors.New("Invalid range")
 	}
-	if fromIdx+cnt > len(qMgr.configDB) {
-		retObj.EndIdx = len(qMgr.configDB)
+	if fromIdx+cnt > int(qMgr.numOfQsfps) {
+		retObj.EndIdx = int(qMgr.numOfQsfps)
 		retObj.More = false
 		retObj.Count = 0
 	} else {
 		retObj.EndIdx = fromIdx + cnt
 		retObj.More = true
-		retObj.Count = len(qMgr.configDB) - retObj.EndIdx + 1
+		retObj.Count = int(qMgr.numOfQsfps) - retObj.EndIdx + 1
 	}
 	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
 		obj, err := qMgr.GetQsfpState(int32(idx + 1))
 		if err != nil {
-			qMgr.logger.Err(fmt.Sprintln("Error getting the qsfp state for QsfpId:", idx+1))
+			qMgr.logger.Err("Error getting the qsfp state for QsfpId:", idx+1)
+		}
+		retObj.List = append(retObj.List, obj)
+	}
+	return &retObj, nil
+}
+
+func (qMgr *QsfpManager) GetBulkQsfpChannelState(fromIdx int, cnt int) (*objects.QsfpChannelStateGetInfo, error) {
+	var retObj objects.QsfpChannelStateGetInfo
+	if qMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if fromIdx >= int(qMgr.numOfQsfps)*int(MaxNumOfQsfpChannel) {
+		return nil, errors.New("Invalid range")
+	}
+	if fromIdx+cnt > int(qMgr.numOfQsfps)*int(MaxNumOfQsfpChannel) {
+		retObj.EndIdx = int(qMgr.numOfQsfps) * int(MaxNumOfQsfpChannel)
+		retObj.More = false
+		retObj.Count = 0
+	} else {
+		retObj.EndIdx = fromIdx + cnt
+		retObj.More = true
+		retObj.Count = (int(qMgr.numOfQsfps) * int(MaxNumOfQsfpChannel)) - retObj.EndIdx + 1
+	}
+	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
+		qsfpId := int32((idx / int(MaxNumOfQsfpChannel)) + 1)
+		chNum := int32((idx % int(MaxNumOfQsfpChannel)) + 1)
+		obj, err := qMgr.GetQsfpChannelState(qsfpId, chNum)
+		if err != nil {
+			qMgr.logger.Err("Error getting the qsfp channel state for QsfpId:", qsfpId, "Channel Number:", chNum)
 		}
 		retObj.List = append(retObj.List, obj)
 	}
@@ -315,40 +385,68 @@ func (qMgr *QsfpManager) GetQsfpConfig(id int32) (*objects.QsfpConfig, error) {
 	if qMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
-	numOfQsfp := int32(len(qMgr.configDB))
-	if (id > numOfQsfp) && (id < int32(1)) {
+	qMgr.qsfpConfigMutex.RLock()
+	qsfpCfgEnt, exist := qMgr.qsfpConfigDB[id]
+	if !exist {
+		qMgr.qsfpConfigMutex.RUnlock()
 		return nil, errors.New("Invalid QsfpId")
 	}
 
-	qMgr.configMutex.RLock()
-	qsfpCfgEnt := qMgr.configDB[id-1]
 	obj.QsfpId = id
 	obj.AdminState = qsfpCfgEnt.AdminState
 	obj.HigherAlarmTemperature = qsfpCfgEnt.HigherAlarmTemperature
 	obj.HigherAlarmVoltage = qsfpCfgEnt.HigherAlarmVoltage
-	obj.HigherAlarmRXPower = qsfpCfgEnt.HigherAlarmRXPower
-	obj.HigherAlarmTXPower = qsfpCfgEnt.HigherAlarmTXPower
-	obj.HigherAlarmTXBias = qsfpCfgEnt.HigherAlarmTXBias
 	obj.HigherWarningTemperature = qsfpCfgEnt.HigherWarningTemperature
 	obj.HigherWarningVoltage = qsfpCfgEnt.HigherWarningVoltage
-	obj.HigherWarningRXPower = qsfpCfgEnt.HigherWarningRXPower
-	obj.HigherWarningTXPower = qsfpCfgEnt.HigherWarningTXPower
-	obj.HigherWarningTXBias = qsfpCfgEnt.HigherWarningTXBias
 	obj.LowerAlarmTemperature = qsfpCfgEnt.LowerAlarmTemperature
 	obj.LowerAlarmVoltage = qsfpCfgEnt.LowerAlarmVoltage
-	obj.LowerAlarmRXPower = qsfpCfgEnt.LowerAlarmRXPower
-	obj.LowerAlarmTXPower = qsfpCfgEnt.LowerAlarmTXPower
-	obj.LowerAlarmTXBias = qsfpCfgEnt.LowerAlarmTXBias
 	obj.LowerWarningTemperature = qsfpCfgEnt.LowerWarningTemperature
 	obj.LowerWarningVoltage = qsfpCfgEnt.LowerWarningVoltage
-	obj.LowerWarningRXPower = qsfpCfgEnt.LowerWarningRXPower
-	obj.LowerWarningTXPower = qsfpCfgEnt.LowerWarningTXPower
-	obj.LowerWarningTXBias = qsfpCfgEnt.LowerWarningTXBias
 	obj.PMClassAAdminState = qsfpCfgEnt.PMClassAAdminState
 	obj.PMClassBAdminState = qsfpCfgEnt.PMClassBAdminState
 	obj.PMClassCAdminState = qsfpCfgEnt.PMClassCAdminState
-	qMgr.configMutex.RUnlock()
+	qMgr.qsfpConfigMutex.RUnlock()
 
+	return &obj, nil
+}
+
+func (qMgr *QsfpManager) GetQsfpChannelConfig(id int32, channelNum int32) (*objects.QsfpChannelConfig, error) {
+	var obj objects.QsfpChannelConfig
+	if qMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if channelNum > int32(MaxNumOfQsfpChannel) {
+		return nil, errors.New("Invalid ChannelNum")
+	}
+	qsfpChannel := QsfpChannel{
+		QsfpId:     id,
+		ChannelNum: uint8(channelNum),
+	}
+	qMgr.qsfpChannelConfigMutex.RLock()
+	qsfpChannelCfgEnt, exist := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	if !exist {
+		qMgr.qsfpChannelConfigMutex.RUnlock()
+		return nil, errors.New("Invalid QsfpId")
+	}
+	obj.QsfpId = id
+	obj.ChannelNum = channelNum
+	obj.AdminState = qsfpChannelCfgEnt.AdminState
+	obj.HigherAlarmRXPower = qsfpChannelCfgEnt.HigherAlarmRXPower
+	obj.HigherAlarmTXPower = qsfpChannelCfgEnt.HigherAlarmTXPower
+	obj.HigherAlarmTXBias = qsfpChannelCfgEnt.HigherAlarmTXBias
+	obj.HigherWarningRXPower = qsfpChannelCfgEnt.HigherWarningRXPower
+	obj.HigherWarningTXPower = qsfpChannelCfgEnt.HigherWarningTXPower
+	obj.HigherWarningTXBias = qsfpChannelCfgEnt.HigherWarningTXBias
+	obj.LowerAlarmRXPower = qsfpChannelCfgEnt.LowerAlarmRXPower
+	obj.LowerAlarmTXPower = qsfpChannelCfgEnt.LowerAlarmTXPower
+	obj.LowerAlarmTXBias = qsfpChannelCfgEnt.LowerAlarmTXBias
+	obj.LowerWarningRXPower = qsfpChannelCfgEnt.LowerWarningRXPower
+	obj.LowerWarningTXPower = qsfpChannelCfgEnt.LowerWarningTXPower
+	obj.LowerWarningTXBias = qsfpChannelCfgEnt.LowerWarningTXBias
+	obj.PMClassAAdminState = qsfpChannelCfgEnt.PMClassAAdminState
+	obj.PMClassBAdminState = qsfpChannelCfgEnt.PMClassBAdminState
+	obj.PMClassCAdminState = qsfpChannelCfgEnt.PMClassCAdminState
+	qMgr.qsfpChannelConfigMutex.RUnlock()
 	return &obj, nil
 }
 
@@ -357,23 +455,51 @@ func (qMgr *QsfpManager) GetBulkQsfpConfig(fromIdx int, cnt int) (*objects.QsfpC
 	if qMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
-	numOfQsfp := len(qMgr.configDB)
-	if fromIdx >= numOfQsfp {
+	if fromIdx >= int(qMgr.numOfQsfps) {
 		return nil, errors.New("Invalid range")
 	}
-	if fromIdx+cnt > numOfQsfp {
-		retObj.EndIdx = numOfQsfp
+	if fromIdx+cnt > int(qMgr.numOfQsfps) {
+		retObj.EndIdx = int(qMgr.numOfQsfps)
 		retObj.More = false
 		retObj.Count = 0
 	} else {
 		retObj.EndIdx = fromIdx + cnt
 		retObj.More = true
-		retObj.Count = numOfQsfp - retObj.EndIdx + 1
+		retObj.Count = int(qMgr.numOfQsfps) - retObj.EndIdx + 1
 	}
 	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
 		obj, err := qMgr.GetQsfpConfig(int32(idx + 1))
 		if err != nil {
-			qMgr.logger.Err(fmt.Sprintln("Error getting the Qsfp state for QsfpId:", idx+1))
+			qMgr.logger.Err("Error getting the Qsfp Config for QsfpId:", idx+1)
+		}
+		retObj.List = append(retObj.List, obj)
+	}
+	return &retObj, nil
+}
+
+func (qMgr *QsfpManager) GetBulkQsfpChannelConfig(fromIdx int, cnt int) (*objects.QsfpChannelConfigGetInfo, error) {
+	var retObj objects.QsfpChannelConfigGetInfo
+	if qMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if fromIdx >= int(qMgr.numOfQsfps)*int(MaxNumOfQsfpChannel) {
+		return nil, errors.New("Invalid range")
+	}
+	if fromIdx+cnt > int(qMgr.numOfQsfps)*int(MaxNumOfQsfpChannel) {
+		retObj.EndIdx = int(qMgr.numOfQsfps) * int(MaxNumOfQsfpChannel)
+		retObj.More = false
+		retObj.Count = 0
+	} else {
+		retObj.EndIdx = fromIdx + cnt
+		retObj.More = true
+		retObj.Count = (int(qMgr.numOfQsfps) * int(MaxNumOfQsfpChannel)) - retObj.EndIdx + 1
+	}
+	for idx := fromIdx; idx < retObj.EndIdx; idx++ {
+		qsfpId := int32((idx / int(MaxNumOfQsfpChannel)) + 1)
+		chNum := int32((idx % int(MaxNumOfQsfpChannel)) + 1)
+		obj, err := qMgr.GetQsfpChannelConfig(qsfpId, chNum)
+		if err != nil {
+			qMgr.logger.Err("Error getting the qsfp channel config for QsfpId:", qsfpId, "Channel Number:", chNum)
 		}
 		retObj.List = append(retObj.List, obj)
 	}
@@ -387,24 +513,12 @@ func genQsfpUpdateMask(attrset []bool) uint32 {
 		mask = objects.QSFP_UPDATE_ADMIN_STATE |
 			objects.QSFP_UPDATE_HIGHER_ALARM_TEMPERATURE |
 			objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE |
-			objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER |
-			objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER |
-			objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS |
 			objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE |
 			objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE |
-			objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER |
-			objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER |
-			objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS |
 			objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE |
 			objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE |
-			objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER |
-			objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER |
-			objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS |
 			objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE |
 			objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE |
-			objects.QSFP_UPDATE_LOWER_WARN_RX_POWER |
-			objects.QSFP_UPDATE_LOWER_WARN_TX_POWER |
-			objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS |
 			objects.QSFP_UPDATE_PM_CLASS_A_ADMIN_STATE |
 			objects.QSFP_UPDATE_PM_CLASS_B_ADMIN_STATE |
 			objects.QSFP_UPDATE_PM_CLASS_C_ADMIN_STATE
@@ -421,46 +535,22 @@ func genQsfpUpdateMask(attrset []bool) uint32 {
 				case 3:
 					mask |= objects.QSFP_UPDATE_HIGHER_ALARM_VOLTAGE
 				case 4:
-					mask |= objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER
-				case 5:
-					mask |= objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER
-				case 6:
-					mask |= objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS
-				case 7:
 					mask |= objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE
-				case 8:
+				case 5:
 					mask |= objects.QSFP_UPDATE_HIGHER_WARN_VOLTAGE
-				case 9:
-					mask |= objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER
-				case 10:
-					mask |= objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER
-				case 11:
-					mask |= objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS
-				case 12:
+				case 6:
 					mask |= objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE
-				case 13:
+				case 7:
 					mask |= objects.QSFP_UPDATE_LOWER_ALARM_VOLTAGE
-				case 14:
-					mask |= objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER
-				case 15:
-					mask |= objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER
-				case 16:
-					mask |= objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS
-				case 17:
+				case 8:
 					mask |= objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE
-				case 18:
+				case 9:
 					mask |= objects.QSFP_UPDATE_LOWER_WARN_VOLTAGE
-				case 19:
-					mask |= objects.QSFP_UPDATE_LOWER_WARN_RX_POWER
-				case 20:
-					mask |= objects.QSFP_UPDATE_LOWER_WARN_TX_POWER
-				case 21:
-					mask |= objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS
-				case 22:
+				case 10:
 					mask |= objects.QSFP_UPDATE_PM_CLASS_A_ADMIN_STATE
-				case 23:
+				case 11:
 					mask |= objects.QSFP_UPDATE_PM_CLASS_B_ADMIN_STATE
-				case 24:
+				case 12:
 					mask |= objects.QSFP_UPDATE_PM_CLASS_C_ADMIN_STATE
 				}
 			}
@@ -473,17 +563,17 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	if qMgr.plugin == nil {
 		return false, errors.New("Invalid platform plugin")
 	}
-	numOfQsfp := len(qMgr.configDB)
-	if newCfg.QsfpId > int32(numOfQsfp) || newCfg.QsfpId < int32(1) {
-		return false, errors.New("Invalid Qsfp Id")
+	qMgr.qsfpConfigMutex.Lock()
+	qsfpCfgEnt, exist := qMgr.qsfpConfigDB[newCfg.QsfpId]
+	if !exist {
+		qMgr.qsfpConfigMutex.Unlock()
+		return false, errors.New("Invalid QsfpId")
 	}
-	qMgr.configMutex.Lock()
 	var cfgEnt QsfpConfig
-	qsfpCfgEnt := qMgr.configDB[newCfg.QsfpId-1]
 	mask := genQsfpUpdateMask(attrset)
 	if mask&objects.QSFP_UPDATE_ADMIN_STATE == objects.QSFP_UPDATE_ADMIN_STATE {
 		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
-			qMgr.configMutex.Unlock()
+			qMgr.qsfpConfigMutex.Unlock()
 			return false, errors.New("Invalid AdminState Value")
 		}
 
@@ -501,21 +591,6 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	} else {
 		cfgEnt.HigherAlarmVoltage = qsfpCfgEnt.HigherAlarmVoltage
 	}
-	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_RX_POWER {
-		cfgEnt.HigherAlarmRXPower = newCfg.HigherAlarmRXPower
-	} else {
-		cfgEnt.HigherAlarmRXPower = qsfpCfgEnt.HigherAlarmRXPower
-	}
-	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER == objects.QSFP_UPDATE_HIGHER_ALARM_TX_POWER {
-		cfgEnt.HigherAlarmTXPower = newCfg.HigherAlarmTXPower
-	} else {
-		cfgEnt.HigherAlarmTXPower = qsfpCfgEnt.HigherAlarmTXPower
-	}
-	if mask&objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS == objects.QSFP_UPDATE_HIGHER_ALARM_TX_BIAS {
-		cfgEnt.HigherAlarmTXBias = newCfg.HigherAlarmTXBias
-	} else {
-		cfgEnt.HigherAlarmTXBias = qsfpCfgEnt.HigherAlarmTXBias
-	}
 	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE == objects.QSFP_UPDATE_HIGHER_WARN_TEMPERATURE {
 		cfgEnt.HigherWarningTemperature = newCfg.HigherWarningTemperature
 	} else {
@@ -525,21 +600,6 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 		cfgEnt.HigherWarningVoltage = newCfg.HigherWarningVoltage
 	} else {
 		cfgEnt.HigherWarningVoltage = qsfpCfgEnt.HigherWarningVoltage
-	}
-	if mask&objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_RX_POWER {
-		cfgEnt.HigherWarningRXPower = newCfg.HigherWarningRXPower
-	} else {
-		cfgEnt.HigherWarningRXPower = qsfpCfgEnt.HigherWarningRXPower
-	}
-	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER == objects.QSFP_UPDATE_HIGHER_WARN_TX_POWER {
-		cfgEnt.HigherWarningTXPower = newCfg.HigherWarningTXPower
-	} else {
-		cfgEnt.HigherWarningTXPower = qsfpCfgEnt.HigherWarningTXPower
-	}
-	if mask&objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS == objects.QSFP_UPDATE_HIGHER_WARN_TX_BIAS {
-		cfgEnt.HigherWarningTXBias = newCfg.HigherWarningTXBias
-	} else {
-		cfgEnt.HigherWarningTXBias = qsfpCfgEnt.HigherWarningTXBias
 	}
 	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE == objects.QSFP_UPDATE_LOWER_ALARM_TEMPERATURE {
 		cfgEnt.LowerAlarmTemperature = newCfg.LowerAlarmTemperature
@@ -551,21 +611,6 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	} else {
 		cfgEnt.LowerAlarmVoltage = qsfpCfgEnt.LowerAlarmVoltage
 	}
-	if mask&objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_RX_POWER {
-		cfgEnt.LowerAlarmRXPower = newCfg.LowerAlarmRXPower
-	} else {
-		cfgEnt.LowerAlarmRXPower = qsfpCfgEnt.LowerAlarmRXPower
-	}
-	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER == objects.QSFP_UPDATE_LOWER_ALARM_TX_POWER {
-		cfgEnt.LowerAlarmTXPower = newCfg.LowerAlarmTXPower
-	} else {
-		cfgEnt.LowerAlarmTXPower = qsfpCfgEnt.LowerAlarmTXPower
-	}
-	if mask&objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS == objects.QSFP_UPDATE_LOWER_ALARM_TX_BIAS {
-		cfgEnt.LowerAlarmTXBias = newCfg.LowerAlarmTXBias
-	} else {
-		cfgEnt.LowerAlarmTXBias = qsfpCfgEnt.LowerAlarmTXBias
-	}
 	if mask&objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE == objects.QSFP_UPDATE_LOWER_WARN_TEMPERATURE {
 		cfgEnt.LowerWarningTemperature = newCfg.LowerWarningTemperature
 	} else {
@@ -576,24 +621,9 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	} else {
 		cfgEnt.LowerWarningVoltage = qsfpCfgEnt.LowerWarningVoltage
 	}
-	if mask&objects.QSFP_UPDATE_LOWER_WARN_RX_POWER == objects.QSFP_UPDATE_LOWER_WARN_RX_POWER {
-		cfgEnt.LowerWarningRXPower = newCfg.LowerWarningRXPower
-	} else {
-		cfgEnt.LowerWarningRXPower = qsfpCfgEnt.LowerWarningRXPower
-	}
-	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_POWER == objects.QSFP_UPDATE_LOWER_WARN_TX_POWER {
-		cfgEnt.LowerWarningTXPower = newCfg.LowerWarningTXPower
-	} else {
-		cfgEnt.LowerWarningTXPower = qsfpCfgEnt.LowerWarningTXPower
-	}
-	if mask&objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS == objects.QSFP_UPDATE_LOWER_WARN_TX_BIAS {
-		cfgEnt.LowerWarningTXBias = newCfg.LowerWarningTXBias
-	} else {
-		cfgEnt.LowerWarningTXBias = qsfpCfgEnt.LowerWarningTXBias
-	}
 	if mask&objects.QSFP_UPDATE_PM_CLASS_A_ADMIN_STATE == objects.QSFP_UPDATE_PM_CLASS_A_ADMIN_STATE {
 		if newCfg.PMClassAAdminState != "Enable" && newCfg.PMClassAAdminState != "Disable" {
-			qMgr.configMutex.Unlock()
+			qMgr.qsfpConfigMutex.Unlock()
 			return false, errors.New("Invalid PMClassAAdminState Value")
 		}
 		cfgEnt.PMClassAAdminState = newCfg.PMClassAAdminState
@@ -602,7 +632,7 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	}
 	if mask&objects.QSFP_UPDATE_PM_CLASS_B_ADMIN_STATE == objects.QSFP_UPDATE_PM_CLASS_B_ADMIN_STATE {
 		if newCfg.PMClassBAdminState != "Enable" && newCfg.PMClassBAdminState != "Disable" {
-			qMgr.configMutex.Unlock()
+			qMgr.qsfpConfigMutex.Unlock()
 			return false, errors.New("Invalid PMClassBAdminState Value")
 		}
 		cfgEnt.PMClassBAdminState = newCfg.PMClassBAdminState
@@ -611,7 +641,7 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	}
 	if mask&objects.QSFP_UPDATE_PM_CLASS_C_ADMIN_STATE == objects.QSFP_UPDATE_PM_CLASS_C_ADMIN_STATE {
 		if newCfg.PMClassCAdminState != "Enable" && newCfg.PMClassCAdminState != "Disable" {
-			qMgr.configMutex.Unlock()
+			qMgr.qsfpConfigMutex.Unlock()
 			return false, errors.New("Invalid PMClassCAdminState Value")
 		}
 		cfgEnt.PMClassCAdminState = newCfg.PMClassCAdminState
@@ -622,100 +652,365 @@ func (qMgr *QsfpManager) UpdateQsfpConfig(oldCfg *objects.QsfpConfig, newCfg *ob
 	if !(cfgEnt.HigherAlarmTemperature >= cfgEnt.HigherWarningTemperature &&
 		cfgEnt.HigherWarningTemperature > cfgEnt.LowerWarningTemperature &&
 		cfgEnt.LowerWarningTemperature >= cfgEnt.LowerAlarmTemperature) {
-		qMgr.configMutex.Unlock()
+		qMgr.qsfpConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, please verify the thresholds")
 	}
 
 	if !(cfgEnt.HigherAlarmVoltage >= cfgEnt.HigherWarningVoltage &&
 		cfgEnt.HigherWarningVoltage > cfgEnt.LowerWarningVoltage &&
 		cfgEnt.LowerWarningVoltage >= cfgEnt.LowerAlarmVoltage) {
-		qMgr.configMutex.Unlock()
+		qMgr.qsfpConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, please verify the thresholds")
+	}
+
+	if qsfpCfgEnt.AdminState != cfgEnt.AdminState {
+		if cfgEnt.AdminState == "Disable" {
+			qMgr.clearExistingQsfpFaults(newCfg.QsfpId)
+			qMgr.logger.Info("Clear all the existing Faults")
+		}
+	}
+	if qsfpCfgEnt.PMClassAAdminState != cfgEnt.PMClassAAdminState {
+		if cfgEnt.PMClassAAdminState == "Disable" {
+			// Flush PM RingBuffer
+			qMgr.flushHistoricQsfpPM(newCfg.QsfpId, "Class-A")
+			qMgr.logger.Info("Flush Class A PM Ring buffer")
+		}
+	}
+	if qsfpCfgEnt.PMClassBAdminState != cfgEnt.PMClassBAdminState {
+		if cfgEnt.PMClassBAdminState == "Disable" {
+			// Flush PM RingBuffer
+			qMgr.flushHistoricQsfpPM(newCfg.QsfpId, "Class-B")
+			qMgr.logger.Info("Flush Class B PM Ring buffer")
+		}
+	}
+	if qsfpCfgEnt.PMClassCAdminState != cfgEnt.PMClassCAdminState {
+		if cfgEnt.PMClassCAdminState == "Disable" {
+			// Flush PM RingBuffer
+			qMgr.flushHistoricQsfpPM(newCfg.QsfpId, "Class-C")
+			qMgr.logger.Info("Flush Class C PM Ring buffer")
+		}
+	}
+	qMgr.qsfpConfigDB[newCfg.QsfpId] = cfgEnt
+	qMgr.qsfpConfigMutex.Unlock()
+
+	return true, nil
+}
+
+func genQsfpChannelUpdateMask(attrset []bool) uint32 {
+	var mask uint32 = 0
+
+	if attrset == nil {
+		mask = objects.QSFP_CHANNEL_UPDATE_ADMIN_STATE |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_RX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_BIAS |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_RX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_BIAS |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_RX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_BIAS |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_RX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_POWER |
+			objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_BIAS |
+			objects.QSFP_CHANNEL_UPDATE_PM_CLASS_A_ADMIN_STATE |
+			objects.QSFP_CHANNEL_UPDATE_PM_CLASS_B_ADMIN_STATE |
+			objects.QSFP_CHANNEL_UPDATE_PM_CLASS_C_ADMIN_STATE
+	} else {
+		for idx, val := range attrset {
+			if true == val {
+				switch idx {
+				case 0:
+					//QSFP Id
+				case 1:
+					// Channel Number
+				case 2:
+					mask |= objects.QSFP_CHANNEL_UPDATE_ADMIN_STATE
+				case 3:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_RX_POWER
+				case 4:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_POWER
+				case 5:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_BIAS
+				case 6:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_RX_POWER
+				case 7:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_POWER
+				case 8:
+					mask |= objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_BIAS
+				case 9:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_RX_POWER
+				case 10:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_POWER
+				case 11:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_BIAS
+				case 12:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_RX_POWER
+				case 13:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_POWER
+				case 14:
+					mask |= objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_BIAS
+				case 15:
+					mask |= objects.QSFP_CHANNEL_UPDATE_PM_CLASS_A_ADMIN_STATE
+				case 16:
+					mask |= objects.QSFP_CHANNEL_UPDATE_PM_CLASS_B_ADMIN_STATE
+				case 17:
+					mask |= objects.QSFP_CHANNEL_UPDATE_PM_CLASS_C_ADMIN_STATE
+				}
+			}
+		}
+	}
+	return mask
+}
+
+func (qMgr *QsfpManager) UpdateQsfpChannelConfig(oldCfg *objects.QsfpChannelConfig, newCfg *objects.QsfpChannelConfig, attrset []bool) (bool, error) {
+	if qMgr.plugin == nil {
+		return false, errors.New("Invalid platform plugin")
+	}
+	if newCfg.ChannelNum > int32(MaxNumOfQsfpChannel) {
+		return false, errors.New("Invalid ChannelNum")
+	}
+	qsfpChannel := QsfpChannel{
+		QsfpId:     newCfg.QsfpId,
+		ChannelNum: uint8(newCfg.ChannelNum),
+	}
+	qMgr.qsfpChannelConfigMutex.Lock()
+	qsfpChannelCfgEnt, exist := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	if !exist {
+		qMgr.qsfpChannelConfigMutex.Unlock()
+		return false, errors.New("Invalid QsfpId")
+	}
+	var cfgEnt QsfpChannelConfig
+	mask := genQsfpChannelUpdateMask(attrset)
+	if mask&objects.QSFP_CHANNEL_UPDATE_ADMIN_STATE == objects.QSFP_CHANNEL_UPDATE_ADMIN_STATE {
+		if newCfg.AdminState != "Enable" && newCfg.AdminState != "Disable" {
+			qMgr.qsfpChannelConfigMutex.Unlock()
+			return false, errors.New("Invalid AdminState Value")
+		}
+
+		cfgEnt.AdminState = newCfg.AdminState
+	} else {
+		cfgEnt.AdminState = qsfpChannelCfgEnt.AdminState
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_RX_POWER == objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_RX_POWER {
+		cfgEnt.HigherAlarmRXPower = newCfg.HigherAlarmRXPower
+	} else {
+		cfgEnt.HigherAlarmRXPower = qsfpChannelCfgEnt.HigherAlarmRXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_POWER == objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_POWER {
+		cfgEnt.HigherAlarmTXPower = newCfg.HigherAlarmTXPower
+	} else {
+		cfgEnt.HigherAlarmTXPower = qsfpChannelCfgEnt.HigherAlarmTXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_BIAS == objects.QSFP_CHANNEL_UPDATE_HIGHER_ALARM_TX_BIAS {
+		cfgEnt.HigherAlarmTXBias = newCfg.HigherAlarmTXBias
+	} else {
+		cfgEnt.HigherAlarmTXBias = qsfpChannelCfgEnt.HigherAlarmTXBias
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_RX_POWER == objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_RX_POWER {
+		cfgEnt.HigherWarningRXPower = newCfg.HigherWarningRXPower
+	} else {
+		cfgEnt.HigherWarningRXPower = qsfpChannelCfgEnt.HigherWarningRXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_POWER == objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_POWER {
+		cfgEnt.HigherWarningTXPower = newCfg.HigherWarningTXPower
+	} else {
+		cfgEnt.HigherWarningTXPower = qsfpChannelCfgEnt.HigherWarningTXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_BIAS == objects.QSFP_CHANNEL_UPDATE_HIGHER_WARN_TX_BIAS {
+		cfgEnt.HigherWarningTXBias = newCfg.HigherWarningTXBias
+	} else {
+		cfgEnt.HigherWarningTXBias = qsfpChannelCfgEnt.HigherWarningTXBias
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_RX_POWER == objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_RX_POWER {
+		cfgEnt.LowerAlarmRXPower = newCfg.LowerAlarmRXPower
+	} else {
+		cfgEnt.LowerAlarmRXPower = qsfpChannelCfgEnt.LowerAlarmRXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_POWER == objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_POWER {
+		cfgEnt.LowerAlarmTXPower = newCfg.LowerAlarmTXPower
+	} else {
+		cfgEnt.LowerAlarmTXPower = qsfpChannelCfgEnt.LowerAlarmTXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_BIAS == objects.QSFP_CHANNEL_UPDATE_LOWER_ALARM_TX_BIAS {
+		cfgEnt.LowerAlarmTXBias = newCfg.LowerAlarmTXBias
+	} else {
+		cfgEnt.LowerAlarmTXBias = qsfpChannelCfgEnt.LowerAlarmTXBias
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_RX_POWER == objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_RX_POWER {
+		cfgEnt.LowerWarningRXPower = newCfg.LowerWarningRXPower
+	} else {
+		cfgEnt.LowerWarningRXPower = qsfpChannelCfgEnt.LowerWarningRXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_POWER == objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_POWER {
+		cfgEnt.LowerWarningTXPower = newCfg.LowerWarningTXPower
+	} else {
+		cfgEnt.LowerWarningTXPower = qsfpChannelCfgEnt.LowerWarningTXPower
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_BIAS == objects.QSFP_CHANNEL_UPDATE_LOWER_WARN_TX_BIAS {
+		cfgEnt.LowerWarningTXBias = newCfg.LowerWarningTXBias
+	} else {
+		cfgEnt.LowerWarningTXBias = qsfpChannelCfgEnt.LowerWarningTXBias
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_PM_CLASS_A_ADMIN_STATE == objects.QSFP_CHANNEL_UPDATE_PM_CLASS_A_ADMIN_STATE {
+		if newCfg.PMClassAAdminState != "Enable" && newCfg.PMClassAAdminState != "Disable" {
+			qMgr.qsfpChannelConfigMutex.Unlock()
+			return false, errors.New("Invalid PMClassAAdminState Value")
+		}
+		cfgEnt.PMClassAAdminState = newCfg.PMClassAAdminState
+	} else {
+		cfgEnt.PMClassAAdminState = qsfpChannelCfgEnt.PMClassAAdminState
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_PM_CLASS_B_ADMIN_STATE == objects.QSFP_CHANNEL_UPDATE_PM_CLASS_B_ADMIN_STATE {
+		if newCfg.PMClassBAdminState != "Enable" && newCfg.PMClassBAdminState != "Disable" {
+			qMgr.qsfpChannelConfigMutex.Unlock()
+			return false, errors.New("Invalid PMClassBAdminState Value")
+		}
+		cfgEnt.PMClassBAdminState = newCfg.PMClassBAdminState
+	} else {
+		cfgEnt.PMClassBAdminState = qsfpChannelCfgEnt.PMClassBAdminState
+	}
+	if mask&objects.QSFP_CHANNEL_UPDATE_PM_CLASS_C_ADMIN_STATE == objects.QSFP_CHANNEL_UPDATE_PM_CLASS_C_ADMIN_STATE {
+		if newCfg.PMClassCAdminState != "Enable" && newCfg.PMClassCAdminState != "Disable" {
+			qMgr.qsfpChannelConfigMutex.Unlock()
+			return false, errors.New("Invalid PMClassCAdminState Value")
+		}
+		cfgEnt.PMClassCAdminState = newCfg.PMClassCAdminState
+	} else {
+		cfgEnt.PMClassCAdminState = qsfpChannelCfgEnt.PMClassCAdminState
 	}
 
 	if !(cfgEnt.HigherAlarmRXPower >= cfgEnt.HigherWarningRXPower &&
 		cfgEnt.HigherWarningRXPower > cfgEnt.LowerWarningRXPower &&
 		cfgEnt.LowerWarningRXPower >= cfgEnt.LowerAlarmRXPower) {
-		qMgr.configMutex.Unlock()
+		qMgr.qsfpChannelConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, please verify the thresholds")
 	}
 
 	if !(cfgEnt.HigherAlarmTXPower >= cfgEnt.HigherWarningTXPower &&
 		cfgEnt.HigherWarningTXPower > cfgEnt.LowerWarningTXPower &&
 		cfgEnt.LowerWarningTXPower >= cfgEnt.LowerAlarmTXPower) {
-		qMgr.configMutex.Unlock()
+		qMgr.qsfpChannelConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, please verify the thresholds")
 	}
 
 	if !(cfgEnt.HigherAlarmTXBias >= cfgEnt.HigherWarningTXBias &&
 		cfgEnt.HigherWarningTXBias > cfgEnt.LowerWarningTXBias &&
 		cfgEnt.LowerWarningTXBias >= cfgEnt.LowerAlarmTXBias) {
-		qMgr.configMutex.Unlock()
+		qMgr.qsfpChannelConfigMutex.Unlock()
 		return false, errors.New("Invalid configuration, please verify the thresholds")
 	}
 
-	if qsfpCfgEnt.AdminState != cfgEnt.AdminState {
-		qMgr.stateMutex.Lock()
-		switch cfgEnt.AdminState {
-		case "Enable":
-			qMgr.qsfpStatus[newCfg.QsfpId-1] = true
-		case "Disable":
-			//Clear all the existing Faults
+	if qsfpChannelCfgEnt.AdminState != cfgEnt.AdminState {
+		if cfgEnt.AdminState == "Disable" {
+			qMgr.clearExistingQsfpChannelFaults(newCfg.QsfpId, newCfg.ChannelNum)
 			qMgr.logger.Info("Clear all the existing Faults")
 		}
-		qMgr.stateMutex.Unlock()
 	}
-	if qMgr.configDB[newCfg.QsfpId-1].PMClassAAdminState != cfgEnt.PMClassAAdminState {
+	if qsfpChannelCfgEnt.PMClassAAdminState != cfgEnt.PMClassAAdminState {
 		if cfgEnt.PMClassAAdminState == "Disable" {
 			// Flush PM RingBuffer
-			qMgr.flushHistoricPM(newCfg.QsfpId, "Class-A")
+			qMgr.flushHistoricQsfpChannelPM(newCfg.QsfpId, newCfg.ChannelNum, "Class-A")
 			qMgr.logger.Info("Flush Class A PM Ring buffer")
 		}
 	}
-	if qMgr.configDB[newCfg.QsfpId-1].PMClassBAdminState != cfgEnt.PMClassBAdminState {
+	if qsfpChannelCfgEnt.PMClassBAdminState != cfgEnt.PMClassBAdminState {
 		if cfgEnt.PMClassBAdminState == "Disable" {
 			// Flush PM RingBuffer
-			qMgr.flushHistoricPM(newCfg.QsfpId, "Class-B")
+			qMgr.flushHistoricQsfpChannelPM(newCfg.QsfpId, newCfg.ChannelNum, "Class-B")
 			qMgr.logger.Info("Flush Class B PM Ring buffer")
 		}
 	}
-	if qMgr.configDB[newCfg.QsfpId-1].PMClassCAdminState != cfgEnt.PMClassCAdminState {
+	if qsfpChannelCfgEnt.PMClassCAdminState != cfgEnt.PMClassCAdminState {
 		if cfgEnt.PMClassCAdminState == "Disable" {
 			// Flush PM RingBuffer
-			qMgr.flushHistoricPM(newCfg.QsfpId, "Class-C")
+			qMgr.flushHistoricQsfpChannelPM(newCfg.QsfpId, newCfg.ChannelNum, "Class-C")
 			qMgr.logger.Info("Flush Class C PM Ring buffer")
 		}
 	}
-	qMgr.configDB[newCfg.QsfpId-1] = cfgEnt
+	qMgr.qsfpChannelConfigDB[qsfpChannel] = cfgEnt
 
-	qMgr.configMutex.Unlock()
-
+	qMgr.qsfpChannelConfigMutex.Unlock()
 	return true, nil
 }
 
-func (qMgr *QsfpManager) flushHistoricPM(QsfpId int32, Class string) {
+func (qMgr *QsfpManager) flushHistoricQsfpPM(QsfpId int32, Class string) {
 	switch Class {
 	case "Class-A":
-		qMgr.classAMutex.Lock()
-		for idx := 0; idx < int(MaxNumRes); idx++ {
+		qMgr.qsfpClassAMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpRes); idx++ {
 			resId := uint8(idx)
-			qMgr.classAPM[QsfpId-1][resId].FlushRingBuffer()
+			qsfpResource := QsfpResource{
+				QsfpId: QsfpId,
+				ResId:  resId,
+			}
+			qMgr.qsfpClassAPM[qsfpResource].FlushRingBuffer()
 		}
-		qMgr.classBMutex.Lock()
+		qMgr.qsfpClassAMutex.Unlock()
 	case "Class-B":
-		qMgr.classBMutex.Lock()
-		for idx := 0; idx < int(MaxNumRes); idx++ {
+		qMgr.qsfpClassBMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpRes); idx++ {
 			resId := uint8(idx)
-			qMgr.classBPM[QsfpId-1][resId].FlushRingBuffer()
+			qsfpResource := QsfpResource{
+				QsfpId: QsfpId,
+				ResId:  resId,
+			}
+			qMgr.qsfpClassBPM[qsfpResource].FlushRingBuffer()
 		}
-		qMgr.classBMutex.Lock()
+		qMgr.qsfpClassBMutex.Unlock()
 	case "Class-C":
-		qMgr.classCMutex.Lock()
-		for idx := 0; idx < int(MaxNumRes); idx++ {
+		qMgr.qsfpClassCMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpRes); idx++ {
 			resId := uint8(idx)
-			qMgr.classCPM[QsfpId-1][resId].FlushRingBuffer()
+			qsfpResource := QsfpResource{
+				QsfpId: QsfpId,
+				ResId:  resId,
+			}
+			qMgr.qsfpClassCPM[qsfpResource].FlushRingBuffer()
 		}
-		qMgr.classCMutex.Lock()
+		qMgr.qsfpClassCMutex.Unlock()
+	}
+}
+
+func (qMgr *QsfpManager) flushHistoricQsfpChannelPM(QsfpId int32, ChannelNum int32, Class string) {
+	qsfpChannel := QsfpChannel{
+		QsfpId:     QsfpId,
+		ChannelNum: uint8(ChannelNum),
+	}
+	switch Class {
+	case "Class-A":
+		qMgr.qsfpChannelClassAMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpChannelRes); idx++ {
+			resId := uint8(idx)
+			qsfpChannelRes := QsfpChannelResource{
+				QsfpChannel: qsfpChannel,
+				ResId:       resId,
+			}
+			qMgr.qsfpChannelClassAPM[qsfpChannelRes].FlushRingBuffer()
+		}
+		qMgr.qsfpChannelClassAMutex.Unlock()
+	case "Class-B":
+		qMgr.qsfpChannelClassBMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpChannelRes); idx++ {
+			resId := uint8(idx)
+			qsfpChannelRes := QsfpChannelResource{
+				QsfpChannel: qsfpChannel,
+				ResId:       resId,
+			}
+			qMgr.qsfpChannelClassBPM[qsfpChannelRes].FlushRingBuffer()
+		}
+		qMgr.qsfpChannelClassBMutex.Unlock()
+	case "Class-C":
+		qMgr.qsfpChannelClassCMutex.Lock()
+		for idx := 0; idx < int(MaxNumQsfpChannelRes); idx++ {
+			resId := uint8(idx)
+			qsfpChannelRes := QsfpChannelResource{
+				QsfpChannel: qsfpChannel,
+				ResId:       resId,
+			}
+			qMgr.qsfpChannelClassCPM[qsfpChannelRes].FlushRingBuffer()
+		}
+		qMgr.qsfpChannelClassCMutex.Unlock()
 	}
 }
 
@@ -724,55 +1019,110 @@ func (qMgr *QsfpManager) GetQsfpPMState(QsfpId int32, Resource string, Class str
 	if qMgr.plugin == nil {
 		return nil, errors.New("Invalid platform plugin")
 	}
-	numOfQsfp := len(qMgr.configDB)
-	if QsfpId > int32(numOfQsfp) || QsfpId < int32(1) {
-		return nil, errors.New("Invalid Qsfp Id")
+	qMgr.qsfpConfigMutex.RLock()
+	qsfpCfgEnt, exist := qMgr.qsfpConfigDB[QsfpId]
+	if !exist {
+		qMgr.qsfpConfigMutex.RUnlock()
+		return nil, errors.New("Invalid QsfpId")
 	}
-	qMgr.configMutex.RLock()
-	qsfpCfgEnt := qMgr.configDB[QsfpId-1]
-	/*
-		if qsfpCfgEnt.AdminState == "Disable" {
-			qMgr.configMutex.RUnlock()
-			return nil, errors.New("Qsfp is admin disabled")
-		}
-		qMgr.configMutex.RUnlock()
-	*/
 	resId, err := getQsfpResourcId(Resource)
 	if err != nil {
-		qMgr.configMutex.RUnlock()
+		qMgr.qsfpConfigMutex.RUnlock()
 		return nil, errors.New("Invalid Resource Name")
+	}
+	qsfpResource := QsfpResource{
+		QsfpId: QsfpId,
+		ResId:  resId,
 	}
 	switch Class {
 	case "Class-A":
 		if qsfpCfgEnt.PMClassAAdminState == "Enable" {
-			qMgr.classAMutex.RLock()
-			qsfpPMObj.Data = qMgr.classAPM[QsfpId-1][resId].GetListOfEntriesFromRingBuffer()
-			qMgr.classAMutex.RUnlock()
+			qMgr.qsfpClassAMutex.RLock()
+			qsfpPMObj.Data = qMgr.qsfpClassAPM[qsfpResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpClassAMutex.RUnlock()
 		}
 	case "Class-B":
 		if qsfpCfgEnt.PMClassBAdminState == "Enable" {
-			qMgr.classBMutex.RLock()
-			qsfpPMObj.Data = qMgr.classBPM[QsfpId-1][resId].GetListOfEntriesFromRingBuffer()
-			qMgr.classBMutex.RUnlock()
+			qMgr.qsfpClassBMutex.RLock()
+			qsfpPMObj.Data = qMgr.qsfpClassBPM[qsfpResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpClassBMutex.RUnlock()
 		}
 	case "Class-C":
 		if qsfpCfgEnt.PMClassCAdminState == "Enable" {
-			qMgr.classCMutex.RLock()
-			qsfpPMObj.Data = qMgr.classCPM[QsfpId-1][resId].GetListOfEntriesFromRingBuffer()
-			qMgr.classCMutex.RUnlock()
+			qMgr.qsfpClassCMutex.RLock()
+			qsfpPMObj.Data = qMgr.qsfpClassCPM[qsfpResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpClassCMutex.RUnlock()
 		}
 	default:
-		qMgr.configMutex.RUnlock()
+		qMgr.qsfpConfigMutex.RUnlock()
 		return nil, errors.New("Invalid Class")
 	}
-	qMgr.configMutex.RUnlock()
+	qMgr.qsfpConfigMutex.RUnlock()
 	qsfpPMObj.QsfpId = QsfpId
 	qsfpPMObj.Resource = Resource
 	qsfpPMObj.Class = Class
 	return &qsfpPMObj, nil
 }
 
-func getPMData(data *pluginCommon.QsfpPMData, resId uint8) (objects.QsfpPMData, error) {
+func (qMgr *QsfpManager) GetQsfpChannelPMState(QsfpId int32, ChannelNum int32, Resource string, Class string) (*objects.QsfpChannelPMState, error) {
+	var qsfpChannelPMObj objects.QsfpChannelPMState
+	if qMgr.plugin == nil {
+		return nil, errors.New("Invalid platform plugin")
+	}
+	if ChannelNum > int32(MaxNumOfQsfpChannel) {
+		return nil, errors.New("Invalid ChannelNum")
+	}
+	qsfpChannel := QsfpChannel{
+		QsfpId:     QsfpId,
+		ChannelNum: uint8(ChannelNum),
+	}
+	qMgr.qsfpChannelConfigMutex.RLock()
+	qsfpChannelCfgEnt, exist := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	if !exist {
+		qMgr.qsfpChannelConfigMutex.RUnlock()
+		return nil, errors.New("Invalid QsfpId")
+	}
+	resId, err := getQsfpChannelResourcId(Resource)
+	if err != nil {
+		qMgr.qsfpChannelConfigMutex.RUnlock()
+		return nil, errors.New("Invalid Resource Name")
+	}
+	qsfpChannelResource := QsfpChannelResource{
+		QsfpChannel: qsfpChannel,
+		ResId:       resId,
+	}
+	switch Class {
+	case "Class-A":
+		if qsfpChannelCfgEnt.PMClassAAdminState == "Enable" {
+			qMgr.qsfpChannelClassAMutex.RLock()
+			qsfpChannelPMObj.Data = qMgr.qsfpChannelClassAPM[qsfpChannelResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpChannelClassAMutex.RUnlock()
+		}
+	case "Class-B":
+		if qsfpChannelCfgEnt.PMClassBAdminState == "Enable" {
+			qMgr.qsfpChannelClassBMutex.RLock()
+			qsfpChannelPMObj.Data = qMgr.qsfpChannelClassBPM[qsfpChannelResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpChannelClassBMutex.RUnlock()
+		}
+	case "Class-C":
+		if qsfpChannelCfgEnt.PMClassCAdminState == "Enable" {
+			qMgr.qsfpChannelClassCMutex.RLock()
+			qsfpChannelPMObj.Data = qMgr.qsfpChannelClassCPM[qsfpChannelResource].GetListOfEntriesFromRingBuffer()
+			qMgr.qsfpChannelClassCMutex.RUnlock()
+		}
+	default:
+		qMgr.qsfpChannelConfigMutex.RUnlock()
+		return nil, errors.New("Invalid Class")
+	}
+	qMgr.qsfpChannelConfigMutex.RUnlock()
+	qsfpChannelPMObj.QsfpId = QsfpId
+	qsfpChannelPMObj.ChannelNum = ChannelNum
+	qsfpChannelPMObj.Resource = Resource
+	qsfpChannelPMObj.Class = Class
+	return &qsfpChannelPMObj, nil
+}
+
+func getQsfpPMData(data *pluginCommon.QsfpPMData, resId uint8) (objects.QsfpPMData, error) {
 	qsfpPMData := objects.QsfpPMData{
 		TimeStamp: time.Now().String(),
 	}
@@ -781,407 +1131,143 @@ func getPMData(data *pluginCommon.QsfpPMData, resId uint8) (objects.QsfpPMData, 
 		qsfpPMData.Value = data.Temperature
 	case VoltageRes:
 		qsfpPMData.Value = data.Voltage
-	case RX1PowerRes:
-		qsfpPMData.Value = data.RX1Power
-	case RX2PowerRes:
-		qsfpPMData.Value = data.RX2Power
-	case RX3PowerRes:
-		qsfpPMData.Value = data.RX3Power
-	case RX4PowerRes:
-		qsfpPMData.Value = data.RX4Power
-	case TX1PowerRes:
-		qsfpPMData.Value = data.TX1Power
-	case TX2PowerRes:
-		qsfpPMData.Value = data.TX2Power
-	case TX3PowerRes:
-		qsfpPMData.Value = data.TX3Power
-	case TX4PowerRes:
-		qsfpPMData.Value = data.TX4Power
-	case TX1BiasRes:
-		qsfpPMData.Value = data.TX1Bias
-	case TX2BiasRes:
-		qsfpPMData.Value = data.TX2Bias
-	case TX3BiasRes:
-		qsfpPMData.Value = data.TX3Bias
-	case TX4BiasRes:
-		qsfpPMData.Value = data.TX4Bias
 	default:
 		return qsfpPMData, errors.New("Invalid resource Id")
 	}
 	return qsfpPMData, nil
 }
 
-func getCurrentEventStatus(pmData *pluginCommon.QsfpPMData, qsfpCfgEnt QsfpConfig) QsfpEventStatus {
-	var curEventStatus QsfpEventStatus
+func getQsfpChannelPMData(data *pluginCommon.QsfpPMData, ChannelNum uint8, resId uint8) (objects.QsfpPMData, error) {
+	qsfpPMData := objects.QsfpPMData{
+		TimeStamp: time.Now().String(),
+	}
+	switch resId {
+	case RXPowerRes:
+		qsfpPMData.Value = data.RXPower[ChannelNum-1]
+	case TXPowerRes:
+		qsfpPMData.Value = data.TXPower[ChannelNum-1]
+	case TXBiasRes:
+		qsfpPMData.Value = data.TXBias[ChannelNum-1]
+	default:
+		return qsfpPMData, errors.New("Invalid resource Id")
+	}
+	return qsfpPMData, nil
+}
+
+func (qMgr *QsfpManager) getCurrentQsfpEventStatus(pmData *pluginCommon.QsfpPMData, qsfpId int32, resId uint8) EventStatus {
+	var curEventStatus EventStatus
 	var data float64
 	var highAlarmData float64
 	var highWarnData float64
 	var lowWarnData float64
 	var lowAlarmData float64
-	for idx := 0; idx < int(MaxNumRes); idx++ {
-		resId := uint8(idx)
-		switch resId {
-		case TemperatureRes:
-			data = pmData.Temperature
-			highAlarmData = qsfpCfgEnt.HigherAlarmTemperature
-			highWarnData = qsfpCfgEnt.HigherWarningTemperature
-			lowWarnData = qsfpCfgEnt.LowerWarningTemperature
-			lowAlarmData = qsfpCfgEnt.LowerAlarmTemperature
-		case VoltageRes:
-			data = pmData.Voltage
-			highAlarmData = qsfpCfgEnt.HigherAlarmVoltage
-			highWarnData = qsfpCfgEnt.HigherWarningVoltage
-			lowWarnData = qsfpCfgEnt.LowerWarningVoltage
-			lowAlarmData = qsfpCfgEnt.LowerAlarmVoltage
-		case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-			switch resId {
-			case RX1PowerRes:
-				data = pmData.RX1Power
-			case RX2PowerRes:
-				data = pmData.RX2Power
-			case RX3PowerRes:
-				data = pmData.RX3Power
-			case RX4PowerRes:
-				data = pmData.RX4Power
-			}
-			highAlarmData = qsfpCfgEnt.HigherAlarmRXPower
-			highWarnData = qsfpCfgEnt.HigherWarningRXPower
-			lowWarnData = qsfpCfgEnt.LowerWarningRXPower
-			lowAlarmData = qsfpCfgEnt.LowerAlarmRXPower
-		case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-			switch resId {
-			case TX1PowerRes:
-				data = pmData.TX1Power
-			case TX2PowerRes:
-				data = pmData.TX2Power
-			case TX3PowerRes:
-				data = pmData.TX3Power
-			case TX4PowerRes:
-				data = pmData.TX4Power
-			}
-			highAlarmData = qsfpCfgEnt.HigherAlarmTXPower
-			highWarnData = qsfpCfgEnt.HigherWarningTXPower
-			lowWarnData = qsfpCfgEnt.LowerWarningTXPower
-			lowAlarmData = qsfpCfgEnt.LowerAlarmTXPower
-		case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-			switch resId {
-			case TX1BiasRes:
-				data = pmData.TX1Bias
-			case TX2BiasRes:
-				data = pmData.TX2Bias
-			case TX3BiasRes:
-				data = pmData.TX3Bias
-			case TX4BiasRes:
-				data = pmData.TX4Bias
-			}
-			highAlarmData = qsfpCfgEnt.HigherAlarmTXBias
-			highWarnData = qsfpCfgEnt.HigherWarningTXBias
-			lowWarnData = qsfpCfgEnt.LowerWarningTXBias
-			lowAlarmData = qsfpCfgEnt.LowerAlarmTXBias
-		}
-		if data >= highAlarmData {
-			curEventStatus[idx].SentHigherAlarm = true
-		}
-		if data >= highWarnData {
-			curEventStatus[idx].SentHigherWarn = true
-		}
-		if data <= lowAlarmData {
-			curEventStatus[idx].SentLowerAlarm = true
-		}
-		if data <= lowWarnData {
-			curEventStatus[idx].SentLowerWarn = true
-		}
+	qsfpCfgEnt, _ := qMgr.qsfpConfigDB[qsfpId]
+	switch resId {
+	case TemperatureRes:
+		data = pmData.Temperature
+		highAlarmData = qsfpCfgEnt.HigherAlarmTemperature
+		highWarnData = qsfpCfgEnt.HigherWarningTemperature
+		lowWarnData = qsfpCfgEnt.LowerWarningTemperature
+		lowAlarmData = qsfpCfgEnt.LowerAlarmTemperature
+	case VoltageRes:
+		data = pmData.Voltage
+		highAlarmData = qsfpCfgEnt.HigherAlarmVoltage
+		highWarnData = qsfpCfgEnt.HigherWarningVoltage
+		lowWarnData = qsfpCfgEnt.LowerWarningVoltage
+		lowAlarmData = qsfpCfgEnt.LowerAlarmVoltage
+	}
+	if data >= highAlarmData {
+		curEventStatus.SentHigherAlarm = true
+	}
+	if data >= highWarnData {
+		curEventStatus.SentHigherWarn = true
+	}
+	if data <= lowAlarmData {
+		curEventStatus.SentLowerAlarm = true
+	}
+	if data <= lowWarnData {
+		curEventStatus.SentLowerWarn = true
+	}
+
+	return curEventStatus
+}
+
+func (qMgr *QsfpManager) getCurrentQsfpChannelEventStatus(pmData *pluginCommon.QsfpPMData, qsfpId int32, channelNum uint8, resId uint8) EventStatus {
+	var curEventStatus EventStatus
+	var data float64
+	var highAlarmData float64
+	var highWarnData float64
+	var lowWarnData float64
+	var lowAlarmData float64
+	qsfpChannel := QsfpChannel{
+		QsfpId:     qsfpId,
+		ChannelNum: channelNum,
+	}
+	qsfpChannelCfgEnt, _ := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	switch resId {
+	case RXPowerRes:
+		data = pmData.RXPower[channelNum-1]
+		highAlarmData = qsfpChannelCfgEnt.HigherAlarmRXPower
+		highWarnData = qsfpChannelCfgEnt.HigherWarningRXPower
+		lowWarnData = qsfpChannelCfgEnt.LowerWarningRXPower
+		lowAlarmData = qsfpChannelCfgEnt.LowerAlarmRXPower
+	case TXPowerRes:
+		data = pmData.TXPower[channelNum-1]
+		highAlarmData = qsfpChannelCfgEnt.HigherAlarmTXPower
+		highWarnData = qsfpChannelCfgEnt.HigherWarningTXPower
+		lowWarnData = qsfpChannelCfgEnt.LowerWarningTXPower
+		lowAlarmData = qsfpChannelCfgEnt.LowerAlarmTXPower
+	case TXBiasRes:
+		data = pmData.TXBias[channelNum-1]
+		highAlarmData = qsfpChannelCfgEnt.HigherAlarmTXBias
+		highWarnData = qsfpChannelCfgEnt.HigherWarningTXBias
+		lowWarnData = qsfpChannelCfgEnt.LowerWarningTXBias
+		lowAlarmData = qsfpChannelCfgEnt.LowerAlarmTXBias
+	}
+	if data >= highAlarmData {
+		curEventStatus.SentHigherAlarm = true
+	}
+	if data >= highWarnData {
+		curEventStatus.SentHigherWarn = true
+	}
+	if data <= lowAlarmData {
+		curEventStatus.SentLowerAlarm = true
+	}
+	if data <= lowWarnData {
+		curEventStatus.SentLowerWarn = true
 	}
 	return curEventStatus
 }
 
-func getQsfpHigherAlarmEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
-	var evt QsfpEvent
-	resId := uint8(idx)
-	if prevEventStatus[idx].SentHigherAlarm != curEventStatus[idx].SentHigherAlarm {
-		if curEventStatus[idx].SentHigherAlarm == true {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureHigherTCAAlarm
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageHigherTCAAlarm
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerHigherTCAAlarm
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerHigherTCAAlarm
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasHigherTCAAlarm
-			}
-		} else {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureHigherTCAAlarmClear
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageHigherTCAAlarmClear
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerHigherTCAAlarmClear
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerHigherTCAAlarmClear
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasHigherTCAAlarmClear
-			}
-		}
-		switch resId {
-		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
-			evt.ChannelNum = 1
-		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
-			evt.ChannelNum = 2
-		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
-			evt.ChannelNum = 3
-		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
-			evt.ChannelNum = 4
-		}
-		return evt, nil
-	}
-	return evt, errors.New("No Event")
-}
-
-func getQsfpHigherWarnEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
-	var evt QsfpEvent
-	resId := uint8(idx)
-	if prevEventStatus[idx].SentHigherWarn != curEventStatus[idx].SentHigherWarn {
-		if curEventStatus[idx].SentHigherWarn == true {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureHigherTCAWarn
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageHigherTCAWarn
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerHigherTCAWarn
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerHigherTCAWarn
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasHigherTCAWarn
-			}
-		} else {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureHigherTCAWarnClear
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageHigherTCAWarnClear
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerHigherTCAWarnClear
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerHigherTCAWarnClear
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasHigherTCAWarnClear
-			}
-		}
-		switch resId {
-		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
-			evt.ChannelNum = 1
-		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
-			evt.ChannelNum = 2
-		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
-			evt.ChannelNum = 3
-		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
-			evt.ChannelNum = 4
-		}
-		return evt, nil
-	}
-	return evt, errors.New("No Event")
-}
-
-func getQsfpLowerAlarmEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
-	var evt QsfpEvent
-	resId := uint8(idx)
-	if prevEventStatus[idx].SentLowerAlarm != curEventStatus[idx].SentLowerAlarm {
-		if curEventStatus[idx].SentLowerAlarm == true {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureLowerTCAAlarm
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageLowerTCAAlarm
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerLowerTCAAlarm
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerLowerTCAAlarm
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasLowerTCAAlarm
-			}
-		} else {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureLowerTCAAlarmClear
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageLowerTCAAlarmClear
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerLowerTCAAlarmClear
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerLowerTCAAlarmClear
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasLowerTCAAlarmClear
-			}
-		}
-		switch resId {
-		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
-			evt.ChannelNum = 1
-		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
-			evt.ChannelNum = 2
-		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
-			evt.ChannelNum = 3
-		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
-			evt.ChannelNum = 4
-		}
-		return evt, nil
-	}
-	return evt, errors.New("No Event")
-}
-
-func getQsfpLowerWarnEvent(idx int, prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) (QsfpEvent, error) {
-	var evt QsfpEvent
-	resId := uint8(idx)
-	if prevEventStatus[idx].SentLowerWarn != curEventStatus[idx].SentLowerWarn {
-		if curEventStatus[idx].SentLowerWarn == true {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureLowerTCAWarn
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageLowerTCAWarn
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerLowerTCAWarn
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerLowerTCAWarn
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasLowerTCAWarn
-			}
-		} else {
-			switch resId {
-			case TemperatureRes:
-				evt.EventId = events.QsfpTemperatureLowerTCAWarnClear
-			case VoltageRes:
-				evt.EventId = events.QsfpVoltageLowerTCAWarnClear
-			case RX1PowerRes, RX2PowerRes, RX3PowerRes, RX4PowerRes:
-				evt.EventId = events.QsfpRXPowerLowerTCAWarnClear
-			case TX1PowerRes, TX2PowerRes, TX3PowerRes, TX4PowerRes:
-				evt.EventId = events.QsfpTXPowerLowerTCAWarnClear
-			case TX1BiasRes, TX2BiasRes, TX3BiasRes, TX4BiasRes:
-				evt.EventId = events.QsfpTXBiasLowerTCAWarnClear
-			}
-		}
-		switch resId {
-		case RX1PowerRes, TX1PowerRes, TX1BiasRes:
-			evt.ChannelNum = 1
-		case RX2PowerRes, TX2PowerRes, TX2BiasRes:
-			evt.ChannelNum = 2
-		case RX3PowerRes, TX3PowerRes, TX3BiasRes:
-			evt.ChannelNum = 3
-		case RX4PowerRes, TX4PowerRes, TX4BiasRes:
-			evt.ChannelNum = 4
-		}
-		return evt, nil
-	}
-	return evt, errors.New("No Event")
-}
-
-func getListofQsfpEvent(prevEventStatus QsfpEventStatus, curEventStatus QsfpEventStatus) []QsfpEvent {
-	var evts []QsfpEvent
-	for idx := 0; idx < int(MaxNumRes); idx++ {
-		evt, err := getQsfpHigherAlarmEvent(idx, prevEventStatus, curEventStatus)
-		if err == nil {
-			evts = append(evts, evt)
-		}
-		evt, err = getQsfpHigherWarnEvent(idx, prevEventStatus, curEventStatus)
-		if err == nil {
-			evts = append(evts, evt)
-		}
-		evt, err = getQsfpLowerAlarmEvent(idx, prevEventStatus, curEventStatus)
-		if err == nil {
-			evts = append(evts, evt)
-		}
-		evt, err = getQsfpLowerWarnEvent(idx, prevEventStatus, curEventStatus)
-		if err == nil {
-			evts = append(evts, evt)
-		}
-	}
-	return evts
-}
-
-func (qMgr *QsfpManager) publishQsfpEvents(qsfpId int32, data *pluginCommon.QsfpPMData, evts []QsfpEvent) {
+func (qMgr *QsfpManager) publishQsfpEvents(qsfpId int32, resId uint8, data *pluginCommon.QsfpPMData, evts []events.EventId) {
 	eventKey := events.QsfpKey{
 		QsfpId: qsfpId,
 	}
 	txEvent := eventUtils.TxEvent{
-		Key:            eventKey,
-		AdditionalInfo: "",
+		Key: eventKey,
+	}
+	if data == nil {
+		txEvent.AdditionalInfo = "Clearing because of AdminState Disable"
 	}
 
 	for _, evt := range evts {
-		txEvent.EventId = evt.EventId
-		switch evt.EventId {
-		case events.QsfpTemperatureHigherTCAAlarm,
-			events.QsfpTemperatureHigherTCAWarn,
-			events.QsfpTemperatureLowerTCAAlarm,
-			events.QsfpTemperatureLowerTCAWarn:
-			evt.EventData.Resource = "Temperature"
-			evt.EventData.Value = data.Temperature
-		case events.QsfpVoltageHigherTCAAlarm,
-			events.QsfpVoltageHigherTCAWarn,
-			events.QsfpVoltageLowerTCAAlarm,
-			events.QsfpVoltageLowerTCAWarn:
-			evt.EventData.Resource = "Voltage"
-			evt.EventData.Value = data.Voltage
-		case events.QsfpRXPowerHigherTCAAlarm,
-			events.QsfpRXPowerHigherTCAWarn,
-			events.QsfpRXPowerLowerTCAAlarm,
-			events.QsfpRXPowerLowerTCAWarn:
-			switch evt.ChannelNum {
-			case 1:
-				evt.EventData.Resource = "RX1Power"
-				evt.EventData.Value = data.RX1Power
-			case 2:
-				evt.EventData.Resource = "RX2Power"
-				evt.EventData.Value = data.RX2Power
-			case 3:
-				evt.EventData.Resource = "RX3Power"
-				evt.EventData.Value = data.RX3Power
-			case 4:
-				evt.EventData.Resource = "RX4Power"
-				evt.EventData.Value = data.RX4Power
+		txEvent.EventId = evt
+		if data != nil {
+			var eventData QsfpEventData
+			switch evt {
+			case events.QsfpTemperatureHigherTCAAlarm,
+				events.QsfpTemperatureHigherTCAWarn,
+				events.QsfpTemperatureLowerTCAAlarm,
+				events.QsfpTemperatureLowerTCAWarn:
+				eventData.Value = data.Temperature
+			case events.QsfpVoltageHigherTCAAlarm,
+				events.QsfpVoltageHigherTCAWarn,
+				events.QsfpVoltageLowerTCAAlarm,
+				events.QsfpVoltageLowerTCAWarn:
+				eventData.Value = data.Voltage
 			}
-		case events.QsfpTXPowerHigherTCAAlarm,
-			events.QsfpTXPowerHigherTCAWarn,
-			events.QsfpTXPowerLowerTCAAlarm,
-			events.QsfpTXPowerLowerTCAWarn:
-			switch evt.ChannelNum {
-			case 1:
-				evt.EventData.Resource = "TX1Power"
-				evt.EventData.Value = data.TX1Power
-			case 2:
-				evt.EventData.Resource = "TX2Power"
-				evt.EventData.Value = data.TX2Power
-			case 3:
-				evt.EventData.Resource = "TX3Power"
-				evt.EventData.Value = data.TX3Power
-			case 4:
-				evt.EventData.Resource = "TX4Power"
-				evt.EventData.Value = data.TX4Power
-			}
-		case events.QsfpTXBiasHigherTCAAlarm,
-			events.QsfpTXBiasHigherTCAWarn,
-			events.QsfpTXBiasLowerTCAAlarm,
-			events.QsfpTXBiasLowerTCAWarn:
-			switch evt.ChannelNum {
-			case 1:
-				evt.EventData.Resource = "TX1Bias"
-				evt.EventData.Value = data.TX1Bias
-			case 2:
-				evt.EventData.Resource = "TX2Bias"
-				evt.EventData.Value = data.TX2Bias
-			case 3:
-				evt.EventData.Resource = "TX3Bias"
-				evt.EventData.Value = data.TX3Bias
-			case 4:
-				evt.EventData.Resource = "TX4Bias"
-				evt.EventData.Value = data.TX4Bias
-			}
+			txEvent.AdditionalData = eventData
 		}
-		txEvent.AdditionalData = evt.EventData
 		txEvt := txEvent
 		err := eventUtils.PublishEvents(&txEvt)
 		if err != nil {
@@ -1190,186 +1276,592 @@ func (qMgr *QsfpManager) publishQsfpEvents(qsfpId int32, data *pluginCommon.Qsfp
 	}
 }
 
-func (qMgr *QsfpManager) processQsfpEvents(data *pluginCommon.QsfpPMData, qsfpId int32) {
-	qsfpCfgEnt := qMgr.configDB[qsfpId-1]
-
-	var evts []QsfpEvent
-	qMgr.eventMsgStatusMutex.RLock()
-	prevEventStatus := qMgr.eventMsgStatus[qsfpId-1]
-	qMgr.eventMsgStatusMutex.RUnlock()
-	curEventStatus := getCurrentEventStatus(data, qsfpCfgEnt)
-	evts = append(evts, getListofQsfpEvent(prevEventStatus, curEventStatus)...)
-	if prevEventStatus != curEventStatus {
-		qMgr.eventMsgStatusMutex.Lock()
-		qMgr.eventMsgStatus[qsfpId-1] = curEventStatus
-		qMgr.eventMsgStatusMutex.Unlock()
+func (qMgr *QsfpManager) publishQsfpChannelEvents(qsfpId int32, channelNum uint8, resId uint8, data *pluginCommon.QsfpPMData, evts []events.EventId) {
+	eventKey := events.QsfpChannelKey{
+		QsfpId:     qsfpId,
+		ChannelNum: int32(channelNum),
 	}
-	qMgr.publishQsfpEvents(qsfpId, data, evts)
+	txEvent := eventUtils.TxEvent{
+		Key: eventKey,
+	}
+	if data == nil {
+		txEvent.AdditionalInfo = "Clearing because of AdminState Disable"
+	}
+
+	for _, evt := range evts {
+		txEvent.EventId = evt
+		if data != nil {
+			var eventData QsfpChannelEventData
+			switch evt {
+			case events.QsfpRXPowerHigherTCAAlarm,
+				events.QsfpRXPowerHigherTCAWarn,
+				events.QsfpRXPowerLowerTCAAlarm,
+				events.QsfpRXPowerLowerTCAWarn:
+				eventData.Value = data.RXPower[channelNum-1]
+			case events.QsfpTXPowerHigherTCAAlarm,
+				events.QsfpTXPowerHigherTCAWarn,
+				events.QsfpTXPowerLowerTCAAlarm,
+				events.QsfpTXPowerLowerTCAWarn:
+				eventData.Value = data.TXPower[channelNum-1]
+			case events.QsfpTXBiasHigherTCAAlarm,
+				events.QsfpTXBiasHigherTCAWarn,
+				events.QsfpTXBiasLowerTCAAlarm,
+				events.QsfpTXBiasLowerTCAWarn:
+				eventData.Value = data.TXBias[channelNum-1]
+			}
+			txEvent.AdditionalData = eventData
+		}
+		txEvt := txEvent
+		err := eventUtils.PublishEvents(&txEvt)
+		if err != nil {
+			qMgr.logger.Err("Error publishing event:", txEvt)
+		}
+	}
 }
 
-func (qMgr *QsfpManager) ProcessQsfpPMData(data *pluginCommon.QsfpPMData, qsfpId int32, class string) {
-	qsfpCfgEnt := qMgr.configDB[qsfpId-1]
-	if qsfpCfgEnt.AdminState == "Enable" {
-		qMgr.processQsfpEvents(data, qsfpId)
+func getListofQsfpEvent(resId uint8, prevEvt EventStatus, curEvt EventStatus) []events.EventId {
+	var evts []events.EventId
+	switch resId {
+	case TemperatureRes:
+		if prevEvt.SentHigherAlarm != curEvt.SentHigherAlarm {
+			if curEvt.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTemperatureHigherTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTemperatureHigherTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentHigherWarn != curEvt.SentHigherWarn {
+			if curEvt.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTemperatureHigherTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTemperatureHigherTCAWarnClear)
+			}
+		}
+		if prevEvt.SentLowerAlarm != curEvt.SentLowerAlarm {
+			if curEvt.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTemperatureLowerTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTemperatureLowerTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentLowerWarn != curEvt.SentLowerWarn {
+			if curEvt.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTemperatureLowerTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTemperatureLowerTCAWarnClear)
+			}
+		}
+	case VoltageRes:
+		if prevEvt.SentHigherAlarm != curEvt.SentHigherAlarm {
+			if curEvt.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpVoltageHigherTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpVoltageHigherTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentHigherWarn != curEvt.SentHigherWarn {
+			if curEvt.SentHigherWarn == true {
+				evts = append(evts, events.QsfpVoltageHigherTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpVoltageHigherTCAWarnClear)
+			}
+		}
+		if prevEvt.SentLowerAlarm != curEvt.SentLowerAlarm {
+			if curEvt.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpVoltageLowerTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpVoltageLowerTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentLowerWarn != curEvt.SentLowerWarn {
+			if curEvt.SentLowerWarn == true {
+				evts = append(evts, events.QsfpVoltageLowerTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpVoltageLowerTCAWarnClear)
+			}
+		}
 	}
-	switch class {
+	return evts
+}
+
+func getListofQsfpChannelEvent(resId uint8, prevEvt EventStatus, curEvt EventStatus) []events.EventId {
+	var evts []events.EventId
+	switch resId {
+	case RXPowerRes:
+		if prevEvt.SentHigherAlarm != curEvt.SentHigherAlarm {
+			if curEvt.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpRXPowerHigherTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpRXPowerHigherTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentHigherWarn != curEvt.SentHigherWarn {
+			if curEvt.SentHigherWarn == true {
+				evts = append(evts, events.QsfpRXPowerHigherTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpRXPowerHigherTCAWarnClear)
+			}
+		}
+		if prevEvt.SentLowerAlarm != curEvt.SentLowerAlarm {
+			if curEvt.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpRXPowerLowerTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpRXPowerLowerTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentLowerWarn != curEvt.SentLowerWarn {
+			if curEvt.SentLowerWarn == true {
+				evts = append(evts, events.QsfpRXPowerLowerTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpRXPowerLowerTCAWarnClear)
+			}
+		}
+	case TXPowerRes:
+		if prevEvt.SentHigherAlarm != curEvt.SentHigherAlarm {
+			if curEvt.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTXPowerHigherTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTXPowerHigherTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentHigherWarn != curEvt.SentHigherWarn {
+			if curEvt.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTXPowerHigherTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTXPowerHigherTCAWarnClear)
+			}
+		}
+		if prevEvt.SentLowerAlarm != curEvt.SentLowerAlarm {
+			if curEvt.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTXPowerLowerTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTXPowerLowerTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentLowerWarn != curEvt.SentLowerWarn {
+			if curEvt.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTXPowerLowerTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTXPowerLowerTCAWarnClear)
+			}
+		}
+	case TXBiasRes:
+		if prevEvt.SentHigherAlarm != curEvt.SentHigherAlarm {
+			if curEvt.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTXBiasHigherTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTXBiasHigherTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentHigherWarn != curEvt.SentHigherWarn {
+			if curEvt.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTXBiasHigherTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTXBiasHigherTCAWarnClear)
+			}
+		}
+		if prevEvt.SentLowerAlarm != curEvt.SentLowerAlarm {
+			if curEvt.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTXBiasLowerTCAAlarm)
+			} else {
+				evts = append(evts, events.QsfpTXBiasLowerTCAAlarmClear)
+			}
+		}
+		if prevEvt.SentLowerWarn != curEvt.SentLowerWarn {
+			if curEvt.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTXBiasLowerTCAWarn)
+			} else {
+				evts = append(evts, events.QsfpTXBiasLowerTCAWarnClear)
+			}
+		}
+	}
+	return evts
+}
+
+func (qMgr *QsfpManager) processQsfpChannelEvents(data *pluginCommon.QsfpPMData, qsfpId int32, channelNum uint8) {
+	qsfpChannel := QsfpChannel{
+		QsfpId:     qsfpId,
+		ChannelNum: channelNum,
+	}
+
+	for id := 0; id < int(MaxNumQsfpChannelRes); id++ {
+		var evts []events.EventId
+		resId := uint8(id)
+		qsfpChannelResource := QsfpChannelResource{
+			QsfpChannel: qsfpChannel,
+			ResId:       resId,
+		}
+		qMgr.qsfpChannelEventMsgStatusMutex.RLock()
+		prevEventStatus, _ := qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource]
+		qMgr.qsfpChannelEventMsgStatusMutex.RUnlock()
+
+		curEventStatus := qMgr.getCurrentQsfpChannelEventStatus(data, qsfpId, channelNum, resId)
+		evts = append(evts, getListofQsfpChannelEvent(resId, prevEventStatus, curEventStatus)...)
+		if prevEventStatus != curEventStatus {
+			qMgr.qsfpChannelEventMsgStatusMutex.Lock()
+			qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource] = curEventStatus
+			qMgr.qsfpChannelEventMsgStatusMutex.Unlock()
+		}
+		qMgr.publishQsfpChannelEvents(qsfpId, channelNum, resId, data, evts)
+	}
+}
+
+func (qMgr *QsfpManager) processQsfpEvents(data *pluginCommon.QsfpPMData, qsfpId int32) {
+	for id := 0; id < int(MaxNumQsfpRes); id++ {
+		var evts []events.EventId
+		resId := uint8(id)
+		qsfpResource := QsfpResource{
+			QsfpId: qsfpId,
+			ResId:  resId,
+		}
+		qMgr.qsfpEventMsgStatusMutex.RLock()
+		prevEventStatus, _ := qMgr.qsfpEventMsgStatus[qsfpResource]
+		qMgr.qsfpEventMsgStatusMutex.RUnlock()
+
+		curEventStatus := qMgr.getCurrentQsfpEventStatus(data, qsfpId, resId)
+		evts = append(evts, getListofQsfpEvent(resId, prevEventStatus, curEventStatus)...)
+
+		if prevEventStatus != curEventStatus {
+			qMgr.qsfpEventMsgStatusMutex.Lock()
+			qMgr.qsfpEventMsgStatus[qsfpResource] = curEventStatus
+			qMgr.qsfpEventMsgStatusMutex.Unlock()
+		}
+		qMgr.publishQsfpEvents(qsfpId, resId, data, evts)
+	}
+}
+
+func (qMgr *QsfpManager) clearExistingQsfpFaults(qsfpId int32) {
+	for idx := 0; idx < int(MaxNumQsfpRes); idx++ {
+		var evts []events.EventId
+		resId := uint8(idx)
+		qsfpResource := QsfpResource{
+			QsfpId: qsfpId,
+			ResId:  resId,
+		}
+		qMgr.qsfpEventMsgStatusMutex.RLock()
+		eventStatus, _ := qMgr.qsfpEventMsgStatus[qsfpResource]
+		qMgr.qsfpEventMsgStatusMutex.RUnlock()
+		switch resId {
+		case TemperatureRes:
+			if eventStatus.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTemperatureHigherTCAAlarmClear)
+				eventStatus.SentHigherAlarm = false
+			}
+			if eventStatus.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTemperatureHigherTCAWarnClear)
+				eventStatus.SentHigherWarn = false
+			}
+			if eventStatus.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTemperatureLowerTCAAlarmClear)
+				eventStatus.SentLowerAlarm = false
+			}
+			if eventStatus.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTemperatureLowerTCAWarnClear)
+				eventStatus.SentLowerWarn = false
+			}
+		case VoltageRes:
+			if eventStatus.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpVoltageHigherTCAAlarmClear)
+				eventStatus.SentHigherAlarm = false
+			}
+			if eventStatus.SentHigherWarn == true {
+				evts = append(evts, events.QsfpVoltageHigherTCAWarnClear)
+				eventStatus.SentHigherWarn = false
+			}
+			if eventStatus.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpVoltageLowerTCAAlarmClear)
+				eventStatus.SentLowerAlarm = false
+			}
+			if eventStatus.SentLowerWarn == true {
+				evts = append(evts, events.QsfpVoltageLowerTCAWarnClear)
+				eventStatus.SentLowerWarn = false
+			}
+		}
+		qMgr.qsfpEventMsgStatusMutex.Lock()
+		qMgr.qsfpEventMsgStatus[qsfpResource] = eventStatus
+		qMgr.qsfpEventMsgStatusMutex.Unlock()
+		qMgr.publishQsfpEvents(qsfpId, resId, nil, evts)
+	}
+}
+
+func (qMgr *QsfpManager) clearExistingQsfpChannelFaults(qsfpId int32, channelNum int32) {
+	qsfpChannel := QsfpChannel{
+		QsfpId:     qsfpId,
+		ChannelNum: uint8(channelNum),
+	}
+	for idx := 0; idx < int(MaxNumQsfpChannelRes); idx++ {
+		var evts []events.EventId
+		resId := uint8(idx)
+		qsfpChannelResource := QsfpChannelResource{
+			QsfpChannel: qsfpChannel,
+			ResId:       resId,
+		}
+		qMgr.qsfpChannelEventMsgStatusMutex.RLock()
+		eventStatus, _ := qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource]
+		qMgr.qsfpChannelEventMsgStatusMutex.RUnlock()
+		switch resId {
+		case RXPowerRes:
+			if eventStatus.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpRXPowerHigherTCAAlarmClear)
+				eventStatus.SentHigherAlarm = false
+			}
+			if eventStatus.SentHigherWarn == true {
+				evts = append(evts, events.QsfpRXPowerHigherTCAWarnClear)
+				eventStatus.SentHigherWarn = false
+			}
+			if eventStatus.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpRXPowerLowerTCAAlarmClear)
+				eventStatus.SentLowerAlarm = false
+			}
+			if eventStatus.SentLowerWarn == true {
+				evts = append(evts, events.QsfpRXPowerLowerTCAWarnClear)
+				eventStatus.SentLowerWarn = false
+			}
+		case TXPowerRes:
+			if eventStatus.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTXPowerHigherTCAAlarmClear)
+				eventStatus.SentHigherAlarm = false
+			}
+			if eventStatus.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTXPowerHigherTCAWarnClear)
+				eventStatus.SentHigherWarn = false
+			}
+			if eventStatus.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTXPowerLowerTCAAlarmClear)
+				eventStatus.SentLowerAlarm = false
+			}
+			if eventStatus.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTXPowerLowerTCAWarnClear)
+				eventStatus.SentLowerWarn = false
+			}
+		case TXBiasRes:
+			if eventStatus.SentHigherAlarm == true {
+				evts = append(evts, events.QsfpTXBiasHigherTCAAlarmClear)
+				eventStatus.SentHigherAlarm = false
+			}
+			if eventStatus.SentHigherWarn == true {
+				evts = append(evts, events.QsfpTXBiasHigherTCAWarnClear)
+				eventStatus.SentHigherWarn = false
+			}
+			if eventStatus.SentLowerAlarm == true {
+				evts = append(evts, events.QsfpTXBiasLowerTCAAlarmClear)
+				eventStatus.SentLowerAlarm = false
+			}
+			if eventStatus.SentLowerWarn == true {
+				evts = append(evts, events.QsfpTXBiasLowerTCAWarnClear)
+				eventStatus.SentLowerWarn = false
+			}
+		}
+		qMgr.qsfpChannelEventMsgStatusMutex.Lock()
+		qMgr.qsfpChannelEventMsgStatus[qsfpChannelResource] = eventStatus
+		qMgr.qsfpChannelEventMsgStatusMutex.Unlock()
+		qMgr.publishQsfpChannelEvents(qsfpId, uint8(channelNum), resId, nil, evts)
+	}
+}
+
+func (qMgr *QsfpManager) processQsfpChannelPMData(data *pluginCommon.QsfpPMData, QsfpId int32, ChannelNum uint8, Class string) {
+	qsfpChannel := QsfpChannel{
+		QsfpId:     QsfpId,
+		ChannelNum: ChannelNum,
+	}
+	qMgr.qsfpChannelConfigMutex.RLock()
+	qsfpChannelCfgEnt, _ := qMgr.qsfpChannelConfigDB[qsfpChannel]
+	switch Class {
 	case "Class-A":
-		if qsfpCfgEnt.PMClassAAdminState == "Enable" {
-			qMgr.classAMutex.Lock()
-			for idx := 0; idx < int(MaxNumRes); idx++ {
-				resId := uint8(idx)
-				pmData, err := getPMData(data, resId)
+		if qsfpChannelCfgEnt.PMClassAAdminState == "Enable" {
+			for id := 0; id < int(MaxNumQsfpChannelRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpChannelPMData(data, ChannelNum, resId)
 				if err != nil {
 					qMgr.logger.Err("Wrong resource Id:", resId)
 					continue
 				}
-				qMgr.classAPM[qsfpId-1][resId].InsertIntoRingBuffer(pmData)
+				qsfpChannelResource := QsfpChannelResource{
+					QsfpChannel: qsfpChannel,
+					ResId:       resId,
+				}
+				qMgr.qsfpChannelClassAMutex.Lock()
+				qMgr.qsfpChannelClassAPM[qsfpChannelResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpChannelClassAMutex.Unlock()
 			}
-			qMgr.classAMutex.Unlock()
+		}
+	case "Class-B":
+		if qsfpChannelCfgEnt.PMClassBAdminState == "Enable" {
+			for id := 0; id < int(MaxNumQsfpChannelRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpChannelPMData(data, ChannelNum, resId)
+				if err != nil {
+					qMgr.logger.Err("Wrong resource Id:", resId)
+					continue
+				}
+				qsfpChannelResource := QsfpChannelResource{
+					QsfpChannel: qsfpChannel,
+					ResId:       resId,
+				}
+				qMgr.qsfpChannelClassBMutex.Lock()
+				qMgr.qsfpChannelClassBPM[qsfpChannelResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpChannelClassBMutex.Unlock()
+			}
+		}
+	case "Class-C":
+		if qsfpChannelCfgEnt.PMClassCAdminState == "Enable" {
+			for id := 0; id < int(MaxNumQsfpChannelRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpChannelPMData(data, ChannelNum, resId)
+				if err != nil {
+					qMgr.logger.Err("Wrong resource Id:", resId)
+					continue
+				}
+				qsfpChannelResource := QsfpChannelResource{
+					QsfpChannel: qsfpChannel,
+					ResId:       resId,
+				}
+				qMgr.qsfpChannelClassCMutex.Lock()
+				qMgr.qsfpChannelClassCPM[qsfpChannelResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpChannelClassCMutex.Unlock()
+			}
+		}
+	}
+	qMgr.qsfpChannelConfigMutex.RUnlock()
+}
+
+func (qMgr *QsfpManager) processQsfpPMData(data *pluginCommon.QsfpPMData, QsfpId int32, Class string) {
+	qMgr.qsfpConfigMutex.RLock()
+	qsfpCfgEnt, _ := qMgr.qsfpConfigDB[QsfpId]
+	switch Class {
+	case "Class-A":
+		if qsfpCfgEnt.PMClassAAdminState == "Enable" {
+			for id := 0; id < int(MaxNumQsfpRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpPMData(data, resId)
+				if err != nil {
+					qMgr.logger.Err("Wrong resource Id:", resId)
+					continue
+				}
+				qsfpResource := QsfpResource{
+					QsfpId: QsfpId,
+					ResId:  resId,
+				}
+				qMgr.qsfpClassAMutex.Lock()
+				qMgr.qsfpClassAPM[qsfpResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpClassAMutex.Unlock()
+			}
 		}
 	case "Class-B":
 		if qsfpCfgEnt.PMClassBAdminState == "Enable" {
-			qMgr.classBMutex.Lock()
-			for idx := 0; idx < int(MaxNumRes); idx++ {
-				resId := uint8(idx)
-				pmData, err := getPMData(data, resId)
+			for id := 0; id < int(MaxNumQsfpRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpPMData(data, resId)
 				if err != nil {
 					qMgr.logger.Err("Wrong resource Id:", resId)
 					continue
 				}
-				qMgr.classBPM[qsfpId-1][resId].InsertIntoRingBuffer(pmData)
+				qsfpResource := QsfpResource{
+					QsfpId: QsfpId,
+					ResId:  resId,
+				}
+				qMgr.qsfpClassBMutex.Lock()
+				qMgr.qsfpClassBPM[qsfpResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpClassBMutex.Unlock()
 			}
-			qMgr.classBMutex.Unlock()
 		}
 	case "Class-C":
-		qMgr.classCMutex.Lock()
-		for idx := 0; idx < int(MaxNumRes); idx++ {
-			resId := uint8(idx)
-			pmData, err := getPMData(data, resId)
-			if err != nil {
-				qMgr.logger.Err("Wrong resource Id:", resId)
-				continue
+		if qsfpCfgEnt.PMClassCAdminState == "Enable" {
+			for id := 0; id < int(MaxNumQsfpRes); id++ {
+				resId := uint8(id)
+				pmData, err := getQsfpPMData(data, resId)
+				if err != nil {
+					qMgr.logger.Err("Wrong resource Id:", resId)
+					continue
+				}
+				qsfpResource := QsfpResource{
+					QsfpId: QsfpId,
+					ResId:  resId,
+				}
+				qMgr.qsfpClassCMutex.Lock()
+				qMgr.qsfpClassCPM[qsfpResource].InsertIntoRingBuffer(pmData)
+				qMgr.qsfpClassCMutex.Unlock()
 			}
-			qMgr.classCPM[qsfpId-1][resId].InsertIntoRingBuffer(pmData)
 		}
-		qMgr.classCMutex.Unlock()
+	}
+	qMgr.qsfpConfigMutex.RUnlock()
+}
+
+func (qMgr *QsfpManager) ProcessQsfpPMData(data *pluginCommon.QsfpPMData, qsfpId int32, class string) {
+	qMgr.qsfpConfigMutex.RLock()
+	qsfpCfgEnt, _ := qMgr.qsfpConfigDB[qsfpId]
+	if qsfpCfgEnt.AdminState == "Enable" {
+		qMgr.processQsfpEvents(data, qsfpId)
+	}
+	qMgr.qsfpConfigMutex.RUnlock()
+	for ch := 1; ch <= int(MaxNumOfQsfpChannel); ch++ {
+		qsfpChannel := QsfpChannel{
+			QsfpId:     qsfpId,
+			ChannelNum: uint8(ch),
+		}
+		qMgr.qsfpChannelConfigMutex.RLock()
+		qsfpChannelCfgEnt, _ := qMgr.qsfpChannelConfigDB[qsfpChannel]
+		if qsfpChannelCfgEnt.AdminState == "Enable" {
+			qMgr.processQsfpChannelEvents(data, qsfpId, uint8(ch))
+		}
+		qMgr.qsfpChannelConfigMutex.RUnlock()
+	}
+	qMgr.processQsfpPMData(data, qsfpId, class)
+	for ch := 1; ch <= int(MaxNumOfQsfpChannel); ch++ {
+		qMgr.processQsfpChannelPMData(data, qsfpId, uint8(ch), class)
 	}
 }
 
 func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
-	qMgr.stateMutex.Lock()
-	qMgr.configMutex.RLock()
-	for idx := 0; idx < len(qMgr.configDB); idx++ {
-		qsfpId := int32(idx + 1)
-		qsfpCfgEnt := qMgr.configDB[idx]
-		if qsfpCfgEnt.AdminState == "Enable" {
-			qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
-			if err == nil {
-				if qMgr.qsfpStatus[idx] == false {
-					qMgr.qsfpStatus[idx] = true
-					// Raise Qsfp Present Event
-					qMgr.logger.Info("Raise Qsfp Present Event")
-				}
-				qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
-			} else {
-				if qMgr.qsfpStatus[idx] == true {
-					qMgr.qsfpStatus[idx] = false
-					// Raise Qsfp Missing Event
-					qMgr.logger.Info("Raise Qsfp Missing Event")
-				}
-			}
+	for id := 1; id <= int(qMgr.numOfQsfps); id++ {
+		qsfpId := int32(id)
+		qMgr.stateMutex.Lock()
+		qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
+		qMgr.stateMutex.Unlock()
+		if err == nil {
+			qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 		}
 	}
-	qMgr.configMutex.RUnlock()
-	qMgr.stateMutex.Unlock()
 	switch class {
 	case "Class-A":
 		classAPMFunc := func() {
-			qMgr.stateMutex.Lock()
-			qMgr.configMutex.RLock()
-			for idx := 0; idx < len(qMgr.configDB); idx++ {
-				qsfpId := int32(idx + 1)
-				qsfpCfgEnt := qMgr.configDB[idx]
-				if qsfpCfgEnt.AdminState == "Enable" {
-					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
-					if err == nil {
-						if qMgr.qsfpStatus[idx] == false {
-							qMgr.qsfpStatus[idx] = true
-							// Raise Qsfp Present Event
-							qMgr.logger.Info("Raise Qsfp Present Event")
-						}
-						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
-					} else {
-						if qMgr.qsfpStatus[idx] == true {
-							qMgr.qsfpStatus[idx] = false
-							// Raise Qsfp Missing Event
-							qMgr.logger.Info("Raise Qsfp Missing Event")
-						}
-					}
+			for id := 1; id <= int(qMgr.numOfQsfps); id++ {
+				qsfpId := int32(id)
+				qMgr.stateMutex.Lock()
+				qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
+				qMgr.stateMutex.Unlock()
+				if err == nil {
+					qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 				}
 			}
-			qMgr.configMutex.RUnlock()
-			qMgr.stateMutex.Unlock()
 			qMgr.classAPMTimer.Reset(qsfpClassAInterval)
 		}
 		qMgr.classAPMTimer = time.AfterFunc(qsfpClassAInterval, classAPMFunc)
 	case "Class-B":
 		classBPMFunc := func() {
-			qMgr.stateMutex.Lock()
-			qMgr.configMutex.RLock()
-			for idx := 0; idx < len(qMgr.configDB); idx++ {
-				qsfpId := int32(idx + 1)
-				qsfpCfgEnt := qMgr.configDB[idx]
-				if qsfpCfgEnt.AdminState == "Enable" {
-					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
-					if err == nil {
-						if qMgr.qsfpStatus[idx] == false {
-							qMgr.qsfpStatus[idx] = true
-							// Raise Qsfp Present Event
-							qMgr.logger.Info("Raise Qsfp Present Event")
-						}
-						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
-					} else {
-						if qMgr.qsfpStatus[idx] == true {
-							qMgr.qsfpStatus[idx] = false
-							// Raise Qsfp Missing Event
-							qMgr.logger.Info("Raise Qsfp Missing Event")
-						}
-					}
+			for id := 1; id <= int(qMgr.numOfQsfps); id++ {
+				qsfpId := int32(id)
+				qMgr.stateMutex.Lock()
+				qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
+				qMgr.stateMutex.Unlock()
+				if err == nil {
+					qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 				}
 			}
-			qMgr.configMutex.RUnlock()
-			qMgr.stateMutex.Unlock()
 			qMgr.classBPMTimer.Reset(qsfpClassBInterval)
 		}
 		qMgr.classBPMTimer = time.AfterFunc(qsfpClassBInterval, classBPMFunc)
 	case "Class-C":
 		classCPMFunc := func() {
-			qMgr.stateMutex.Lock()
-			qMgr.configMutex.RLock()
-			for idx := 0; idx < len(qMgr.configDB); idx++ {
-				qsfpId := int32(idx + 1)
-				qsfpCfgEnt := qMgr.configDB[idx]
-				if qsfpCfgEnt.AdminState == "Enable" {
-					qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
-					if err == nil {
-						if qMgr.qsfpStatus[idx] == false {
-							qMgr.qsfpStatus[idx] = true
-							// Raise Qsfp Present Event
-							qMgr.logger.Info("Raise Qsfp Present Event")
-						}
-						qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
-					} else {
-						if qMgr.qsfpStatus[idx] == true {
-							qMgr.qsfpStatus[idx] = false
-							// Raise Qsfp Missing Event
-							qMgr.logger.Info("Raise Qsfp Missing Event")
-						}
-					}
+			for id := 1; id <= int(qMgr.numOfQsfps); id++ {
+				qsfpId := int32(id)
+				qMgr.stateMutex.Lock()
+				qsfpPMData, err := qMgr.plugin.GetQsfpPMData(qsfpId)
+				qMgr.stateMutex.Unlock()
+				if err == nil {
+					qMgr.ProcessQsfpPMData(&qsfpPMData, qsfpId, class)
 				}
 			}
-			qMgr.configMutex.RUnlock()
-			qMgr.stateMutex.Unlock()
 			qMgr.classCPMTimer.Reset(qsfpClassCInterval)
 		}
 		qMgr.classCPMTimer = time.AfterFunc(qsfpClassCInterval, classCPMFunc)
@@ -1377,18 +1869,39 @@ func (qMgr *QsfpManager) StartQsfpPMClass(class string) {
 }
 
 func (qMgr *QsfpManager) InitQsfpPM() {
-	for idx := 0; idx < len(qMgr.configDB); idx++ {
-		for res := 0; res < int(MaxNumRes); res++ {
-			qMgr.classAPM[idx][uint8(res)] = new(ringBuffer.RingBuffer)
-			qMgr.classAPM[idx][uint8(res)].SetRingBufferCapacity(qsfpClassABufSize)
-			qMgr.classBPM[idx][uint8(res)] = new(ringBuffer.RingBuffer)
-			qMgr.classBPM[idx][uint8(res)].SetRingBufferCapacity(qsfpClassBBufSize)
-			qMgr.classCPM[idx][uint8(res)] = new(ringBuffer.RingBuffer)
-			qMgr.classCPM[idx][uint8(res)].SetRingBufferCapacity(qsfpClassCBufSize)
+	for idx := 1; idx <= int(qMgr.numOfQsfps); idx++ {
+		for qsfpRes := 0; qsfpRes < int(MaxNumQsfpRes); qsfpRes++ {
+			qsfpResource := QsfpResource{
+				QsfpId: int32(idx),
+				ResId:  uint8(qsfpRes),
+			}
+			qMgr.qsfpClassAPM[qsfpResource] = new(ringBuffer.RingBuffer)
+			qMgr.qsfpClassAPM[qsfpResource].SetRingBufferCapacity(qsfpClassABufSize)
+			qMgr.qsfpClassBPM[qsfpResource] = new(ringBuffer.RingBuffer)
+			qMgr.qsfpClassBPM[qsfpResource].SetRingBufferCapacity(qsfpClassBBufSize)
+			qMgr.qsfpClassCPM[qsfpResource] = new(ringBuffer.RingBuffer)
+			qMgr.qsfpClassCPM[qsfpResource].SetRingBufferCapacity(qsfpClassCBufSize)
+		}
+		for ch := 1; ch <= int(MaxNumOfQsfpChannel); ch++ {
+			qsfpChannel := QsfpChannel{
+				QsfpId:     int32(idx),
+				ChannelNum: uint8(ch),
+			}
+			for qsfpChannelRes := 0; qsfpChannelRes < int(MaxNumQsfpChannelRes); qsfpChannelRes++ {
+				qsfpChannelResource := QsfpChannelResource{
+					QsfpChannel: qsfpChannel,
+					ResId:       uint8(qsfpChannelRes),
+				}
+				qMgr.qsfpChannelClassAPM[qsfpChannelResource] = new(ringBuffer.RingBuffer)
+				qMgr.qsfpChannelClassAPM[qsfpChannelResource].SetRingBufferCapacity(qsfpClassABufSize)
+				qMgr.qsfpChannelClassBPM[qsfpChannelResource] = new(ringBuffer.RingBuffer)
+				qMgr.qsfpChannelClassBPM[qsfpChannelResource].SetRingBufferCapacity(qsfpClassBBufSize)
+				qMgr.qsfpChannelClassCPM[qsfpChannelResource] = new(ringBuffer.RingBuffer)
+				qMgr.qsfpChannelClassCPM[qsfpChannelResource].SetRingBufferCapacity(qsfpClassCBufSize)
+			}
 		}
 	}
 }
-
 func (qMgr *QsfpManager) StartQsfpPM() {
 	qMgr.InitQsfpPM()
 	qMgr.StartQsfpPMClass("Class-A")

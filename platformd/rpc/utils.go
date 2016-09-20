@@ -245,24 +245,12 @@ func convertToRPCFmtQsfpConfig(obj *objects.QsfpConfig) *platformd.Qsfp {
 		AdminState:               obj.AdminState,
 		HigherAlarmTemperature:   obj.HigherAlarmTemperature,
 		HigherAlarmVoltage:       obj.HigherAlarmVoltage,
-		HigherAlarmRXPower:       obj.HigherAlarmRXPower,
-		HigherAlarmTXPower:       obj.HigherAlarmTXPower,
-		HigherAlarmTXBias:        obj.HigherAlarmTXBias,
 		HigherWarningTemperature: obj.HigherWarningTemperature,
 		HigherWarningVoltage:     obj.HigherWarningVoltage,
-		HigherWarningRXPower:     obj.HigherWarningRXPower,
-		HigherWarningTXPower:     obj.HigherWarningTXPower,
-		HigherWarningTXBias:      obj.HigherWarningTXBias,
 		LowerAlarmTemperature:    obj.LowerAlarmTemperature,
 		LowerAlarmVoltage:        obj.LowerAlarmVoltage,
-		LowerAlarmRXPower:        obj.LowerAlarmRXPower,
-		LowerAlarmTXPower:        obj.LowerAlarmTXPower,
-		LowerAlarmTXBias:         obj.LowerAlarmTXBias,
 		LowerWarningTemperature:  obj.LowerWarningTemperature,
 		LowerWarningVoltage:      obj.LowerWarningVoltage,
-		LowerWarningRXPower:      obj.LowerWarningRXPower,
-		LowerWarningTXPower:      obj.LowerWarningTXPower,
-		LowerWarningTXBias:       obj.LowerWarningTXBias,
 		PMClassAAdminState:       obj.PMClassAAdminState,
 		PMClassBAdminState:       obj.PMClassBAdminState,
 		PMClassCAdminState:       obj.PMClassCAdminState,
@@ -275,24 +263,12 @@ func convertRPCToObjFmtQsfpConfig(rpcObj *platformd.Qsfp) *objects.QsfpConfig {
 		AdminState:               rpcObj.AdminState,
 		HigherAlarmTemperature:   rpcObj.HigherAlarmTemperature,
 		HigherAlarmVoltage:       rpcObj.HigherAlarmVoltage,
-		HigherAlarmRXPower:       rpcObj.HigherAlarmRXPower,
-		HigherAlarmTXPower:       rpcObj.HigherAlarmTXPower,
-		HigherAlarmTXBias:        rpcObj.HigherAlarmTXBias,
 		HigherWarningTemperature: rpcObj.HigherWarningTemperature,
 		HigherWarningVoltage:     rpcObj.HigherWarningVoltage,
-		HigherWarningRXPower:     rpcObj.HigherWarningRXPower,
-		HigherWarningTXPower:     rpcObj.HigherWarningTXPower,
-		HigherWarningTXBias:      rpcObj.HigherWarningTXBias,
 		LowerAlarmTemperature:    rpcObj.LowerAlarmTemperature,
 		LowerAlarmVoltage:        rpcObj.LowerAlarmVoltage,
-		LowerAlarmRXPower:        rpcObj.LowerAlarmRXPower,
-		LowerAlarmTXPower:        rpcObj.LowerAlarmTXPower,
-		LowerAlarmTXBias:         rpcObj.LowerAlarmTXBias,
 		LowerWarningTemperature:  rpcObj.LowerWarningTemperature,
 		LowerWarningVoltage:      rpcObj.LowerWarningVoltage,
-		LowerWarningRXPower:      rpcObj.LowerWarningRXPower,
-		LowerWarningTXPower:      rpcObj.LowerWarningTXPower,
-		LowerWarningTXBias:       rpcObj.LowerWarningTXBias,
 		PMClassAAdminState:       rpcObj.PMClassAAdminState,
 		PMClassBAdminState:       rpcObj.PMClassBAdminState,
 		PMClassCAdminState:       rpcObj.PMClassCAdminState,
@@ -311,18 +287,63 @@ func convertToRPCFmtQsfpState(obj *objects.QsfpState) *platformd.QsfpState {
 		DataCode:           obj.DataCode,
 		Temperature:        obj.Temperature,
 		Voltage:            obj.Voltage,
-		RX1Power:           obj.RX1Power,
-		RX2Power:           obj.RX2Power,
-		RX3Power:           obj.RX3Power,
-		RX4Power:           obj.RX4Power,
-		TX1Power:           obj.TX1Power,
-		TX2Power:           obj.TX2Power,
-		TX3Power:           obj.TX3Power,
-		TX4Power:           obj.TX4Power,
-		TX1Bias:            obj.TX1Bias,
-		TX2Bias:            obj.TX2Bias,
-		TX3Bias:            obj.TX3Bias,
-		TX4Bias:            obj.TX4Bias,
+	}
+}
+
+func convertToRPCFmtQsfpChannelConfig(obj *objects.QsfpChannelConfig) *platformd.QsfpChannel {
+	return &platformd.QsfpChannel{
+		QsfpId:               obj.QsfpId,
+		ChannelNum:           obj.ChannelNum,
+		AdminState:           obj.AdminState,
+		HigherAlarmRXPower:   obj.HigherAlarmRXPower,
+		HigherAlarmTXPower:   obj.HigherAlarmTXPower,
+		HigherAlarmTXBias:    obj.HigherAlarmTXBias,
+		HigherWarningRXPower: obj.HigherWarningRXPower,
+		HigherWarningTXPower: obj.HigherWarningTXPower,
+		HigherWarningTXBias:  obj.HigherWarningTXBias,
+		LowerAlarmRXPower:    obj.LowerAlarmRXPower,
+		LowerAlarmTXPower:    obj.LowerAlarmTXPower,
+		LowerAlarmTXBias:     obj.LowerAlarmTXBias,
+		LowerWarningRXPower:  obj.LowerWarningRXPower,
+		LowerWarningTXPower:  obj.LowerWarningTXPower,
+		LowerWarningTXBias:   obj.LowerWarningTXBias,
+		PMClassAAdminState:   obj.PMClassAAdminState,
+		PMClassBAdminState:   obj.PMClassBAdminState,
+		PMClassCAdminState:   obj.PMClassCAdminState,
+	}
+}
+
+func convertRPCToObjFmtQsfpChannelConfig(rpcObj *platformd.QsfpChannel) *objects.QsfpChannelConfig {
+	return &objects.QsfpChannelConfig{
+		QsfpId:               rpcObj.QsfpId,
+		ChannelNum:           rpcObj.ChannelNum,
+		AdminState:           rpcObj.AdminState,
+		HigherAlarmRXPower:   rpcObj.HigherAlarmRXPower,
+		HigherAlarmTXPower:   rpcObj.HigherAlarmTXPower,
+		HigherAlarmTXBias:    rpcObj.HigherAlarmTXBias,
+		HigherWarningRXPower: rpcObj.HigherWarningRXPower,
+		HigherWarningTXPower: rpcObj.HigherWarningTXPower,
+		HigherWarningTXBias:  rpcObj.HigherWarningTXBias,
+		LowerAlarmRXPower:    rpcObj.LowerAlarmRXPower,
+		LowerAlarmTXPower:    rpcObj.LowerAlarmTXPower,
+		LowerAlarmTXBias:     rpcObj.LowerAlarmTXBias,
+		LowerWarningRXPower:  rpcObj.LowerWarningRXPower,
+		LowerWarningTXPower:  rpcObj.LowerWarningTXPower,
+		LowerWarningTXBias:   rpcObj.LowerWarningTXBias,
+		PMClassAAdminState:   rpcObj.PMClassAAdminState,
+		PMClassBAdminState:   rpcObj.PMClassBAdminState,
+		PMClassCAdminState:   rpcObj.PMClassCAdminState,
+	}
+}
+
+func convertToRPCFmtQsfpChannelState(obj *objects.QsfpChannelState) *platformd.QsfpChannelState {
+	return &platformd.QsfpChannelState{
+		QsfpId:     obj.QsfpId,
+		ChannelNum: obj.ChannelNum,
+		Present:    obj.Present,
+		RXPower:    obj.RXPower,
+		TXPower:    obj.TXPower,
+		TXBias:     obj.TXBias,
 	}
 }
 
@@ -425,6 +446,25 @@ func convertToRPCFmtQsfpPMState(obj *objects.QsfpPMState) *platformd.QsfpPMDataS
 		Resource: obj.Resource,
 		Class:    obj.Class,
 		Data:     data,
+	}
+}
+
+func convertToRPCFmtQsfpChannelPMState(obj *objects.QsfpChannelPMState) *platformd.QsfpChannelPMDataState {
+	length := len(obj.Data)
+	data := make([]*platformd.QsfpChannelPMData, length)
+	// Revisit
+	for idx := 0; idx < length; idx++ {
+		objData := obj.Data[length-1-idx].(objects.QsfpPMData)
+		data[idx] = new(platformd.QsfpChannelPMData)
+		data[idx].TimeStamp = objData.TimeStamp
+		data[idx].Value = objData.Value
+	}
+	return &platformd.QsfpChannelPMDataState{
+		QsfpId:     obj.QsfpId,
+		ChannelNum: obj.ChannelNum,
+		Resource:   obj.Resource,
+		Class:      obj.Class,
+		Data:       data,
 	}
 }
 

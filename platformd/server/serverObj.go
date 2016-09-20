@@ -74,6 +74,11 @@ const (
 	GET_BULK_QSFP_CONFIG
 	UPDATE_QSFP_CONFIG
 	GET_QSFP_PM_STATE
+	GET_QSFP_CHANNEL_STATE
+	GET_BULK_QSFP_CHANNEL_STATE
+	GET_BULK_QSFP_CHANNEL_CONFIG
+	UPDATE_QSFP_CHANNEL_CONFIG
+	GET_QSFP_CHANNEL_PM_STATE
 	GET_PLATFORM_MGMT_DEVICE_STATE
 	GET_BULK_PLATFORM_MGMT_DEVICE_STATE
 	GET_LED_STATE
@@ -324,6 +329,44 @@ type GetQsfpPMStateInArgs struct {
 
 type GetQsfpPMStateOutArgs struct {
 	Obj *objects.QsfpPMState
+	Err error
+}
+
+type GetQsfpChannelStateInArgs struct {
+	QsfpId     int32
+	ChannelNum int32
+}
+
+type GetQsfpChannelStateOutArgs struct {
+	Obj *objects.QsfpChannelState
+	Err error
+}
+
+type GetBulkQsfpChannelStateOutArgs struct {
+	BulkInfo *objects.QsfpChannelStateGetInfo
+	Err      error
+}
+
+type GetBulkQsfpChannelConfigOutArgs struct {
+	BulkInfo *objects.QsfpChannelConfigGetInfo
+	Err      error
+}
+
+type UpdateQsfpChannelConfigInArgs struct {
+	QsfpChannelOldCfg *objects.QsfpChannelConfig
+	QsfpChannelNewCfg *objects.QsfpChannelConfig
+	AttrSet           []bool
+}
+
+type GetQsfpChannelPMStateInArgs struct {
+	QsfpId     int32
+	ChannelNum int32
+	Resource   string
+	Class      string
+}
+
+type GetQsfpChannelPMStateOutArgs struct {
+	Obj *objects.QsfpChannelPMState
 	Err error
 }
 

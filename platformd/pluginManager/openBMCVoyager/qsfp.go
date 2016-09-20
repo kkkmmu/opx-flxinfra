@@ -57,18 +57,11 @@ func (driver *openBMCVoyagerDriver) GetQsfpState(Id int32) (retObj pluginCommon.
 	retObj.DataCode = C.GoString(&qsfpInfo.DataCode[0])
 	retObj.Temperature = float64(qsfpInfo.Temperature)
 	retObj.Voltage = float64(qsfpInfo.SupplyVoltage)
-	retObj.RX1Power = float64(qsfpInfo.RX1Power)
-	retObj.RX2Power = float64(qsfpInfo.RX2Power)
-	retObj.RX3Power = float64(qsfpInfo.RX3Power)
-	retObj.RX4Power = float64(qsfpInfo.RX4Power)
-	retObj.TX1Power = float64(qsfpInfo.TX1Power)
-	retObj.TX2Power = float64(qsfpInfo.TX2Power)
-	retObj.TX3Power = float64(qsfpInfo.TX3Power)
-	retObj.TX4Power = float64(qsfpInfo.TX4Power)
-	retObj.TX1Bias = float64(qsfpInfo.TX1Bias)
-	retObj.TX2Bias = float64(qsfpInfo.TX2Bias)
-	retObj.TX3Bias = float64(qsfpInfo.TX3Bias)
-	retObj.TX4Bias = float64(qsfpInfo.TX4Bias)
+	for idx := 0; idx < int(pluginCommon.QsfpNumChannel); idx++ {
+		retObj.RXPower[idx] = float64(qsfpInfo.RXPower[idx])
+		retObj.TXPower[idx] = float64(qsfpInfo.TXPower[idx])
+		retObj.TXBias[idx] = float64(qsfpInfo.TXBias[idx])
+	}
 	return retObj, nil
 }
 
@@ -86,17 +79,10 @@ func (driver *openBMCVoyagerDriver) GetQsfpPMData(Id int32) (retObj pluginCommon
 	}
 	retObj.Temperature = float64(qsfpPMInfo.Temperature)
 	retObj.Voltage = float64(qsfpPMInfo.SupplyVoltage)
-	retObj.RX1Power = float64(qsfpPMInfo.RX1Power)
-	retObj.RX2Power = float64(qsfpPMInfo.RX2Power)
-	retObj.RX3Power = float64(qsfpPMInfo.RX3Power)
-	retObj.RX4Power = float64(qsfpPMInfo.RX4Power)
-	retObj.TX1Power = float64(qsfpPMInfo.TX1Power)
-	retObj.TX2Power = float64(qsfpPMInfo.TX2Power)
-	retObj.TX3Power = float64(qsfpPMInfo.TX3Power)
-	retObj.TX4Power = float64(qsfpPMInfo.TX4Power)
-	retObj.TX1Bias = float64(qsfpPMInfo.TX1Bias)
-	retObj.TX2Bias = float64(qsfpPMInfo.TX2Bias)
-	retObj.TX3Bias = float64(qsfpPMInfo.TX3Bias)
-	retObj.TX4Bias = float64(qsfpPMInfo.TX4Bias)
+	for idx := 0; idx < int(pluginCommon.QsfpNumChannel); idx++ {
+		retObj.RXPower[idx] = float64(qsfpPMInfo.RXPower[idx])
+		retObj.TXPower[idx] = float64(qsfpPMInfo.TXPower[idx])
+		retObj.TXBias[idx] = float64(qsfpPMInfo.TXBias[idx])
+	}
 	return retObj, nil
 }
