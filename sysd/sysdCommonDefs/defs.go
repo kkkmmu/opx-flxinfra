@@ -58,7 +58,7 @@ const (
 )
 
 type GlobalLogging struct {
-	Enable bool
+	Level SRDebugLevel
 }
 
 type ComponentLogging struct {
