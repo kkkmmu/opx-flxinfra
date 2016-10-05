@@ -33,9 +33,9 @@ import (
 )
 
 const (
-	DMN_NAME = "PLATFORMD"
+	DMN_NAME = "platformd"
 	CFG_FILE = "platformd.conf"
-	CFG_DIR  = "/etc/flexswitch/"
+	//CFG_DIR  = "/etc/flexswitch/"
 )
 
 type platformDaemon struct {
@@ -47,6 +47,7 @@ type platformDaemon struct {
 var dmn platformDaemon
 
 func main() {
+	var err error
 	// Get base daemon handle and initialize
 	dmn.FSBaseDmn = dmnBase.NewBaseDmn(DMN_NAME, DMN_NAME)
 	ok := dmn.Init()
@@ -55,19 +56,29 @@ func main() {
 	}
 
 	//Get server handle and start server
-	cfgFileName := CFG_DIR + CFG_FILE
+	cfgFileName := dmn.ParamsDir + "/" + CFG_FILE
 	InitParams := &server.InitParams{
 		DmnName:     DMN_NAME,
 		ParamsDir:   dmn.ParamsDir,
 		CfgFileName: cfgFileName,
-		DbHdl:       dmn.DbHdl,
+		EventDbHdl:  dmn.DbHdl,
 		Logger:      dmn.FSBaseDmn.Logger,
 	}
-	dmn.server = server.NewPlatformdServer(InitParams)
+	dmn.server, err = server.NewPlatformdServer(InitParams)
+	if err != nil {
+		panic("Unable to Initialize Platform Daemon Plugin")
+		return
+	}
 	go dmn.server.Serve()
 
 	// Initialize api layer
 	api.InitApiLayer(dmn.server)
+
+	//Start keepalive for watchdog
+	dmn.StartKeepAlive()
+
+	//Wait for server started msg
+	_ = <-dmn.server.InitCompleteCh
 
 	//Get RPC server handle
 	var rpcServerAddr string
@@ -80,13 +91,7 @@ func main() {
 	if rpcServerAddr == "" {
 		panic("Platform Daemon is not part of the system profile")
 	}
-	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger)
-
-	//Start keepalive for watchdog
-	dmn.StartKeepAlive()
-
-	//Wait for server started msg
-	_ = <-dmn.server.InitCompleteCh
+	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger, dmn.DbHdl)
 
 	//Start RPC server
 	dmn.FSBaseDmn.Logger.Info("Platform Daemon server started")

@@ -24,15 +24,85 @@
 package pluginCommon
 
 import (
+	"utils/dbutils"
 	"utils/logging"
 )
 
 //Plugin name constants
 const (
-	ONLP_PLUGIN    = "onlp"
-	OpenBMC_PLUGIN = "openBMC"
+	ONLP_PLUGIN           = "onlp"
+	OpenBMC_PLUGIN        = "openbmc"
+	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
+	Dummy_PLUGIN          = "dummy"
 )
 
 type PluginInitParams struct {
-	Logger logging.LoggerIntf
+	Logger     logging.LoggerIntf
+	PluginName string
+	IpAddr     string
+	Port       string
+	EventDbHdl dbutils.DBIntf
+}
+
+type FanState struct {
+	FanId         int32
+	OperMode      string
+	OperSpeed     int32
+	OperDirection string
+	Status        string
+	Model         string
+	SerialNum     string
+	LedId         int32
+	Valid         bool
+}
+
+type SfpState struct {
+	SfpId      int32
+	SfpSpeed   string
+	SfpLos     string
+	SfpPresent string
+	SfpType    string
+	SerialNum  string
+	EEPROM     string
+}
+
+type PlatformState struct {
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	Version      string
+}
+
+type ThermalState struct {
+	ThermalId                 int32
+	Location                  string
+	Temperature               string
+	LowerWatermarkTemperature string
+	UpperWatermarkTemperature string
+	ShutdownTemperature       string
+	Valid                     bool
+}
+
+type PsuState struct {
+	PsuId     int32
+	Model     string
+	SerialNum string
+	Status    string
+	VoltIn    int32
+	VoltOut   int32
+	AmpIn     int32
+	AmpOut    int32
+	PwrIn     int32
+	PwrOut    int32
+}
+
+type LedState struct {
+	LedId       int32
+	LedIdentify string
+	LedState    string
+	LedColor    string
 }

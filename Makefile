@@ -1,12 +1,14 @@
 COMPS=sysd\
 	fMgrd\
-	platformd
+	platformd\
+	notifierd
 
 IPCS=sysd\
 	fMgrd\
-	platformd
+	platformd\
+	notifierd
 
-all: ipc exe 
+all: ipc exe
 
 exe: $(COMPS)
 	 $(foreach f,$^, make -C $(f) exe;)

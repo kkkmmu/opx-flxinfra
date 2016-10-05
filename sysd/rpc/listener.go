@@ -25,7 +25,6 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
 	"infra/sysd/server"
 	"models/objects"
 	"strings"
@@ -49,20 +48,6 @@ func NewSYSDHandler(logger *logging.Writer, server *server.SYSDServer) *SYSDHand
 	return h
 }
 
-func (h *SYSDHandler) SendGlobalLoggingConfig(gLoggingConfig *sysd.SystemLogging) bool {
-	var Logging bool
-	if gLoggingConfig.Logging == "on" {
-		Logging = true
-	} else {
-		Logging = false
-	}
-	gConf := server.GlobalLoggingConfig{
-		Enable: Logging,
-	}
-	h.server.GlobalLoggingConfigCh <- gConf
-	return true
-}
-
 func (h *SYSDHandler) SendComponentLoggingConfig(cLoggingConfig *sysd.ComponentLogging) bool {
 	cConf := server.ComponentLoggingConfig{
 		Component: cLoggingConfig.Module,
@@ -72,46 +57,23 @@ func (h *SYSDHandler) SendComponentLoggingConfig(cLoggingConfig *sysd.ComponentL
 	return true
 }
 
-func (h *SYSDHandler) UpdateSystemLogging(origConf *sysd.SystemLogging, newConf *sysd.SystemLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Original global config attrs:", origConf))
-	if newConf == nil {
-		err := errors.New("Invalid global Configuration")
-		return false, err
-	}
-	h.logger.Info(fmt.Sprintln("Update global config attrs:", newConf))
-	return h.SendGlobalLoggingConfig(newConf), nil
-}
-
 func (h *SYSDHandler) UpdateComponentLogging(origConf *sysd.ComponentLogging, newConf *sysd.ComponentLogging, attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Original component config attrs:", origConf))
+	h.logger.Info("Original component config attrs:", origConf)
 	if newConf == nil {
 		err := errors.New("Invalid component Configuration")
 		return false, err
 	}
-	h.logger.Info(fmt.Sprintln("Update component config attrs:", newConf))
+	h.logger.Info("Update component config attrs:", newConf)
 	return h.SendComponentLoggingConfig(newConf), nil
 }
 
-func (h *SYSDHandler) CreateSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Create global config attrs:", gLoggingConf))
-	err := errors.New("SystemLogging create not supported")
-	return false, err
-}
-
 func (h *SYSDHandler) CreateComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Create component config attrs:", cLoggingConf))
-	err := errors.New("CompoenentLogging create not supported")
-	return false, err
-}
-
-func (h *SYSDHandler) DeleteSystemLogging(gLoggingConf *sysd.SystemLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Delete global config attrs:", gLoggingConf))
-	err := errors.New("SystemLogging delete not supported")
-	return false, err
+	h.logger.Info("Create component config attrs:", cLoggingConf)
+	return h.SendComponentLoggingConfig(cLoggingConf), nil
 }
 
 func (h *SYSDHandler) DeleteComponentLogging(cLoggingConf *sysd.ComponentLogging) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Delete component config attrs:", cLoggingConf))
+	h.logger.Info("Delete component config attrs:", cLoggingConf)
 	err := errors.New("CompoenentLogging delete not supported")
 	return false, err
 }
@@ -135,7 +97,7 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 }
 
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Daemon action attrs: ", daemonConfig))
+	h.logger.Info("Daemon action attrs: ", daemonConfig)
 	dConf := server.DaemonConfig{
 		Name:     daemonConfig.Name,
 		Enable:   daemonConfig.Enable,
@@ -145,8 +107,17 @@ func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, erro
 	return true, nil
 }
 
+func (h *SYSDHandler) ExecuteActionGlobalLogging(gLogConfig *sysd.GlobalLogging) (bool, error) {
+	h.logger.Info("GlobalLogging action attrs: ", gLogConfig)
+	gConf := server.GlobalLoggingConfig{
+		Level: logging.ConvertLevelStrToVal(gLogConfig.Level),
+	}
+	h.server.GlobalLoggingConfigCh <- gConf
+	return true, nil
+}
+
 func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
-	h.logger.Info(fmt.Sprintln("Get Daemon state ", name))
+	h.logger.Info("Get Daemon state ", name)
 	daemonStateResponse := sysd.NewDaemonState()
 	dState := h.server.GetDaemonState(name)
 	daemonState := h.server.ConvertDaemonStateToThrift(*dState)
@@ -155,7 +126,7 @@ func (h *SYSDHandler) GetDaemonState(name string) (*sysd.DaemonState, error) {
 }
 
 func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sysd.DaemonStateGetInfo, error) {
-	h.logger.Info(fmt.Sprintln("Get Daemon states "))
+	h.logger.Info("Get Daemon states ")
 	nextIdx, currCount, daemonStates := h.server.GetBulkDaemonStates(int(fromIdx), int(count))
 	if daemonStates == nil {
 		err := errors.New("System server is busy")
@@ -177,7 +148,7 @@ func (h *SYSDHandler) GetBulkDaemonState(fromIdx sysd.Int, count sysd.Int) (*sys
 func convertSystemParamThriftToModel(cfg *sysd.SystemParam) objects.SystemParam {
 	confg := objects.SystemParam{
 		Description: cfg.Description,
-		Version:     cfg.Version,
+		SwVersion:   cfg.SwVersion,
 		MgmtIp:      cfg.MgmtIp,
 		Hostname:    cfg.Hostname,
 		SwitchMac:   cfg.SwitchMac,
@@ -194,7 +165,7 @@ func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
 		return false, errors.New("Hostname should not have Special Characters " +
 			SPECIAL_HOSTNAME_CHARS)
 	}
-	h.logger.Info(fmt.Sprintln("Configuring Global Object", cfg))
+	h.logger.Info("Configuring Global Object", cfg)
 	confg := convertSystemParamThriftToModel(cfg)
 	h.server.SystemParamConfig <- confg
 	return true, nil
@@ -203,13 +174,12 @@ func (h *SYSDHandler) CreateSystemParam(cfg *sysd.SystemParam) (bool, error) {
 func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset []bool) ([]string, error) {
 	var updatedInfo []string
 	/*
-		1 : string Vrf
-		2 : string MgmtIp
-		3 : string Hostname
-		4 : string RouterId
-		5 : string Version
-		6 : string SwitchMac
-		7 : string Description
+		0 : string Vrf
+		1 : string MgmtIp
+		2 : string Hostname
+		3 : string Version
+		4 : string SwitchMac
+		5 : string Description
 	*/
 	for idx, _ := range attrset {
 		if attrset[idx] == false {
@@ -227,12 +197,10 @@ func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset
 			}
 			updatedInfo = append(updatedInfo, "Hostname")
 		case 3:
-			return updatedInfo, errors.New("Router ID update is not supported")
-		case 4:
 			return updatedInfo, errors.New("Version update is not supported")
-		case 5:
+		case 4:
 			return updatedInfo, errors.New("Switch Mac Address update is not supported")
-		case 6:
+		case 5:
 			updatedInfo = append(updatedInfo, "Description")
 		}
 	}
@@ -241,12 +209,13 @@ func (h *SYSDHandler) validatUpdateSystemParam(newCfg *sysd.SystemParam, attrset
 
 func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemParam, attrset []bool,
 	op []*sysd.PatchOpInfo) (bool, error) {
-	h.logger.Info(fmt.Sprintln("Received update for system param information", org, new, attrset))
+	h.logger.Info("Received update for system param information", org, new, attrset)
 	if org == nil || new == nil {
 		return false, errors.New("Invalid information provided to server")
 	}
 	entriesUpdated, err := h.validatUpdateSystemParam(new, attrset)
 	if err != nil {
+		h.logger.Err("Failed to update system params:", err)
 		return false, err
 	}
 	cfg := convertSystemParamThriftToModel(new)
@@ -255,6 +224,7 @@ func (h *SYSDHandler) UpdateSystemParam(org *sysd.SystemParam, new *sysd.SystemP
 		NewCfg:         &cfg,
 	}
 	h.server.SysUpdCh <- &updInfo
+	h.logger.Info("Returning true from update system param information")
 	return true, nil
 }
 
@@ -266,9 +236,11 @@ func convertSystemParamStateToThrift(info objects.SystemParamState, entry *sysd.
 	entry.Vrf = string(info.Vrf)
 	entry.SwitchMac = string(info.SwitchMac)
 	entry.MgmtIp = string(info.MgmtIp)
-	entry.Version = string(info.Version)
+	entry.SwVersion = string(info.SwVersion)
 	entry.Description = string(info.Description)
 	entry.Hostname = string(info.Hostname)
+	entry.Distro = string(info.Distro)
+	entry.Kernel = string(info.Kernel)
 }
 
 func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, error) {
@@ -279,7 +251,7 @@ func (h *SYSDHandler) GetSystemParamState(name string) (*sysd.SystemParamState, 
 		return nil, errors.New("No Matching entry for " + name + "found")
 	}
 	convertSystemParamStateToThrift(*sysInfo, sysParamsResp)
-	h.logger.Info(fmt.Sprintln("Returing System Info:", sysParamsResp))
+	h.logger.Info("Returing System Info:", sysParamsResp)
 	return sysParamsResp, nil
 }
 

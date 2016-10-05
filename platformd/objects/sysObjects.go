@@ -23,14 +23,20 @@
 
 package objects
 
-type PlatformSystemState struct {
-	ObjName   string
-	SerialNum string
+type PlatformState struct {
+	ObjName      string
+	ProductName  string
+	SerialNum    string
+	Manufacturer string
+	Vendor       string
+	Release      string
+	PlatformName string
+	Version      string
 }
 
-type PlatformSystemStateGetInfo struct {
+type PlatformStateGetInfo struct {
 	EndIdx int
 	Count  int
 	More   bool
-	List   []*PlatformSystemState
+	List   []*PlatformState
 }
