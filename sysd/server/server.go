@@ -32,7 +32,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"sysd"
+	_ "sysd"
 	"utils/dbutils"
 	"utils/logging"
 )
@@ -74,8 +74,6 @@ type SYSDServer struct {
 	sysdPubSocket            *nanomsg.PubSocket
 	sysdIpTableMgr           *ipTable.SysdIpTableHandler
 	notificationCh           chan []byte
-	IptableAddCh             chan *sysd.IpTableAcl
-	IptableDelCh             chan *sysd.IpTableAcl
 	SystemParamConfig        chan objects.SystemParam
 	KaRecvCh                 chan string
 	DaemonMap                map[string]*DaemonInfo
@@ -96,8 +94,6 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.GlobalLoggingConfigCh = make(chan GlobalLoggingConfig)
 	sysdServer.ComponentLoggingConfigCh = make(chan ComponentLoggingConfig)
 	sysdServer.notificationCh = make(chan []byte)
-	sysdServer.IptableAddCh = make(chan *sysd.IpTableAcl)
-	sysdServer.IptableDelCh = make(chan *sysd.IpTableAcl)
 	sysdServer.SystemParamConfig = make(chan objects.SystemParam)
 	sysdServer.SysUpdCh = make(chan *SystemParamUpdate)
 	return sysdServer
@@ -228,10 +224,6 @@ func (server *SYSDServer) StartServer() {
 		case compLogConf := <-server.ComponentLoggingConfigCh:
 			server.logger.Info("Received call for performing Component logging Configuration", compLogConf)
 			server.ProcessComponentLoggingConfig(compLogConf)
-		case addConfig := <-server.IptableAddCh:
-			server.sysdIpTableMgr.AddIpRule(addConfig, false /*non-restart*/)
-		case delConfig := <-server.IptableDelCh:
-			server.sysdIpTableMgr.DelIpRule(delConfig)
 		case sysConfig := <-server.SystemParamConfig:
 			server.InitSystemInfo(sysConfig)
 		case updateInfo := <-server.SysUpdCh:

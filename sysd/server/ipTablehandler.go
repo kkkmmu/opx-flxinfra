@@ -49,11 +49,18 @@ func (server *SYSDServer) ReadIpAclConfigFromDB(dbHdl *dbutils.DBUtil) error {
 	return nil
 }
 
-func (server *SYSDServer) AddIpTableRule(ipaclConfig *sysd.IpTableAcl,
-	restart bool) (bool, error) {
+func (server *SYSDServer) AddIpTableRule(ipaclConfig *sysd.IpTableAcl, restart bool) (bool, error) {
 	return (server.sysdIpTableMgr.AddIpRule(ipaclConfig, restart))
 }
 
 func (server *SYSDServer) DelIpTableRule(ipaclConfig *sysd.IpTableAcl) (bool, error) {
 	return (server.sysdIpTableMgr.DelIpRule(ipaclConfig))
+}
+
+func (server *SYSDServer) AddRule(ipaclConfig *sysd.IpTableAcl) (bool, error) {
+	return server.sysdIpTableMgr.AddIpRule(ipaclConfig, false /*non-restart*/)
+}
+
+func (server *SYSDServer) DelRule(ipaclConfig *sysd.IpTableAcl) (bool, error) {
+	return server.sysdIpTableMgr.DelIpRule(ipaclConfig)
 }
