@@ -80,8 +80,7 @@ func (h *SYSDHandler) DeleteComponentLogging(cLoggingConf *sysd.ComponentLogging
 
 func (h *SYSDHandler) CreateIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, error) {
 	h.logger.Info("Create Ip Table rule " + ipaclConfig.Name)
-	h.server.IptableAddCh <- ipaclConfig
-	return true, nil
+	return h.server.AddRule(ipaclConfig)
 }
 
 func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.IpTableAcl,
@@ -92,8 +91,7 @@ func (h *SYSDHandler) UpdateIpTableAcl(origConf *sysd.IpTableAcl, newConf *sysd.
 
 func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, error) {
 	h.logger.Info("Delete Ip Table rule " + ipaclConfig.Name)
-	h.server.IptableDelCh <- ipaclConfig
-	return true, nil
+	return h.server.DelRule(ipaclConfig)
 }
 
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
