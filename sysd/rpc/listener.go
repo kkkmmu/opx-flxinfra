@@ -26,6 +26,7 @@ package rpc
 import (
 	"errors"
 	"infra/sysd/server"
+	"infra/sysd/sysdCommonDefs"
 	"models/objects"
 	"strings"
 	"sysd"
@@ -96,7 +97,7 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
 	h.logger.Info("Daemon action attrs: ", daemonConfig)
-	daemonInfo, exist := server.DaemonMap[daemonConfig.Name]
+	daemonInfo, exist := h.server.DaemonMap[daemonConfig.Name]
 	if exist {
 		if daemonInfo.State == sysdCommonDefs.UP && daemonConfig.Op == "start" {
 			err := errors.New("Daemon " + daemonConfig.Name + " is already up")

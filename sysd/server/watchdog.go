@@ -102,7 +102,7 @@ func (server *SYSDServer) StartWDRoutine() {
 	for {
 		select {
 		case daemonConfig := <-server.DaemonConfigCh:
-			server.logger.Info("Received daemon config for:", daemonConfig.Name, "Enable ", daemonConfig.Enable)
+			server.logger.Info("Received daemon config for:", daemonConfig.Name, "Op", daemonConfig.Op, "KeepAlive", daemonConfig.WatchDog)
 			daemon := daemonConfig.Name
 			op := daemonConfig.Op
 			watchDog := daemonConfig.WatchDog
