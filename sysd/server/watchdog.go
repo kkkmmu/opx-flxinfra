@@ -104,12 +104,13 @@ func (server *SYSDServer) StartWDRoutine() {
 		case daemonConfig := <-server.DaemonConfigCh:
 			server.logger.Info("Received daemon config for:", daemonConfig.Name, "Enable ", daemonConfig.Enable)
 			daemon := daemonConfig.Name
-			enable := daemonConfig.Enable
+			op := daemonConfig.Op
 			watchDog := daemonConfig.WatchDog
 			daemonInfo, exist := server.DaemonMap[daemon]
 			daemonUpdated := false
 			if exist {
-				if enable {
+				switch op {
+				case "start":
 					if daemonInfo.State == sysdCommonDefs.STOPPED {
 						server.ToggleFlexswitchDaemon(daemon, true)
 						daemonInfo.State = sysdCommonDefs.STARTING
@@ -119,7 +120,7 @@ func (server *SYSDServer) StartWDRoutine() {
 					} else {
 						server.logger.Info("Daemon", daemonConfig.Name, "is not in stopped state, ignoring enable command")
 					}
-				} else {
+				case "stop":
 					if daemonInfo.State == sysdCommonDefs.UP {
 						server.ToggleFlexswitchDaemon(daemon, false)
 						daemonInfo.State = sysdCommonDefs.STOPPED
@@ -131,6 +132,13 @@ func (server *SYSDServer) StartWDRoutine() {
 					} else {
 						server.logger.Info("Daemon", daemonConfig.Name, "is not in up state, ignoring disable command")
 					}
+				case "restart":
+					daemonInfo.State = sysdCommonDefs.RESTARTING
+					daemonInfo.NumRestarts++
+					daemonInfo.RestartTime = time.Now().String()
+					daemonInfo.RestartReason = REASON_USER_RESTART
+					go server.RestartFlexswitchDaemon(daemon)
+					daemonUpdated = true
 				}
 				if daemonInfo != nil {
 					daemonInfo.WatchDog = watchDog

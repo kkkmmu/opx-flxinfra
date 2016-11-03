@@ -98,13 +98,32 @@ func (h *SYSDHandler) DeleteIpTableAcl(ipaclConfig *sysd.IpTableAcl) (bool, erro
 
 func (h *SYSDHandler) ExecuteActionDaemon(daemonConfig *sysd.Daemon) (bool, error) {
 	h.logger.Info("Daemon action attrs: ", daemonConfig)
-	dConf := server.DaemonConfig{
-		Name:     daemonConfig.Name,
-		Enable:   daemonConfig.Enable,
-		WatchDog: daemonConfig.WatchDog,
+	daemonInfo, exist := server.DaemonMap[daemonConfig.Name]
+	if exist {
+		if daemonInfo.State == sysdCommonDefs.UP && daemonConfig.Op == "start" {
+			err := errors.New("Daemon " + daemonConfig.Name + " is already up")
+			return false, err
+		}
+		if daemonInfo.State == sysdCommonDefs.STOPPED && daemonConfig.Op == "stop" {
+			err := errors.New("Daemon " + daemonConfig.Name + " is already stopped")
+			return false, err
+		}
+		if daemonInfo.State == sysdCommonDefs.RESTARTING && daemonConfig.Op == "restart" {
+			err := errors.New("Daemon " + daemonConfig.Name + " is in restarting state")
+			return false, err
+		}
+		dConf := server.DaemonConfig{
+			Name:     daemonConfig.Name,
+			Op:       daemonConfig.Op,
+			WatchDog: daemonConfig.WatchDog,
+		}
+		h.server.DaemonConfigCh <- dConf
+		return true, nil
+	} else {
+		h.logger.Err("Unknown daemon name: ", daemonConfig)
+		err := errors.New("Unknown daemon name " + daemonConfig.Name)
+		return false, err
 	}
-	h.server.DaemonConfigCh <- dConf
-	return true, nil
 }
 
 func (h *SYSDHandler) ExecuteActionGlobalLogging(gLogConfig *sysd.GlobalLogging) (bool, error) {
