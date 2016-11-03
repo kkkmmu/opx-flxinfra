@@ -13,19 +13,19 @@
 //	 See the License for the specific language governing permissions and
 //	 limitations under the License.
 //
-// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __  
-// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  | 
-// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  | 
-// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   | 
-// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  | 
-// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__| 
-//                                                                                                           
+// _______  __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
+// |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
+// |  |__   |  |     |  |__   \  V  /     |   (----` \   \/    \/   /  |  | `---|  |----`|  ,----'|  |__|  |
+// |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |     |  |     |   __   |
+// |  |     |  `----.|  |____ /  .  \  .----)   |      \    /\    /    |  |     |  |     |  `----.|  |  |  |
+// |__|     |_______||_______/__/ \__\ |_______/        \__/  \__/     |__|     |__|      \______||__|  |__|
+//
 
 package ipTable
 
 import (
 	"errors"
-	_ "fmt"
+	"fmt"
 	"strconv"
 	"strings"
 	"sysd"
@@ -46,8 +46,13 @@ func SysdNewSysdIpTableHandler(logger *logging.Writer) *SysdIpTableHandler {
 	return ipTableHdl
 }
 
-func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAcl,
-	restart bool) (bool, error) {
+const (
+	TCP_PROTOCOL  = "tcp"
+	UDP_PROTOCOL  = "udp"
+	ICMP_PROTOCOL = "icmp"
+)
+
+func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAcl, restart bool) (bool, error) {
 	port, err := strconv.Atoi(config.Port)
 	var iptEntry C.ipt_config_t
 	rv := -1
@@ -64,41 +69,40 @@ func (hdl *SysdIpTableHandler) AddIpRule(config *sysd.IpTableAcl,
 		ip = splitStr[0]
 		pl, _ = strconv.Atoi(splitStr[1])
 	}
+	protocol := strings.ToLower(config.Protocol)
 	entry := &C.rule_entry_t{
 		Name:         C.CString(config.Name),
 		PhysicalPort: C.CString(config.PhysicalPort),
 		Action:       C.CString(config.Action),
 		IpAddr:       C.CString(ip),
 		PrefixLength: C.int(pl),
-		Protocol:     C.CString(config.Protocol),
+		Protocol:     C.CString(protocol),
 		Port:         C.uint16_t(port),
 		Restart:      C.bool(restart),
 	}
-	switch config.Protocol {
-	case "udp":
+	switch protocol {
+	case UDP_PROTOCOL:
 		rv = int(C.add_iptable_udp_rule(entry, &iptEntry))
 
-	case "tcp":
+	case TCP_PROTOCOL:
 		rv = int(C.add_iptable_tcp_rule(entry, &iptEntry))
 
-	case "icmp":
+	case ICMP_PROTOCOL:
 		rv = int(C.add_iptable_icmp_rule(entry, &iptEntry))
 	default:
-		hdl.logger.Err("Rule adding for " + config.Protocol +
-			" is not supported")
-		return true, nil
+		hdl.logger.Err("Rule adding for ", protocol, " is not supported")
+		return false, errors.New(fmt.Sprintln("Adding ip rule for:", protocol, "config:", *config, "is not supported"))
 	}
 	// If rv = -2 or -3 then new entry insert failed....
 	// If rv = -1 then duplicated entry (rule)....do not update this into sysd
 	if rv <= 0 {
 		var errString C.err_t
 		C.get_iptc_error_string(&errString, C.int(iptEntry.err_num))
-		return false, errors.New(INSERTING_RULE_ERROR +
-			C.GoString(&errString.err_string[0]))
-	} else {
-		hdl.ruleInfo[config.Name] = iptEntry
-		return true, nil
+		return false, errors.New(INSERTING_RULE_ERROR + C.GoString(&errString.err_string[0]))
 	}
+
+	hdl.ruleInfo[config.Name] = iptEntry
+	return true, nil
 }
 
 func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAcl) (bool, error) {
@@ -107,7 +111,9 @@ func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAcl) (bool, error) 
 		hdl.logger.Err("No rule found for " + config.Name +
 			" in sysd runtime db.. This means that either the rule is " +
 			"not created or it was duplicate rule")
-		return true, nil
+		return false, errors.New(fmt.Sprintln("No rule found for ", config.Name, " in sysd runtime db.. This means that either the rule is ",
+			"not created or it was duplicate rule, CONFIG:", *config))
+
 	}
 
 	rv := int(C.del_iptable_rule(&entry))
@@ -115,8 +121,7 @@ func (hdl *SysdIpTableHandler) DelIpRule(config *sysd.IpTableAcl) (bool, error) 
 		hdl.logger.Err("Delete rule failed for " + config.Name)
 		var errString C.err_t
 		C.get_iptc_error_string(&errString, entry.err_num)
-		return false, errors.New(DELETING_RULE_ERROR +
-			C.GoString(&errString.err_string[0]))
+		return false, errors.New(DELETING_RULE_ERROR + C.GoString(&errString.err_string[0]))
 
 	}
 	delete(hdl.ruleInfo, config.Name)
