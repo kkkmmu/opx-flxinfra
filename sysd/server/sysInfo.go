@@ -39,6 +39,7 @@ type SystemParamUpdate struct {
 
 func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 	svr.logger.Info("Reading System Information From Db")
+	sysName := ""
 	dbHdl := svr.dbHdl
 	if dbHdl != nil {
 		var dbObj objects.SystemParam
@@ -59,9 +60,25 @@ func (svr *SYSDServer) ReadSystemInfoFromDB() error {
 			svr.SysInfo.SwVersion = dbObject.SwVersion
 			svr.SysInfo.Description = dbObject.Description
 			svr.SysInfo.Hostname = dbObject.Hostname
+			if sysName == "" {
+				sysName = svr.SysInfo.Hostname
+			}
 			svr.logger.Info("System Information:", *svr.SysInfo)
 			break
 		}
+	}
+	if sysName != "" {
+		binary, err := exec.LookPath("hostname")
+		if err != nil {
+			svr.logger.Err("Error searching path for hostname", err)
+			return err
+		}
+		cmd := exec.Command(binary, sysName)
+		err = cmd.Run()
+		if err != nil {
+			svr.logger.Err("Updating hostname in system failed", err)
+		}
+		svr.logger.Info("Updated System Host Name", sysName)
 	}
 	svr.logger.Info("reading system info from db done")
 	return nil
