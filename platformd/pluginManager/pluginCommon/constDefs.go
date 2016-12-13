@@ -34,6 +34,7 @@ const (
 	OpenBMC_PLUGIN        = "openbmc"
 	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
 	Dummy_PLUGIN          = "dummy"
+	OpenBMCOpen19_PLUGIN  = "openbmcopen19"
 )
 
 type PluginInitParams struct {
