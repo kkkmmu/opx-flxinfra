@@ -138,7 +138,6 @@ Init()
 	onlp_oid_t* oidp;
 
     onlp_sys_info_t sysi;
-
 	ret = loadOnlpSym();
     if (ret < 0) {
 		printf("Error loading the ONLP symbols");
@@ -164,7 +163,6 @@ Init()
     ONLP_OID_TABLE_ITER_TYPE(sysi.hdr.coids, oidp, FAN) {
 		fan_oid_table[i++] = *oidp;
 	}
-
 	return 0;
 }
 
@@ -286,7 +284,6 @@ int
 GetPlatformState(sys_info_t *info_p)
 {
     int ret = 0;
-
     onlp_sys_info_t onlp_info;
 
     if (onlpSysInfoGet == NULL) {
@@ -300,13 +297,33 @@ GetPlatformState(sys_info_t *info_p)
 		return ret;
 	}
 
-    strncpy(info_p->product_name, onlp_info.onie_info.product_name, DEFAULT_SIZE);
-    strncpy(info_p->serial_number, onlp_info.onie_info.serial_number, DEFAULT_SIZE);
-    strncpy(info_p->manufacturer, onlp_info.onie_info.manufacturer, DEFAULT_SIZE);
-    strncpy(info_p->vendor, onlp_info.onie_info.vendor, DEFAULT_SIZE);
-    strncpy(info_p->platform_name, onlp_info.onie_info.platform_name, DEFAULT_SIZE);
-    strncpy(info_p->onie_version, onlp_info.onie_info.onie_version, DEFAULT_SIZE);
-    strncpy(info_p->label_revision, onlp_info.onie_info.label_revision, DEFAULT_SIZE);
+    if (onlp_info.onie_info.product_name)
+        strncpy(info_p->product_name, onlp_info.onie_info.product_name,
+                                strlen(onlp_info.onie_info.product_name));
+
+    if (onlp_info.onie_info.serial_number)
+        strncpy(info_p->serial_number, onlp_info.onie_info.serial_number,
+                strlen(onlp_info.onie_info.serial_number));
+
+    if (onlp_info.onie_info.manufacturer)
+        strncpy(info_p->manufacturer, onlp_info.onie_info.manufacturer,
+                strlen(onlp_info.onie_info.manufacturer));
+
+    if (onlp_info.onie_info.vendor)
+        strncpy(info_p->vendor, onlp_info.onie_info.vendor,
+                strlen(onlp_info.onie_info.vendor));
+
+    if (onlp_info.onie_info.platform_name)
+        strncpy(info_p->platform_name, onlp_info.onie_info.platform_name,
+                strlen(onlp_info.onie_info.platform_name));
+
+    if (onlp_info.onie_info.onie_version)
+        strncpy(info_p->onie_version, onlp_info.onie_info.onie_version,
+                strlen(onlp_info.onie_info.onie_version));
+
+    if (onlp_info.onie_info.label_revision)
+        strncpy(info_p->label_revision, onlp_info.onie_info.label_revision,
+                strlen(onlp_info.onie_info.label_revision));
 
     return ret;
 }
@@ -329,6 +346,32 @@ GetSfpCnt()
         return 0;
 
     return AIM_BITMAP_COUNT(&bMap);
+}
+
+int
+GetSfpPortMap(int *portList)
+{
+    int rt, x;
+    onlp_sfp_bitmap_t bMap;
+
+    (*onlpSfpBitmapInit)(&bMap);
+    if (onlpSfpPresenceBitmapGet == NULL)
+        return -1;
+
+    rt = (*onlpSfpPresenceBitmapGet)(&bMap);
+    if (rt < 0)
+        return -1;
+
+    rt = AIM_BITMAP_COUNT(&bMap);
+    if (rt <= 0)
+        return rt;
+
+    //portList = (int *)malloc(rt * sizeof(int));
+    AIM_BITMAP_ITER(&bMap, x) {
+        *portList = x;
+        portList ++;
+    }
+    return rt;
 }
 
 SFP_RET

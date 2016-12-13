@@ -243,6 +243,11 @@ func (driver *openBMCDriver) GetSfpCnt() int {
 	return 0
 }
 
+func (driver *openBMCDriver) GetSfpPortMap() ([]pluginCommon.SfpState, int) {
+	driver.logger.Info("GetSfpPortMap")
+	return nil, 0
+}
+
 func (driver *openBMCDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
 	var retObj pluginCommon.PlatformState
 	retObj.ProductName = driver.mbFruidInfo.ProductName

@@ -46,6 +46,7 @@ type PluginIntf interface {
 	UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error)
 	GetAllSfpState(state []pluginCommon.SfpState, count int) error
 	GetSfpCnt() int
+	GetSfpPortMap() ([]pluginCommon.SfpState, int)
 
 	GetThermalState(thermalId int32) (pluginCommon.ThermalState, error)
 	GetAllThermalState(state []pluginCommon.ThermalState, count int) error
