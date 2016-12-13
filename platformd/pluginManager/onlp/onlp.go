@@ -174,23 +174,23 @@ func (driver *onlpDriver) GetSfpCnt() int {
 func (driver *onlpDriver) GetSfpPortMap() ([]pluginCommon.SfpState, int) {
 	var sfpState pluginCommon.SfpState
 	var err error
-	var pcnt int
+	var pCnt int
 
 	cnt := driver.GetSfpCnt()
 	pList := make([]pluginCommon.SfpState, cnt)
 
-	for i := 1; i < cnt; i++ {
+	for i := 1; i <= cnt; i++ {
 		sfpState, err = driver.GetSfpState(int32(i))
 		if err != nil {
 			driver.logger.Err("Error getting the SFP state for sfpId:", i)
 		}
 
 		if sfpState.SfpPresent == "SfpPresent" {
-			pList[pcnt] = sfpState
-			pcnt++
+			pList[pCnt] = sfpState
+			pCnt++
 		}
 	}
-	return pList, pcnt
+	return pList, pCnt
 }
 
 func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {

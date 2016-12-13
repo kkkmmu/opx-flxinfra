@@ -167,14 +167,14 @@ func (sfpMgr *SfpManager) SfpTimer() {
 }
 
 func (sfpMgr *SfpManager) DetectSpf() {
-	var lportDB map[int32]pluginCommon.SfpState
 	portList, portCnt := sfpMgr.plugin.GetSfpPortMap()
 
+	lportDB := make(map[int32]pluginCommon.SfpState)
 	for i := 0; i <= portCnt; i++ {
 		_, present := sfpMgr.portDB[portList[i].SfpId]
 		if present == false {
 			// New port SFP added
-			sfpMgr.logger.Info("SFP added", portList[i])
+			sfpMgr.logger.Info("SFP added", i, present, portList[i])
 			// TODO send it to notify channel
 		}
 		delete(sfpMgr.portDB, portList[i].SfpId)
