@@ -30,7 +30,7 @@ ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
-	bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
+	@bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
 	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS)" $(SRCS)
 
 guard:

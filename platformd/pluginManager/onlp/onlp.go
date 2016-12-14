@@ -171,6 +171,28 @@ func (driver *onlpDriver) GetSfpCnt() int {
 	return int(C.GetSfpCnt())
 }
 
+func (driver *onlpDriver) GetSfpPortMap() ([]pluginCommon.SfpState, int) {
+	var sfpState pluginCommon.SfpState
+	var err error
+	var pCnt int
+
+	cnt := driver.GetSfpCnt()
+	pList := make([]pluginCommon.SfpState, cnt)
+
+	for i := 1; i <= cnt; i++ {
+		sfpState, err = driver.GetSfpState(int32(i))
+		if err != nil {
+			driver.logger.Err("Error getting the SFP state for sfpId:", i)
+		}
+
+		if sfpState.SfpPresent == "SfpPresent" {
+			pList[pCnt] = sfpState
+			pCnt++
+		}
+	}
+	return pList, pCnt
+}
+
 func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error) {
 	var retObj pluginCommon.SfpState
 	var sfpInfo C.sfp_info_t
@@ -181,8 +203,8 @@ func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error
 		return retObj, errors.New(fmt.Sprintln("Unable to fetch SFP info for ", sfpId))
 	}
 
+	retObj.SfpId = sfpId
 	if int(rt) > 0 {
-		retObj.SfpId = sfpId
 		retObj.SfpPresent = "SfpNotPresent"
 		return retObj, nil
 	}
@@ -193,7 +215,6 @@ func (driver *onlpDriver) GetSfpState(sfpId int32) (pluginCommon.SfpState, error
 	} else {
 		retObj.SfpLos = "LaserDown"
 	}
-
 	retObj.SerialNum = C.GoString(&sfpInfo.serial_number[0])
 	q := strconv.Quote(C.GoStringN(&sfpInfo.eeprom[0], 256))
 	retObj.EEPROM = q
@@ -242,7 +263,6 @@ func (driver *onlpDriver) GetPlatformState() (pluginCommon.PlatformState, error)
 	retObj.Release = C.GoString(&sysInfo.label_revision[0])
 	retObj.PlatformName = C.GoString(&sysInfo.platform_name[0])
 	retObj.Version = C.GoString(&sysInfo.onie_version[0])
-
 	return retObj, nil
 }
 

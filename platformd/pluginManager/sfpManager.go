@@ -27,17 +27,18 @@ import (
 	"errors"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"time"
 	"utils/logging"
 )
 
-//type SfpId int32
-
 type SfpManager struct {
-	logger    logging.LoggerIntf
-	plugin    PluginIntf
-	sfpIdList []int32
-	stateDB   map[int32]SfpState
-	configDB  map[int32]SfpConfig
+	logger       logging.LoggerIntf
+	plugin       PluginIntf
+	sfpIdList    []int32
+	stateDB      map[int32]SfpState
+	configDB     map[int32]SfpConfig
+	portDB       map[int32]pluginCommon.SfpState
+	sfpCheckTick *time.Ticker
 }
 
 type SfpConfig struct {
@@ -63,6 +64,8 @@ func (sfpMgr *SfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 
 	sfpMgr.stateDB = make(map[int32]SfpState)
 	sfpMgr.configDB = make(map[int32]SfpConfig)
+	sfpMgr.portDB = make(map[int32]pluginCommon.SfpState)
+	sfpMgr.sfpCheckTick = time.NewTicker(time.Second * 60)
 
 	sfpCnt := sfpMgr.plugin.GetSfpCnt()
 	sfpList := make([]pluginCommon.SfpState, sfpCnt)
@@ -81,6 +84,8 @@ func (sfpMgr *SfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 
 		sfpMgr.sfpIdList = append(sfpMgr.sfpIdList, int32(sfp.SfpId))
 	}
+
+	go sfpMgr.SfpTimer()
 	sfpMgr.logger.Info("SFP Manager Init()")
 }
 
@@ -150,4 +155,38 @@ func (sfpMgr *SfpManager) GetBulkSfpConfig(fromIdx, count int) (*objects.SfpConf
 
 func (sfpMgr *SfpManager) UpdateSfpConfig(oldCfg *objects.SfpConfig, newCfg *objects.SfpConfig, attrset []bool) (bool, error) {
 	return false, nil
+}
+
+func (sfpMgr *SfpManager) SfpTimer() {
+	for {
+		select {
+		case <-sfpMgr.sfpCheckTick.C:
+			sfpMgr.DetectSpf()
+		}
+	}
+}
+
+func (sfpMgr *SfpManager) DetectSpf() {
+	portList, portCnt := sfpMgr.plugin.GetSfpPortMap()
+
+	lportDB := make(map[int32]pluginCommon.SfpState)
+	for i := 0; i <= portCnt; i++ {
+		_, present := sfpMgr.portDB[portList[i].SfpId]
+		if present == false {
+			// New port SFP added
+			sfpMgr.logger.Info("SFP added", i, present, portList[i])
+			// TODO send it to notify channel
+		}
+		delete(sfpMgr.portDB, portList[i].SfpId)
+		lportDB[portList[i].SfpId] = portList[i]
+	}
+
+	if len(sfpMgr.portDB) != 0 {
+		// SFP's removed
+		for _, v := range sfpMgr.portDB {
+			sfpMgr.logger.Info("SFP Removed", v)
+			// TODO send it to notify channel
+		}
+	}
+	sfpMgr.portDB = lportDB
 }

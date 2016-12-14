@@ -100,6 +100,10 @@ func (driver *openBMCVoyagerDriver) GetSfpCnt() int {
 	return 0
 }
 
+func (driver *openBMCVoyagerDriver) GetSfpPortMap() ([]pluginCommon.SfpState, int) {
+	return nil, 0
+}
+
 func (driver *openBMCVoyagerDriver) GetPlatformState() (retObj pluginCommon.PlatformState, err error) {
 	return retObj, errors.New("Not Supported")
 }
