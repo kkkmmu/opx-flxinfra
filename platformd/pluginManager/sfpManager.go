@@ -27,18 +27,20 @@ import (
 	"errors"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"infra/platformd/publisher"
 	"time"
 	"utils/logging"
 )
 
 type SfpManager struct {
-	logger       logging.LoggerIntf
-	plugin       PluginIntf
-	sfpIdList    []int32
-	stateDB      map[int32]SfpState
-	configDB     map[int32]SfpConfig
-	portDB       map[int32]pluginCommon.SfpState
-	sfpCheckTick *time.Ticker
+	logger         logging.LoggerIntf
+	plugin         PluginIntf
+	sfpIdList      []int32
+	stateDB        map[int32]SfpState
+	configDB       map[int32]SfpConfig
+	portDB         map[int32]pluginCommon.SfpState
+	sfpCheckTick   *time.Ticker
+	eventPublisher *publisher.PublisherInfo
 }
 
 type SfpConfig struct {
@@ -67,6 +69,7 @@ func (sfpMgr *SfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	sfpMgr.portDB = make(map[int32]pluginCommon.SfpState)
 	sfpMgr.sfpCheckTick = time.NewTicker(time.Second * 60)
 
+	sfpMgr.eventPublisher = publisher.NewPublisher(logger, "ipc:///tmp/platform_sfpmgr.ipc")
 	sfpCnt := sfpMgr.plugin.GetSfpCnt()
 	sfpList := make([]pluginCommon.SfpState, sfpCnt)
 	sfpMgr.plugin.GetAllSfpState(sfpList, sfpCnt)
