@@ -24,21 +24,24 @@
 package pluginManager
 
 import (
+	"encoding/json"
 	"errors"
 	"infra/platformd/objects"
 	"infra/platformd/pluginManager/pluginCommon"
+	"infra/platformd/publisher"
 	"time"
 	"utils/logging"
 )
 
 type SfpManager struct {
-	logger       logging.LoggerIntf
-	plugin       PluginIntf
-	sfpIdList    []int32
-	stateDB      map[int32]SfpState
-	configDB     map[int32]SfpConfig
-	portDB       map[int32]pluginCommon.SfpState
-	sfpCheckTick *time.Ticker
+	logger         logging.LoggerIntf
+	plugin         PluginIntf
+	sfpIdList      []int32
+	stateDB        map[int32]SfpState
+	configDB       map[int32]SfpConfig
+	portDB         map[int32]pluginCommon.SfpState
+	sfpCheckTick   *time.Ticker
+	eventPublisher *publisher.PublisherInfo
 }
 
 type SfpConfig struct {
@@ -67,6 +70,7 @@ func (sfpMgr *SfpManager) Init(logger logging.LoggerIntf, plugin PluginIntf) {
 	sfpMgr.portDB = make(map[int32]pluginCommon.SfpState)
 	sfpMgr.sfpCheckTick = time.NewTicker(time.Second * 60)
 
+	sfpMgr.eventPublisher = publisher.NewPublisher(logger, pluginCommon.SFP_MGR_SOCK_ADDR)
 	sfpCnt := sfpMgr.plugin.GetSfpCnt()
 	sfpList := make([]pluginCommon.SfpState, sfpCnt)
 	sfpMgr.plugin.GetAllSfpState(sfpList, sfpCnt)
@@ -157,6 +161,28 @@ func (sfpMgr *SfpManager) UpdateSfpConfig(oldCfg *objects.SfpConfig, newCfg *obj
 	return false, nil
 }
 
+func (sfpMgr *SfpManager) notifySfpEvent(sfp *pluginCommon.SfpState, event int) error {
+	msg := new(pluginCommon.NotifyMsg)
+	msg.MsgType = event
+	buf, err := json.Marshal(*sfp)
+	if err != nil {
+		return errors.New("Error in marshalling Json")
+	}
+	msg.Msg = buf
+	buf, err = json.Marshal(msg)
+	if err != nil {
+		return errors.New("Error in marshalling Json")
+	}
+	sfpMgr.eventPublisher.PubChan <- buf
+	return nil
+}
+
+func (sfpMgr *SfpManager) compareSfp(new, old pluginCommon.SfpState) bool {
+	// TODO
+	// to cope for SFP change within the poll time, lete compare the SFP types
+	return true
+}
+
 func (sfpMgr *SfpManager) SfpTimer() {
 	for {
 		select {
@@ -165,17 +191,19 @@ func (sfpMgr *SfpManager) SfpTimer() {
 		}
 	}
 }
-
 func (sfpMgr *SfpManager) DetectSpf() {
 	portList, portCnt := sfpMgr.plugin.GetSfpPortMap()
 	if portCnt != 0 {
 		lportDB := make(map[int32]pluginCommon.SfpState)
 		for i := 0; i <= portCnt; i++ {
-			_, present := sfpMgr.portDB[portList[i].SfpId]
-			if present == false {
+			sfpState, present := sfpMgr.portDB[portList[i].SfpId]
+			if present == false && sfpMgr.compareSfp(portList[i], sfpState) != true {
 				// New port SFP added
 				sfpMgr.logger.Info("SFP added", i, present, portList[i])
-				// TODO send it to notify channel
+				err := sfpMgr.notifySfpEvent(&sfpState, pluginCommon.NOTIFY_SFP_ADD)
+				if err != nil {
+					sfpMgr.logger.Err("Error notifying SFP add", sfpState)
+				}
 			}
 			delete(sfpMgr.portDB, portList[i].SfpId)
 			lportDB[portList[i].SfpId] = portList[i]
@@ -185,7 +213,10 @@ func (sfpMgr *SfpManager) DetectSpf() {
 			// SFP's removed
 			for _, v := range sfpMgr.portDB {
 				sfpMgr.logger.Info("SFP Removed", v)
-				// TODO send it to notify channel
+				err := sfpMgr.notifySfpEvent(&v, pluginCommon.NOTIFY_SFP_REMOVE)
+				if err != nil {
+					sfpMgr.logger.Err("Error notifying SFP Delete", v)
+				}
 			}
 		}
 		sfpMgr.portDB = lportDB
