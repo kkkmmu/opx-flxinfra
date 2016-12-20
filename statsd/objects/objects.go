@@ -29,10 +29,17 @@ const (
 )
 
 const (
-	SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE      = 0x1
-	SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR     = 0x2
-	SFLOW_GLOBAL_UPDATE_ATTR_MAX_SAMPLE_SIZE  = 0x3
-	SFLOW_GLOBAL_UPDATE_COUNTER_POLL_INTERVAL = 0x4
+	SFLOW_GLOBAL_ATTR_ADMIN_STATE_IDX           = 0x1
+	SFLOW_GLOBAL_ATTR_AGENT_IPADDR_IDX          = 0x2
+	SFLOW_GLOBAL_ATTR_MAX_SAMPLE_SIZE_IDX       = 0x3
+	SFLOW_GLOBAL_ATTR_COUNTER_POLL_INTERVAL_IDX = 0x4
+	SFLOW_GLOBAL_ATTR_MAX_DATAGRAM_SIZE_IDX     = 0x5
+
+	SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE           = 0x1
+	SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR          = 0x2
+	SFLOW_GLOBAL_UPDATE_ATTR_MAX_SAMPLE_SIZE       = 0x4
+	SFLOW_GLOBAL_UPDATE_ATTR_COUNTER_POLL_INTERVAL = 0x8
+	SFLOW_GLOBAL_UPDATE_ATTR_MAX_DATAGRAM_SIZE     = 0x10
 )
 
 type SflowGlobal struct {
@@ -41,19 +48,21 @@ type SflowGlobal struct {
 	AgentIpAddr         string
 	MaxSampledSize      int32
 	CounterPollInterval int32
+	MaxDatagramSize     int32
 }
 
 const (
-	SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT       = 0x1
-	SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE    = 0x2
-	SFLOW_COLLECTOR_UPDATE_ATTR_MAX_DGRAM_SIZE = 0x3
+	SFLOW_COLLECTOR_ATTR_UDP_PORT_IDX    = 0x1
+	SFLOW_COLLECTOR_ATTR_ADMIN_STATE_IDX = 0x2
+
+	SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT    = 0x1
+	SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE = 0x2
 )
 
 type SflowCollector struct {
-	IpAddr          string
-	UdpPort         int32
-	AdminState      string
-	MaxDatagramSize int32
+	IpAddr     string
+	UdpPort    int32
+	AdminState string
 }
 
 type SflowCollectorState struct {
@@ -71,6 +80,9 @@ type SflowCollectorStateGetInfo struct {
 }
 
 const (
+	SFLOW_INTF_ATTR_ADMIN_STATE_IDX   = 0x1
+	SFLOW_INTF_ATTR_SAMPLING_RATE_IDX = 0x2
+
 	SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE   = 0x1
 	SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE = 0x2
 )
@@ -82,9 +94,9 @@ type SflowIntf struct {
 }
 
 type SflowIntfState struct {
-	IntfRef            string
-	OperState          string
-	NumRecordsExported int32
+	IntfRef                 string
+	OperState               string
+	NumSflowSamplesExported int32
 }
 
 type SflowIntfStateGetInfo struct {

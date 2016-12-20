@@ -7,7 +7,6 @@ SRCS=main.go
 IPC_SRCS=rpc/statsd.thrift
 COMP_NAME=statsd
 GOLDFLAGS=-r /opt/flexswitch/sharedlib
-all:exe
 all:ipc exe
 ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
