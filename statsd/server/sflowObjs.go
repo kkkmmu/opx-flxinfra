@@ -25,6 +25,7 @@ package server
 
 import (
 	"infra/statsd/objects"
+	"sync"
 )
 
 //Server op code definitions
@@ -117,4 +118,72 @@ type GetSflowIntfStateOutArgs struct {
 type GetBulkSflowIntfStateOutArgs struct {
 	BulkObj *objects.SflowIntfStateGetInfo
 	Err     error
+}
+
+//Internal server struct definitions
+type sflowGbl struct {
+	vrf                 string
+	adminState          string
+	agentIpAddr         string
+	maxSampledSize      int32
+	counterPollInterval int32
+	maxDatagramSize     int32
+}
+
+type sflowCollector struct {
+	ipAddr                  string
+	udpPort                 int32
+	adminState              string
+	operstate               string
+	numSflowSamplesExported int32
+	numDatagramExported     int32
+	shutdownCh              chan bool
+}
+
+type sflowIntf struct {
+	ifIndex                 int32
+	adminState              string
+	operstate               string
+	samplingRate            int32
+	operState               string
+	numSflowSamplesExported int32
+	shutdownCh              chan bool
+}
+
+//Typedef for db keys
+type netDevData struct {
+	intfRef string
+}
+
+type sflowRecordInfo struct {
+	ifIndex   int32
+	sflowData []byte
+}
+
+type sflowDgramIdx struct {
+	ifIndex int32
+	key     int32
+}
+
+type sflowDgram struct {
+}
+
+type sflowServer struct {
+	dbMutex                  sync.RWMutex
+	netDevInfo               map[int32]netDevData
+	sflowGblDB               *sflowGbl
+	sflowCollectorDB         map[string]*sflowCollector
+	sflowCollectorDBKeyCache []string
+	sflowIntfDB              map[int32]*sflowIntf
+	sflowIntfDBKeyCache      []int32
+	//Data store for Sflow encoded datagrams, keyed by interface and running key count
+	sflowDgramDB map[int32]map[int32]sflowDgram
+	//Channel for interface poller to send sflow records to Dgram processor
+	sflowIntfRecordCh chan sflowRecordInfo
+	//Channel to send Dgram ready for dispatch
+	sflowDgramRdy chan sflowDgramIdx
+	//Channel list to send sflowRecord to collector
+	sflowDgramToCollector map[string]chan sflowDgramIdx
+	//Response channel from collector routines
+	sflowDgramSentReceipt chan sflowDgramIdx
 }

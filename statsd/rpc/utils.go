@@ -35,15 +35,15 @@ func convertFromRPCFmtSflowGlobal(obj *statsd.SflowGlobal) *objects.SflowGlobal 
 		AgentIpAddr:         obj.AgentIpAddr,
 		MaxSampledSize:      obj.MaxSampledSize,
 		CounterPollInterval: obj.CounterPollInterval,
+		MaxDatagramSize:     obj.MaxDatagramSize,
 	}
 }
 
 func convertFromRPCFmtSflowCollector(obj *statsd.SflowCollector) *objects.SflowCollector {
 	return &objects.SflowCollector{
-		IpAddr:          obj.IpAddr,
-		UdpPort:         obj.UdpPort,
-		AdminState:      obj.AdminState,
-		MaxDatagramSize: obj.MaxDatagramSize,
+		IpAddr:     obj.IpAddr,
+		UdpPort:    obj.UdpPort,
+		AdminState: obj.AdminState,
 	}
 }
 
@@ -66,8 +66,8 @@ func convertToRPCFmtSflowCollectorState(obj *objects.SflowCollectorState) *stats
 
 func convertToRPCFmtSflowIntfState(obj *objects.SflowIntfState) *statsd.SflowIntfState {
 	return &statsd.SflowIntfState{
-		IntfRef:            obj.IntfRef,
-		OperState:          obj.OperState,
-		NumRecordsExported: obj.NumRecordsExported,
+		IntfRef:                 obj.IntfRef,
+		OperState:               obj.OperState,
+		NumSflowSamplesExported: obj.NumSflowSamplesExported,
 	}
 }
