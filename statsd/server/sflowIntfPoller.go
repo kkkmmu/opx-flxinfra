@@ -23,6 +23,48 @@
 
 package server
 
-func (intf *sflowIntf) intfPoller() {
+import (
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/pcap"
+	"infra/statsd/objects"
+	"time"
+)
+
+const (
+	SNAPSHOT_LEN int32         = 65549
+	PROMISCUOUS  bool          = false
+	PCAP_TIMEOUT time.Duration = time.Duration(1) * time.Second
+)
+
+func (intf *sflowIntf) intfPoller(intfRef string, sflowIntfRecordCh chan sflowRecordInfo) {
 	//Poll interface and send data to Dgram creation engine
+	pcapHdl, err := pcap.OpenLive(intfRef, SNAPSHOT_LEN, PROMISCUOUS, PCAP_TIMEOUT)
+	if err != nil || pcapHdl == nil {
+		intf.operstate = objects.ADMIN_STATE_DOWN
+		logger.Err("intfPoller(): Unable to open Pcap Handle.", err, pcapHdl)
+		return
+	}
+	intf.operstate = objects.ADMIN_STATE_UP
+	intf.startPolling(pcapHdl, sflowIntfRecordCh)
+}
+
+func (intf *sflowIntf) startPolling(pcapHdl *pcap.Handle, sflowIntfRecordCh chan sflowRecordInfo) {
+	src := gopacket.NewPacketSource(pcapHdl, pcapHdl.LinkType())
+	in := src.Packets()
+	for {
+		select {
+		case packet, ok := <-in:
+			if ok {
+				intf.numSflowSamplesExported++
+				sflowIntfRecordCh <- sflowRecordInfo{
+					ifIndex:   intf.ifIndex,
+					sflowData: packet.Data(),
+				}
+			}
+		case <-intf.shutdownCh:
+			intf.operstate = objects.ADMIN_STATE_DOWN
+			pcapHdl.Close()
+			return
+		}
+	}
 }

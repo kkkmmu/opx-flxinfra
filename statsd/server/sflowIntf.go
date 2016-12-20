@@ -84,10 +84,8 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 
 	if obj.AdminState == objects.ADMIN_STATE_UP {
 		//Start poller for interface
-		go sflowIntfObj.intfPoller()
-
-		//Set operstate to UP
-		sflowIntfObj.operstate = ADMIN_STATE_UP
+		intfRef := srvr.netDevInfo[ifIndex].intfRef
+		go sflowIntfObj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
 
 		//Pass config to asicd to enable sflow cfg on interface
 	}
@@ -139,13 +137,14 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	obj.samplingRate = newObj.SamplingRate
 	srvr.dbMutex.Unlock()
 
-	mask := genSflowIntfUpdateMask(attrset)
+	//mask := genSflowIntfUpdateMask(attrset)
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
 			//Pass configuration down to asicd
 
 			//Start poller for interface
-			go obj.intfPoller()
+			intfRef := srvr.netDevInfo[ifIndex].intfRef
+			go obj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
 		} else {
 			//Pass configuration down to asicd
 
@@ -178,14 +177,14 @@ func (srvr *sflowServer) deleteSflowIntf(obj *objects.SflowIntf) {
 
 	//Cleanup server state for this interface
 	srvr.dbMutex.Lock()
-	obj := srvr.sflowIntfDB[ifIndex]
+	sflowIntfObj := srvr.sflowIntfDB[ifIndex]
 	srvr.sflowIntfDB[ifIndex] = nil
 	delete(srvr.sflowIntfDB, ifIndex)
 	srvr.dbMutex.Unlock()
 
 	//Gracefully shutdown interface Rx routine
-	if obj.adminState == objects.ADMIN_STATE_UP {
-		obj.shutdownCh <- true
+	if sflowIntfObj.adminState == objects.ADMIN_STATE_UP {
+		sflowIntfObj.shutdownCh <- true
 	}
 
 	//Remove key from keycache usede gor getbulk
