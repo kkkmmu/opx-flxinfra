@@ -82,7 +82,15 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 	srvr.sflowIntfDB[ifIndex] = sflowIntfObj
 	srvr.dbMutex.Unlock()
 
-	//Handle post processing due to adding a new sflow interface
+	if obj.AdminState == objects.ADMIN_STATE_UP {
+		//Start poller for interface
+		go sflowIntfObj.intfPoller()
+
+		//Set operstate to UP
+		sflowIntfObj.operstate = ADMIN_STATE_UP
+
+		//Pass config to asicd to enable sflow cfg on interface
+	}
 
 	//Update key cache to use for getbulk responses
 	srvr.sflowIntfDBKeyCache = append(srvr.sflowIntfDBKeyCache, ifIndex)
@@ -117,11 +125,6 @@ func genSflowIntfUpdateMask(attrset []bool) uint8 {
 }
 
 func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attrset []bool) {
-	mask := genSflowIntfUpdateMask(attrset)
-	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
-	}
-	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE) == objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE {
-	}
 	//Determine ifIndex
 	ifIndex := srvr.getIfIndexFromIntfRef(newObj.IntfRef)
 	srvr.dbMutex.Lock()
@@ -129,6 +132,24 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	obj.adminState = newObj.AdminState
 	obj.samplingRate = newObj.SamplingRate
 	srvr.dbMutex.Unlock()
+
+	mask := genSflowIntfUpdateMask(attrset)
+	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
+		if newObj.AdminState == objects.ADMIN_STATE_UP {
+			//Pass configuration down to asicd
+
+			//Start poller for interface
+			go obj.intfPoller()
+		} else {
+			//Pass configuration down to asicd
+
+			//Terminate interface polling thread
+			obj.shutdownCh <- true
+		}
+	}
+	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE) == objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE {
+		//Pass configuration down to asicd
+	}
 }
 
 func (srvr *sflowServer) ValidateDeleteSflowIntf(obj *objects.SflowIntf) (bool, error) {
@@ -146,15 +167,21 @@ func (srvr *sflowServer) ValidateDeleteSflowIntf(obj *objects.SflowIntf) (bool, 
 }
 
 func (srvr *sflowServer) deleteSflowIntf(obj *objects.SflowIntf) {
-	//Gracefully shutdown interface Rx routine
-
 	//Determine ifIndex
 	ifIndex := srvr.getIfIndexFromIntfRef(obj.IntfRef)
+
 	//Cleanup server state for this interface
 	srvr.dbMutex.Lock()
+	obj := srvr.sflowIntfDB[ifIndex]
 	srvr.sflowIntfDB[ifIndex] = nil
 	delete(srvr.sflowIntfDB, ifIndex)
 	srvr.dbMutex.Unlock()
+
+	//Gracefully shutdown interface Rx routine
+	if obj.adminState == objects.ADMIN_STATE_UP {
+		obj.shutdownCh <- true
+	}
+
 	//Remove key from keycache usede gor getbulk
 	for idx, key := range srvr.sflowIntfDBKeyCache {
 		if ifIndex == key {
