@@ -91,6 +91,7 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 
 		//Pass config to asicd to enable sflow cfg on interface
 	}
+	//Handle post processing due to adding a new sflow interface
 
 	//Update key cache to use for getbulk responses
 	srvr.sflowIntfDBKeyCache = append(srvr.sflowIntfDBKeyCache, ifIndex)
@@ -125,6 +126,11 @@ func genSflowIntfUpdateMask(attrset []bool) uint8 {
 }
 
 func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attrset []bool) {
+	mask := genSflowIntfUpdateMask(attrset)
+	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
+	}
+	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE) == objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE {
+	}
 	//Determine ifIndex
 	ifIndex := srvr.getIfIndexFromIntfRef(newObj.IntfRef)
 	srvr.dbMutex.Lock()
