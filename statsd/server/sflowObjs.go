@@ -138,6 +138,7 @@ type sflowCollector struct {
 	numSflowSamplesExported int32
 	numDatagramExported     int32
 	shutdownCh              chan bool
+	dgramRcvCh              chan *sflowDgramInfo
 }
 
 type sflowIntf struct {
@@ -165,7 +166,13 @@ type sflowDgramIdx struct {
 	key     int32
 }
 
-type sflowDgram struct {
+type sflowDgramInfo struct {
+	idx   sflowDgramIdx
+	dgram sflowDgram
+}
+
+type sflowDgram interface {
+	GetBytes() []byte
 }
 
 type sflowServer struct {
@@ -181,9 +188,9 @@ type sflowServer struct {
 	//Channel for interface poller to send sflow records to Dgram processor
 	sflowIntfRecordCh chan sflowRecordInfo
 	//Channel to send Dgram ready for dispatch
-	sflowDgramRdy chan sflowDgramIdx
+	sflowDgramRdy chan *sflowDgramInfo
 	//Channel list to send sflowRecord to collector
-	sflowDgramToCollector map[string]chan sflowDgramIdx
+	sflowDgramToCollector map[string]chan *sflowDgramInfo
 	//Response channel from collector routines
 	sflowDgramSentReceipt chan sflowDgramIdx
 }

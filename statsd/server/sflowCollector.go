@@ -30,12 +30,14 @@ import (
 )
 
 const (
-	MAX_UDP_PORT = 65535
+	MAX_UDP_PORT                 = 65535
+	DGRAM_TO_COLLECTOR_CHAN_SIZE = 100
 )
 
 func newSflowCollector() *sflowCollector {
 	obj := new(sflowCollector)
 	obj.shutdownCh = make(chan bool)
+	obj.dgramRcvCh = make(chan *sflowDgramInfo, DGRAM_TO_COLLECTOR_CHAN_SIZE)
 	return obj
 }
 
@@ -69,7 +71,14 @@ func (srvr *sflowServer) createSflowCollector(obj *objects.SflowCollector) {
 	srvr.sflowCollectorDB[obj.IpAddr] = sflowCollectorObj
 	srvr.dbMutex.Unlock()
 
-	//Handle post processing due to adding a new sflow collector
+	//If AdminState is 'UP', spawn collector go routine
+	if obj.AdminState == objects.ADMIN_STATE_UP {
+		go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceipt)
+		//Register collector's channel with server to receive sflow dgrams
+		srvr.dbMutex.Lock()
+		srvr.sflowDgramToCollector[obj.IpAddr] = sflowCollectorObj.dgramRcvCh
+		srvr.dbMutex.Unlock()
+	}
 
 	//Update key cache to use for getbulk responses
 	srvr.sflowCollectorDBKeyCache = append(srvr.sflowCollectorDBKeyCache, obj.IpAddr)
@@ -104,16 +113,49 @@ func genSflowCollectorUpdateMask(attrset []bool) uint8 {
 }
 
 func (srvr *sflowServer) updateSflowCollector(oldObj, newObj *objects.SflowCollector, attrset []bool) {
-	mask := genSflowCollectorUpdateMask(attrset)
-	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT {
-	}
-	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE {
-	}
+	var txRunning bool
+
 	srvr.dbMutex.Lock()
 	obj := srvr.sflowCollectorDB[newObj.IpAddr]
 	obj.udpPort = newObj.UdpPort
 	obj.adminState = newObj.AdminState
 	srvr.dbMutex.Unlock()
+
+	mask := genSflowCollectorUpdateMask(attrset)
+	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT {
+		if oldObj.AdminState == objects.ADMIN_STATE_UP {
+			//Unregister collector's channel with server to stop receiving sflow dgrams
+			srvr.dbMutex.Lock()
+			delete(srvr.sflowDgramToCollector, obj.ipAddr)
+			srvr.dbMutex.Unlock()
+			//Send shutdown to collector routine
+			obj.shutdownCh <- true
+		}
+		if newObj.AdminState == objects.ADMIN_STATE_UP {
+			go obj.collectorTx(srvr.sflowDgramSentReceipt)
+			//Register collector's channel with server to receive sflow dgrams
+			srvr.dbMutex.Lock()
+			srvr.sflowDgramToCollector[obj.ipAddr] = obj.dgramRcvCh
+			srvr.dbMutex.Unlock()
+			txRunning = true
+		}
+	}
+	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE {
+		if (newObj.AdminState == objects.ADMIN_STATE_UP) && !txRunning {
+			go obj.collectorTx(srvr.sflowDgramSentReceipt)
+			//Register collector's channel with server to receive sflow dgrams
+			srvr.dbMutex.Lock()
+			srvr.sflowDgramToCollector[obj.ipAddr] = obj.dgramRcvCh
+			srvr.dbMutex.Unlock()
+		} else if newObj.AdminState == objects.ADMIN_STATE_DOWN {
+			//Unregister collector's channel with server to stop receiving sflow dgrams
+			srvr.dbMutex.Lock()
+			delete(srvr.sflowDgramToCollector, obj.ipAddr)
+			srvr.dbMutex.Unlock()
+			//Send shutdown to collector routine
+			obj.shutdownCh <- true
+		}
+	}
 }
 
 func (srvr *sflowServer) ValidateDeleteSflowCollector(obj *objects.SflowCollector) (bool, error) {
@@ -129,13 +171,23 @@ func (srvr *sflowServer) ValidateDeleteSflowCollector(obj *objects.SflowCollecto
 }
 
 func (srvr *sflowServer) deleteSflowCollector(obj *objects.SflowCollector) {
-	//Gracefully shutdown tx to collector
-
 	//Cleanup server state for this collector
 	srvr.dbMutex.Lock()
+	sflowCollectorObj := srvr.sflowCollectorDB[obj.IpAddr]
 	srvr.sflowCollectorDB[obj.IpAddr] = nil
 	delete(srvr.sflowCollectorDB, obj.IpAddr)
 	srvr.dbMutex.Unlock()
+
+	//Gracefully shutdown tx to collector
+	//Unregister collector's channel with server to stop receiving sflow dgrams
+	if sflowCollectorObj.adminState == objects.ADMIN_STATE_UP {
+		srvr.dbMutex.Lock()
+		delete(srvr.sflowDgramToCollector, sflowCollectorObj.ipAddr)
+		srvr.dbMutex.Unlock()
+		//Send shutdown to collector routine
+		sflowCollectorObj.shutdownCh <- true
+	}
+
 	//Remove key from keycache used for getbulk
 	for idx, key := range srvr.sflowCollectorDBKeyCache {
 		if obj.IpAddr == key {

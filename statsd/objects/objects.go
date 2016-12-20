@@ -105,3 +105,8 @@ type SflowIntfStateGetInfo struct {
 	More   bool
 	List   []*SflowIntfState
 }
+
+type SflowNetdevInfo struct {
+	IfIndex int32
+	IntfRef string
+}

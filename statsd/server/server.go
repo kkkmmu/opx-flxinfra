@@ -24,6 +24,8 @@
 package server
 
 import (
+	"errors"
+	"infra/statsd/hw"
 	"utils/dbutils"
 	"utils/keepalive"
 	"utils/logging"
@@ -32,11 +34,16 @@ import (
 //Logger global to server package
 var logger logging.LoggerIntf
 
+//Handle for relaying HW config
+var hwHdl hw.HwHdlIntf
+
 type DmnServer struct {
 	dbHdl          dbutils.DBIntf
+	paramsDir      string
 	InitCompleteCh chan bool
 	ReqChan        chan *ServerRequest
 	ReplyChan      chan interface{}
+	hwHdl          *hw.HwHdl
 	*sflowServer
 }
 
@@ -52,6 +59,7 @@ func NewSTATSDServer(initParams *ServerInitParams) *DmnServer {
 	logger = initParams.Logger
 	srvr := DmnServer{}
 	srvr.dbHdl = initParams.DbHdl
+	srvr.paramsDir = initParams.ParamsDir
 	srvr.InitCompleteCh = make(chan bool)
 	srvr.ReqChan = make(chan *ServerRequest)
 	srvr.ReplyChan = make(chan interface{})
@@ -60,8 +68,17 @@ func NewSTATSDServer(initParams *ServerInitParams) *DmnServer {
 }
 
 func (srvr *DmnServer) initServer() error {
+	//Init base server
 	srvr.initSflowServer()
-	return nil
+	//Get hw handle
+	clientsFile := srvr.paramsDir + "/clients.json"
+	hwHdl = hw.GetHwClntHdl(clientsFile, logger)
+	if hwHdl == nil {
+		return errors.New("Failed to initalize hardware handle")
+	}
+	//Construct netdev infra
+	err := srvr.constructSflowInfra()
+	return err
 }
 
 func (srvr *DmnServer) Serve() {

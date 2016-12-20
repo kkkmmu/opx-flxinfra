@@ -34,11 +34,6 @@ const (
 	MAX_UDP_DATAGRAM_SIZE      = 65507 //2^16 - 8b(UDP Hdr) - 20b(IP Hdr)
 )
 
-func (srvr *sflowServer) initSflowServer() {
-	srvr.sflowCollectorDB = make(map[string]*sflowCollector)
-	srvr.sflowIntfDB = make(map[int32]*sflowIntf)
-}
-
 //Sflow global object functions
 func (srvr *sflowServer) isGlobalObjCreated() bool {
 	var ok bool
