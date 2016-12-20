@@ -29,3 +29,4 @@ fMgrd/rpc/fMgrd.thrift
 platformd/rpc/platformd.thrift
 sysd/rpc/sysd.thrift
 notifierd/rpc/notifierd.thrift
+statsd/rpc/statsd.thrift

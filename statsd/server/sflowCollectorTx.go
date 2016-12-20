@@ -51,7 +51,7 @@ func (c *sflowCollector) collectorTx(receiptChan chan sflowDgramIdx) {
 		case sflowDgramInfo := <-c.dgramRcvCh:
 			_, err := conn.Write(sflowDgramInfo.dgram.GetBytes())
 			if err != nil {
-				logger.Err("Error sending data to collector", err)
+				logger.Err("Error sending data to collector:", collectorAddrStr, err)
 			} else {
 				c.numDatagramExported++
 				c.numSflowSamplesExported = c.numSflowSamplesExported +
