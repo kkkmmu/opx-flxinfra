@@ -138,6 +138,7 @@ type sflowCollector struct {
 	numSflowSamplesExported int32
 	numDatagramExported     int32
 	shutdownCh              chan bool
+	dgramRcvCh              chan *sflowDgramIdx
 }
 
 type sflowIntf struct {
