@@ -124,11 +124,6 @@ func genSflowIntfUpdateMask(attrset []bool) uint8 {
 }
 
 func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attrset []bool) {
-	mask := genSflowIntfUpdateMask(attrset)
-	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
-	}
-	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE) == objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE {
-	}
 	//Determine ifIndex
 	ifIndex := srvr.getIfIndexFromIntfRef(newObj.IntfRef)
 	srvr.dbMutex.Lock()
@@ -137,7 +132,7 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	obj.samplingRate = newObj.SamplingRate
 	srvr.dbMutex.Unlock()
 
-	//mask := genSflowIntfUpdateMask(attrset)
+	mask := genSflowIntfUpdateMask(attrset)
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
 			//Pass configuration down to asicd

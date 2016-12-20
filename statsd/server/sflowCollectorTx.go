@@ -23,34 +23,5 @@
 
 package server
 
-const (
-	//Defining various channel sizes
-	INTF_POLLER_TO_SVR_CHAN_SIZE     = 100
-	DGRAM_RDY_NOTIFICATION_CHAN_SIZE = 100
-	DGRAM_SENT_RECEIPT_CHAN_SIZE     = 100
-)
-
-func (srvr *sflowServer) initSflowServer() {
-	srvr.sflowIntfDB = make(map[int32]*sflowIntf)
-	srvr.sflowCollectorDB = make(map[string]*sflowCollector)
-	srvr.netDevInfo = make(map[int32]netDevData)
-	srvr.sflowDgramDB = make(map[int32]map[int32]sflowDgram)
-	srvr.sflowIntfRecordCh = make(chan sflowRecordInfo, INTF_POLLER_TO_SVR_CHAN_SIZE)
-	srvr.sflowDgramRdy = make(chan *sflowDgramInfo, DGRAM_RDY_NOTIFICATION_CHAN_SIZE)
-	srvr.sflowDgramToCollector = make(map[string]chan *sflowDgramInfo)
-	srvr.sflowDgramSentReceipt = make(chan sflowDgramIdx, DGRAM_SENT_RECEIPT_CHAN_SIZE)
-}
-
-func (srvr *DmnServer) constructSflowInfra() error {
-	logger.Debug("Constructing Sflow infrastructure")
-	netdevInfo, err := srvr.hwHdl.GetSflowNetdevInfo()
-	if err == nil {
-		for _, val := range netdevInfo {
-			srvr.sflowServer.netDevInfo[val.IfIndex] = netDevData{val.IntfRef}
-		}
-	}
-	logger.Debug("===============SFLOW NETDEVINFO START============")
-	logger.Debug("Sflow infra dump : ", srvr.sflowServer.netDevInfo)
-	logger.Debug("===============SFLOW NETDEVINFO END==============")
-	return err
+func (c *sflowCollector) collectorTx(receiptChan chan sflowDgramIdx) {
 }
