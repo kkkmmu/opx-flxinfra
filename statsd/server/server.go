@@ -34,6 +34,9 @@ import (
 //Logger global to server package
 var logger logging.LoggerIntf
 
+//Handle for relaying HW config
+var hwHdl hw.HwHdlIntf
+
 type DmnServer struct {
 	dbHdl          dbutils.DBIntf
 	paramsDir      string
@@ -69,8 +72,8 @@ func (srvr *DmnServer) initServer() error {
 	srvr.initSflowServer()
 	//Get hw handle
 	clientsFile := srvr.paramsDir + "/clients.json"
-	srvr.hwHdl = hw.GetHwClntHdl(clientsFile, logger)
-	if srvr.hwHdl == nil {
+	hwHdl = hw.GetHwClntHdl(clientsFile, logger)
+	if hwHdl == nil {
 		return errors.New("Failed to initalize hardware handle")
 	}
 	//Construct netdev infra

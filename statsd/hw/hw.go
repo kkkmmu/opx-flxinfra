@@ -31,13 +31,23 @@ import (
 	"infra/statsd/objects"
 	"io/ioutil"
 	"strconv"
+	"sync"
 	"time"
 	"utils/ipcutils"
 	"utils/logging"
 )
 
-//Define hdl so server does not directly import asicdServices
+//Define interface so server does not directly import asicdServices
+type HwHdlIntf interface {
+	GetSflowNetdevInfo() ([]objects.SflowNetdevInfo, error)
+	SflowEnable(ifIndex int32) error
+	SflowDisable(ifIndex int32) error
+	SflowSetSamplingRate(ifIndex, rate int32) error
+}
+
 type HwHdl struct {
+	sync.Mutex
+	logger logging.LoggerIntf
 	*asicdServices.ASICDServicesClient
 }
 
@@ -53,7 +63,7 @@ type AsicdClient struct {
 	ClientHdl          *asicdServices.ASICDServicesClient
 }
 
-func GetHwClntHdl(paramsFile string, logger logging.LoggerIntf) *HwHdl {
+func GetHwClntHdl(paramsFile string, logger logging.LoggerIntf) HwHdlIntf {
 	var asicdClient AsicdClient
 	logger.Debug("Inside connectToServers...paramsFile", paramsFile)
 	var clientsList []ClientJson
@@ -96,6 +106,7 @@ func GetHwClntHdl(paramsFile string, logger logging.LoggerIntf) *HwHdl {
 			asicdClient.ClientHdl = asicdServices.NewASICDServicesClientFactory(asicdClient.Transport, asicdClient.PtrProtocolFactory)
 			return &HwHdl{
 				ASICDServicesClient: asicdClient.ClientHdl,
+				logger:              logger,
 			}
 		}
 	}
@@ -105,6 +116,8 @@ func GetHwClntHdl(paramsFile string, logger logging.LoggerIntf) *HwHdl {
 func (h *HwHdl) GetSflowNetdevInfo() ([]objects.SflowNetdevInfo, error) {
 	var err error
 	var objList []objects.SflowNetdevInfo
+	h.logger.Debug("HW call : GetSflowNetdevInfo")
+	h.Lock()
 	info, err := h.GetBulkSFlowIntfInfo()
 	if (err != nil) || (len(info.SFlowIntfInfoList) == 0) {
 		err = errors.New("GetBulkSflowIntfInfo returned nil list")
@@ -116,5 +129,34 @@ func (h *HwHdl) GetSflowNetdevInfo() ([]objects.SflowNetdevInfo, error) {
 			})
 		}
 	}
+	h.Unlock()
+	h.logger.Debug("HW call returned : GetSflowNetdevInfo.", objList, err)
 	return objList, err
+}
+
+func (h *HwHdl) SflowEnable(ifIndex int32) error {
+	h.logger.Debug("HW call : SflowEnable")
+	h.Lock()
+	_, err := h.EnableSFlowSampling(ifIndex, true)
+	h.Unlock()
+	h.logger.Debug("HW call returned : SflowEnable.", err)
+	return err
+}
+
+func (h *HwHdl) SflowDisable(ifIndex int32) error {
+	h.logger.Debug("HW call : SflowDisable")
+	h.Lock()
+	_, err := h.EnableSFlowSampling(ifIndex, false)
+	h.Unlock()
+	h.logger.Debug("HW call returned : SflowDisable.", err)
+	return err
+}
+
+func (h *HwHdl) SflowSetSamplingRate(ifIndex, rate int32) error {
+	h.logger.Debug("HW call : SflowSetSamplingRate")
+	h.Lock()
+	_, err := h.SetSFlowSamplingRate(ifIndex, rate)
+	h.Unlock()
+	h.logger.Debug("HW call returned : SflowSetSamplingRate.", err)
+	return err
 }

@@ -41,16 +41,16 @@ func (srvr *sflowServer) initSflowServer() {
 	srvr.sflowDgramSentReceipt = make(chan sflowDgramIdx, DGRAM_SENT_RECEIPT_CHAN_SIZE)
 }
 
-func (srvr *DmnServer) constructSflowInfra() error {
+func (srvr *sflowServer) constructSflowInfra() error {
 	logger.Debug("Constructing Sflow infrastructure")
-	netdevInfo, err := srvr.hwHdl.GetSflowNetdevInfo()
+	netdevInfo, err := hwHdl.GetSflowNetdevInfo()
 	if err == nil {
 		for _, val := range netdevInfo {
-			srvr.sflowServer.netDevInfo[val.IfIndex] = netDevData{val.IntfRef}
+			srvr.netDevInfo[val.IfIndex] = netDevData{val.IntfRef}
 		}
 	}
 	logger.Debug("===============SFLOW NETDEVINFO START============")
-	logger.Debug("Sflow infra dump : ", srvr.sflowServer.netDevInfo)
+	logger.Debug("Sflow infra dump : ", srvr.netDevInfo)
 	logger.Debug("===============SFLOW NETDEVINFO END==============")
 	return err
 }
