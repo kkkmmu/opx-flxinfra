@@ -29,12 +29,15 @@ import (
 	"utils/logging"
 )
 
+//Logger global to server package
+var logger logging.LoggerIntf
+
 type DmnServer struct {
 	dbHdl          dbutils.DBIntf
-	logger         logging.LoggerIntf
 	InitCompleteCh chan bool
 	ReqChan        chan *ServerRequest
 	ReplyChan      chan interface{}
+	*sflowServer
 }
 
 type ServerInitParams struct {
@@ -46,21 +49,23 @@ type ServerInitParams struct {
 }
 
 func NewSTATSDServer(initParams *ServerInitParams) *DmnServer {
+	logger = initParams.Logger
 	srvr := DmnServer{}
 	srvr.dbHdl = initParams.DbHdl
-	srvr.logger = initParams.Logger
 	srvr.InitCompleteCh = make(chan bool)
 	srvr.ReqChan = make(chan *ServerRequest)
 	srvr.ReplyChan = make(chan interface{})
+	srvr.sflowServer = new(sflowServer)
 	return &srvr
 }
 
 func (srvr *DmnServer) initServer() error {
+	srvr.initSflowServer()
 	return nil
 }
 
 func (srvr *DmnServer) Serve() {
-	srvr.logger.Info("Server initialization started")
+	logger.Info("Server initialization started")
 	err := srvr.initServer()
 	if err != nil {
 		panic(err)
@@ -70,81 +75,81 @@ func (srvr *DmnServer) Serve() {
 		go daemonStatusListener.StartDaemonStatusListner()
 	}
 	srvr.InitCompleteCh <- true
-	srvr.logger.Info("Server initialization complete, starting cfg/state listerner")
+	logger.Info("Server initialization complete, starting cfg/state listerner")
 	for {
 		select {
 		case req := <-srvr.ReqChan:
 			srvr.processRequest(req)
 
 		case daemonStatus := <-daemonStatusListener.DaemonStatusCh:
-			srvr.logger.Info("Received daemon status: ", daemonStatus.Name, daemonStatus.Status)
+			logger.Info("Received daemon status: ", daemonStatus.Name, daemonStatus.Status)
 		}
 	}
 }
 
 func (srvr *DmnServer) processRequest(req *ServerRequest) {
-	srvr.logger.Debug("Server request received : ", *req)
+	logger.Debug("Server request received : ", *req)
 	switch req.Op {
 	case CREATE_SFLOW_GLOBAL:
 		if val, ok := req.Data.(*CreateSflowGlobalInArgs); ok {
 			srvr.createSflowGlobal(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_GLOBAL")
+			logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_GLOBAL")
 		}
 	case UPDATE_SFLOW_GLOBAL:
 		if val, ok := req.Data.(*UpdateSflowGlobalInArgs); ok {
 			srvr.updateSflowGlobal(val.OldObj, val.NewObj, val.AttrSet)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_GLOBAL")
+			logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_GLOBAL")
 		}
 
 	case DELETE_SFLOW_GLOBAL:
 		if val, ok := req.Data.(*DeleteSflowGlobalInArgs); ok {
 			srvr.deleteSflowGlobal(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_GLOBAL")
+			logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_GLOBAL")
 		}
 
 	case CREATE_SFLOW_COLLECTOR:
 		if val, ok := req.Data.(*CreateSflowCollectorInArgs); ok {
 			srvr.createSflowCollector(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_COLLECTOR")
+			logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_COLLECTOR")
 		}
 
 	case UPDATE_SFLOW_COLLECTOR:
 		if val, ok := req.Data.(*UpdateSflowCollectorInArgs); ok {
 			srvr.updateSflowCollector(val.OldObj, val.NewObj, val.AttrSet)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_COLLECTOR")
+			logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_COLLECTOR")
 		}
 
 	case DELETE_SFLOW_COLLECTOR:
 		if val, ok := req.Data.(*DeleteSflowCollectorInArgs); ok {
 			srvr.deleteSflowCollector(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_COLLECTOR")
+			logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_COLLECTOR")
 		}
 
 	case CREATE_SFLOW_INTF:
 		if val, ok := req.Data.(*CreateSflowIntfInArgs); ok {
 			srvr.createSflowIntf(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_INTF")
+			logger.Err("Invalid data format received by server.Request opcode - CREATE_SFLOW_INTF")
 		}
 
 	case UPDATE_SFLOW_INTF:
 		if val, ok := req.Data.(*UpdateSflowIntfInArgs); ok {
 			srvr.updateSflowIntf(val.OldObj, val.NewObj, val.AttrSet)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_INTF")
+			logger.Err("Invalid data format received by server.Request opcode - UPDATE_SFLOW_INTF")
 		}
 
 	case DELETE_SFLOW_INTF:
 		if val, ok := req.Data.(*DeleteSflowIntfInArgs); ok {
 			srvr.deleteSflowIntf(val.Obj)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_INTF")
+			logger.Err("Invalid data format received by server.Request opcode - DELETE_SFLOW_INTF")
 		}
 
 	case GET_SFLOW_COLLECTOR_STATE:
@@ -152,7 +157,7 @@ func (srvr *DmnServer) processRequest(req *ServerRequest) {
 		if val, ok := req.Data.(*GetSflowCollectorStateInArgs); ok {
 			retObj.Obj, retObj.Err = srvr.getSflowCollectorState(val.IpAddr)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - GET_SFLOW_COLLECTOR_STATE")
+			logger.Err("Invalid data format received by server.Request opcode - GET_SFLOW_COLLECTOR_STATE")
 		}
 		srvr.ReplyChan <- interface{}(&retObj)
 
@@ -161,7 +166,7 @@ func (srvr *DmnServer) processRequest(req *ServerRequest) {
 		if val, ok := req.Data.(*GetBulkInArgs); ok {
 			retObj.BulkObj, retObj.Err = srvr.getBulkSflowCollectorState(val.FromIdx, val.Count)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - GET_BULK_SFLOW_COLLECTOR_STATE")
+			logger.Err("Invalid data format received by server.Request opcode - GET_BULK_SFLOW_COLLECTOR_STATE")
 		}
 		srvr.ReplyChan <- interface{}(&retObj)
 
@@ -170,7 +175,7 @@ func (srvr *DmnServer) processRequest(req *ServerRequest) {
 		if val, ok := req.Data.(*GetSflowIntfStateInArgs); ok {
 			retObj.Obj, retObj.Err = srvr.getSflowIntfState(val.IntfRef)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - GET_SFLOW_INTF_STATE")
+			logger.Err("Invalid data format received by server.Request opcode - GET_SFLOW_INTF_STATE")
 		}
 		srvr.ReplyChan <- interface{}(&retObj)
 
@@ -179,12 +184,12 @@ func (srvr *DmnServer) processRequest(req *ServerRequest) {
 		if val, ok := req.Data.(*GetBulkInArgs); ok {
 			retObj.BulkObj, retObj.Err = srvr.getBulkSflowIntfState(val.FromIdx, val.Count)
 		} else {
-			srvr.logger.Err("Invalid data format received by server.Request opcode - GET_BULK_SFLOW_INTF_STATE")
+			logger.Err("Invalid data format received by server.Request opcode - GET_BULK_SFLOW_INTF_STATE")
 		}
 		srvr.ReplyChan <- interface{}(&retObj)
 
 	default:
-		srvr.logger.Err("Invalid server request received. Ignoring request : ", req.Op)
+		logger.Err("Invalid server request received. Ignoring request : ", req.Op)
 	}
-	srvr.logger.Debug("Server request served")
+	logger.Debug("Server request served")
 }
