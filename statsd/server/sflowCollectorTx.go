@@ -12,7 +12,6 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
 // _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
@@ -23,5 +22,49 @@
 
 package server
 
+import (
+	"fmt"
+	"infra/statsd/objects"
+	"net"
+)
+
 func (c *sflowCollector) collectorTx(receiptChan chan sflowDgramIdx) {
+	collectorAddrStr := fmt.Sprintf("%s:%d", c.ipAddr, c.udpPort)
+	collectorAddr, err := net.ResolveUDPAddr("udp", collectorAddrStr)
+	if err != nil {
+		logger.Err("Error Resolving the UDP Address", err)
+		c.operstate = objects.ADMIN_STATE_DOWN
+		c.initCompleteCh <- false
+		return
+	}
+	conn, err := net.DialUDP("udp", nil, collectorAddr)
+	if err != nil {
+		logger.Err("Error opening UDP connection for", collectorAddr)
+		c.operstate = objects.ADMIN_STATE_DOWN
+		c.initCompleteCh <- false
+		return
+	}
+	c.operstate = objects.ADMIN_STATE_UP
+	c.initCompleteCh <- true
+	for {
+		select {
+		case sflowDgramInfo := <-c.dgramRcvCh:
+			_, err := conn.Write(sflowDgramInfo.dgram.GetBytes())
+			if err != nil {
+				logger.Err("Error sending data to collector", err)
+			} else {
+				c.numDatagramExported++
+				c.numSflowSamplesExported = c.numSflowSamplesExported +
+					sflowDgramInfo.dgram.GetNumSflowSamples()
+			}
+			receiptChan <- sflowDgramIdx{
+				ifIndex: sflowDgramInfo.idx.ifIndex,
+				key:     sflowDgramInfo.idx.key,
+			}
+		case <-c.shutdownCh:
+			c.operstate = objects.ADMIN_STATE_DOWN
+			conn.Close()
+			return
+		}
+	}
 }

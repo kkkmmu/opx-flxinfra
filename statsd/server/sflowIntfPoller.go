@@ -12,7 +12,6 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
 // _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
@@ -41,10 +40,12 @@ func (intf *sflowIntf) intfPoller(intfRef string, sflowIntfRecordCh chan sflowRe
 	pcapHdl, err := pcap.OpenLive(intfRef, SNAPSHOT_LEN, PROMISCUOUS, PCAP_TIMEOUT)
 	if err != nil || pcapHdl == nil {
 		intf.operstate = objects.ADMIN_STATE_DOWN
+		intf.initCompleteCh <- false
 		logger.Err("intfPoller(): Unable to open Pcap Handle.", err, pcapHdl)
 		return
 	}
 	intf.operstate = objects.ADMIN_STATE_UP
+	intf.initCompleteCh <- true
 	intf.startPolling(pcapHdl, sflowIntfRecordCh)
 }
 
