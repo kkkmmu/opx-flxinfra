@@ -139,6 +139,7 @@ type sflowCollector struct {
 	numDatagramExported     int32
 	shutdownCh              chan bool
 	dgramRcvCh              chan *sflowDgramInfo
+	initCompleteCh          chan bool
 }
 
 type sflowIntf struct {
@@ -149,6 +150,7 @@ type sflowIntf struct {
 	operState               string
 	numSflowSamplesExported int32
 	shutdownCh              chan bool
+	initCompleteCh          chan bool
 }
 
 //Typedef for db keys
@@ -173,6 +175,7 @@ type sflowDgramInfo struct {
 
 type sflowDgram interface {
 	GetBytes() []byte
+	GetNumSflowSamples() int32
 }
 
 type sflowServer struct {

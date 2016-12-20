@@ -87,21 +87,24 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 		//Start poller for interface
 		intfRef := srvr.netDevInfo[ifIndex].intfRef
 		go sflowIntfObj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
-
-		//Pass config to asicd to enable sflow cfg on interface
-		//Enable sflow on this interface
-		err := hwHdl.SflowEnable(ifIndex)
-		if err != nil {
-			logger.Err("Create SflowIntf failed. Hw call to enable Sflow sampling returned : ", err, "Terminating interface poller")
-			//Terminate interface poller
-			sflowIntfObj.shutdownCh <- true
-		} else {
-			//Set sampling rate for this interface
-			err := hwHdl.SflowSetSamplingRate(ifIndex, obj.SamplingRate)
+		//Pend on init complete channel
+		ok := <-sflowIntfObj.initCompleteCh
+		if ok {
+			//Pass config to asicd to enable sflow on interface
+			//Enable sflow on this interface
+			err := hwHdl.SflowEnable(ifIndex)
 			if err != nil {
 				logger.Err("Create SflowIntf failed. Hw call to enable Sflow sampling returned : ", err, "Terminating interface poller")
 				//Terminate interface poller
 				sflowIntfObj.shutdownCh <- true
+			} else {
+				//Set sampling rate for this interface
+				err := hwHdl.SflowSetSamplingRate(ifIndex, obj.SamplingRate)
+				if err != nil {
+					logger.Err("Create SflowIntf failed. Hw call to enable Sflow sampling returned : ", err, "Terminating interface poller")
+					//Terminate interface poller
+					sflowIntfObj.shutdownCh <- true
+				}
 			}
 		}
 	}
@@ -150,34 +153,43 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	mask := genSflowIntfUpdateMask(attrset)
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
-			//Pass configuration down to asicd
-			//Enable sflow on this interface
-			err := hwHdl.SflowEnable(ifIndex)
-			if err != nil {
-				logger.Err("Update SflowIntf failed. Hw call to enable Sflow sampling returned : ", err)
-			} else {
-				//Start poller for interface
-				intfRef := srvr.netDevInfo[ifIndex].intfRef
-				go obj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
+			//Start poller for interface
+			intfRef := srvr.netDevInfo[ifIndex].intfRef
+			go obj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
+			//Pend on init complete channel
+			ok := <-obj.initCompleteCh
+			if ok {
+				//Pass configuration down to asicd
+				//Enable sflow on this interface
+				err := hwHdl.SflowEnable(ifIndex)
+				if err != nil {
+					logger.Err("Update SflowIntf failed. Hw call to enable Sflow sampling returned : ", err)
+					//Terminate interface polling thread
+					obj.shutdownCh <- true
+				}
 			}
 		} else {
-			//Pass configuration down to asicd
-			//Disable sflow on this interface
-			err := hwHdl.SflowDisable(ifIndex)
-			if err != nil {
-				logger.Err("Update SflowIntf failed. Hw call to disable Sflow sampling returned : ", err)
-			} else {
-				//Terminate interface polling thread
-				obj.shutdownCh <- true
+			if obj.operstate == objects.ADMIN_STATE_UP {
+				//Pass configuration down to asicd
+				//Disable sflow on this interface
+				err := hwHdl.SflowDisable(ifIndex)
+				if err != nil {
+					logger.Err("Update SflowIntf failed. Hw call to disable Sflow sampling returned : ", err)
+				} else {
+					//Terminate interface polling thread
+					obj.shutdownCh <- true
+				}
 			}
 		}
 	}
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE) == objects.SFLOW_INTF_UPDATE_ATTR_SAMPLING_RATE {
 		//Pass configuration down to asicd
-		//Set sampling rate for this interface
-		err := hwHdl.SflowSetSamplingRate(ifIndex, newObj.SamplingRate)
-		if err != nil {
-			logger.Err("Update SflowIntf failed. Hw call to update Sflow sampling returned : ", err)
+		if obj.operstate == objects.ADMIN_STATE_UP {
+			//Set sampling rate for this interface
+			err := hwHdl.SflowSetSamplingRate(ifIndex, newObj.SamplingRate)
+			if err != nil {
+				logger.Err("Update SflowIntf failed. Hw call to update Sflow sampling returned : ", err)
+			}
 		}
 	}
 }
@@ -208,14 +220,13 @@ func (srvr *sflowServer) deleteSflowIntf(obj *objects.SflowIntf) {
 	srvr.dbMutex.Unlock()
 
 	//Gracefully shutdown interface Rx routine
-	if sflowIntfObj.adminState == objects.ADMIN_STATE_UP {
+	if (sflowIntfObj.adminState == objects.ADMIN_STATE_UP) && (sflowIntfObj.operstate == objects.ADMIN_STATE_UP) {
 		//Pass configuration down to asicd
 		//Disable sflow on this interface
 		err := hwHdl.SflowDisable(ifIndex)
 		if err != nil {
 			logger.Err("Failure during Delete SflowIntf failed. Hw call to disable Sflow sampling returned : ", err)
 		}
-
 		//Terminate interface polling thread
 		sflowIntfObj.shutdownCh <- true
 	}
