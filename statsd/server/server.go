@@ -26,34 +26,8 @@ package server
 import (
 	"errors"
 	"infra/statsd/hw"
-	"utils/dbutils"
 	"utils/keepalive"
-	"utils/logging"
 )
-
-//Logger global to server package
-var logger logging.LoggerIntf
-
-//Handle for relaying HW config
-var hwHdl hw.HwHdlIntf
-
-type DmnServer struct {
-	dbHdl          dbutils.DBIntf
-	paramsDir      string
-	InitCompleteCh chan bool
-	ReqChan        chan *ServerRequest
-	ReplyChan      chan interface{}
-	hwHdl          *hw.HwHdl
-	*sflowServer
-}
-
-type ServerInitParams struct {
-	DmnName     string
-	ParamsDir   string
-	CfgFileName string
-	DbHdl       dbutils.DBIntf
-	Logger      logging.LoggerIntf
-}
 
 func NewSTATSDServer(initParams *ServerInitParams) *DmnServer {
 	logger = initParams.Logger
