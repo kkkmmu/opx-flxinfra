@@ -12,7 +12,6 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
 // _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
@@ -66,6 +65,11 @@ func (srvr *sflowServer) createSflowGlobal(obj *objects.SflowGlobal) {
 		counterPollInterval: obj.CounterPollInterval,
 		maxDatagramSize:     obj.MaxDatagramSize,
 	}
+	//Post msg to core server to notify gbl cfg
+	srvr.gblCfgCh <- &gblCfgUpdateInfo{
+		op:  objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR,
+		val: interface{}(obj.AgentIpAddr),
+	}
 }
 
 func (srvr *sflowServer) ValidateUpdateSflowGlobal(oldObj, newObj *objects.SflowGlobal, attrset []bool) (bool, error) {
@@ -113,6 +117,15 @@ func genSflowGlobalUpdateMask(attrset []bool) uint8 {
 }
 
 func (srvr *sflowServer) updateSflowGlobal(oldObj, newObj *objects.SflowGlobal, attrset []bool) {
+	//Update object in DB
+	srvr.dbMutex.Lock()
+	srvr.sflowGblDB.vrf = newObj.Vrf
+	srvr.sflowGblDB.adminState = newObj.AdminState
+	srvr.sflowGblDB.agentIpAddr = newObj.AgentIpAddr
+	srvr.sflowGblDB.maxSampledSize = newObj.MaxSampledSize
+	srvr.sflowGblDB.counterPollInterval = newObj.CounterPollInterval
+	srvr.dbMutex.Unlock()
+
 	mask := genSflowGlobalUpdateMask(attrset)
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_DOWN {
@@ -122,6 +135,11 @@ func (srvr *sflowServer) updateSflowGlobal(oldObj, newObj *objects.SflowGlobal, 
 		}
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR) == objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR {
+		srvr.sflowGblDB.agentIpAddr = newObj.AgentIpAddr
+		srvr.gblCfgCh <- &gblCfgUpdateInfo{
+			op:  objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR,
+			val: interface{}(newObj.AgentIpAddr),
+		}
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_COUNTER_POLL_INTERVAL) == objects.SFLOW_GLOBAL_UPDATE_ATTR_COUNTER_POLL_INTERVAL {
 		//Adjust counter thread polling interval
@@ -130,14 +148,6 @@ func (srvr *sflowServer) updateSflowGlobal(oldObj, newObj *objects.SflowGlobal, 
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_DATAGRAM_SIZE) == objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_DATAGRAM_SIZE {
 	}
-	//Update object in DB
-	srvr.dbMutex.Lock()
-	srvr.sflowGblDB.vrf = newObj.Vrf
-	srvr.sflowGblDB.adminState = newObj.AdminState
-	srvr.sflowGblDB.agentIpAddr = newObj.AgentIpAddr
-	srvr.sflowGblDB.maxSampledSize = newObj.MaxSampledSize
-	srvr.sflowGblDB.counterPollInterval = newObj.CounterPollInterval
-	srvr.dbMutex.Unlock()
 }
 
 func (srvr *sflowServer) ValidateDeleteSflowGlobal(obj *objects.SflowGlobal) (bool, error) {

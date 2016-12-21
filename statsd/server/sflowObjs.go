@@ -121,6 +121,11 @@ type GetBulkSflowIntfStateOutArgs struct {
 }
 
 //Internal server struct definitions
+type gblCfgUpdateInfo struct {
+	op  uint32
+	val interface{}
+}
+
 type sflowGbl struct {
 	vrf                 string
 	adminState          string
@@ -153,7 +158,6 @@ type sflowIntf struct {
 	initCompleteCh          chan bool
 }
 
-//Typedef for db keys
 type netDevData struct {
 	intfRef string
 }
@@ -161,21 +165,6 @@ type netDevData struct {
 type sflowRecordInfo struct {
 	ifIndex   int32
 	sflowData []byte
-}
-
-type sflowDgramIdx struct {
-	ifIndex int32
-	key     int32
-}
-
-type sflowDgramInfo struct {
-	idx   sflowDgramIdx
-	dgram sflowDgram
-}
-
-type sflowDgram interface {
-	GetBytes() []byte
-	GetNumSflowSamples() int32
 }
 
 type sflowServer struct {
@@ -195,5 +184,9 @@ type sflowServer struct {
 	//Channel list to send sflowRecord to collector
 	sflowDgramToCollector map[string]chan *sflowDgramInfo
 	//Response channel from collector routines
-	sflowDgramSentReceipt chan sflowDgramIdx
+	sflowDgramSentReceiptCh chan *dgramSentRcpt
+	//Channel to send bye msgs from collector
+	collectorTerminatedCh chan string
+	//Channel to handle global attr update
+	gblCfgCh chan *gblCfgUpdateInfo
 }
