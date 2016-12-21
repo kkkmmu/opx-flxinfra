@@ -36,6 +36,7 @@ const (
 func newSflowCollector() *sflowCollector {
 	obj := new(sflowCollector)
 	obj.shutdownCh = make(chan bool)
+	obj.initCompleteCh = make(chan bool)
 	obj.dgramRcvCh = make(chan *sflowDgramInfo, DGRAM_TO_COLLECTOR_CHAN_SIZE)
 	return obj
 }
@@ -45,9 +46,11 @@ func (srvr *sflowServer) ValidateCreateSflowCollector(obj *objects.SflowCollecto
 	var ok bool
 	var err error
 	collectorIP := net.ParseIP(obj.IpAddr)
-	if collectorIP == nil {
+	if !srvr.isGlobalObjCreated() {
+		err = errors.New("Create SflowCollector failed. SflowGlobal object not created yet")
+	} else if collectorIP == nil {
 		err = errors.New("Create SflowCollector failed. Invalid collector IP value provided")
-	} else if _, ok := srvr.sflowCollectorDB[obj.IpAddr]; ok {
+	} else if _, exists := srvr.sflowCollectorDB[obj.IpAddr]; exists {
 		err = errors.New("Create SflowCollector failed. Collector configuration already exists")
 	} else if (obj.UdpPort < 0) || (obj.UdpPort > MAX_UDP_PORT) {
 		err = errors.New("Create SflowCollector failed. Invalid UDP port value provided")
@@ -72,8 +75,10 @@ func (srvr *sflowServer) createSflowCollector(obj *objects.SflowCollector) {
 
 	//If AdminState is 'UP', spawn collector go routine
 	if obj.AdminState == objects.ADMIN_STATE_UP {
+		logger.Debug("createSflowCollector: Spawning collector TX go routine")
 		go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
 		//Pend on init complete channel
+		logger.Debug("createSflowCollector: Waiting on collector TX go routine init complete chan")
 		ok := <-sflowCollectorObj.initCompleteCh
 		if ok {
 			//Register collector's channel with server to receive sflow dgrams

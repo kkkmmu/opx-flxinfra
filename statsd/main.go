@@ -60,7 +60,7 @@ func main() {
 	go dmn.daemonServer.Serve()
 
 	//Initialize api layer
-	api.InitApiLayer(dmn.daemonServer)
+	api.InitApiLayer(dmn.daemonServer, dmn.Logger)
 
 	var rpcServerAddr string
 	for _, value := range dmn.FSBaseDmn.ClientsList {

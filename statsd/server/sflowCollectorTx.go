@@ -44,6 +44,7 @@ func (c *sflowCollector) collectorTx(receiptChan chan *dgramSentRcpt, termCh cha
 		c.initCompleteCh <- false
 		return
 	}
+	logger.Debug("collectorTx: UDP init complete starting serve loop - ", collectorAddr)
 	c.operstate = objects.ADMIN_STATE_UP
 	c.initCompleteCh <- true
 	for {

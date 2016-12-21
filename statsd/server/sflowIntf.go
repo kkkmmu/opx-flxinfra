@@ -30,6 +30,7 @@ import (
 func newSflowIntf() *sflowIntf {
 	obj := new(sflowIntf)
 	obj.shutdownCh = make(chan bool)
+	obj.initCompleteCh = make(chan bool)
 	return obj
 }
 
@@ -56,7 +57,9 @@ func (srvr *sflowServer) ValidateCreateSflowIntf(obj *objects.SflowIntf) (bool, 
 	var err error
 
 	ifIndex := srvr.getIfIndexFromIntfRef(obj.IntfRef)
-	if !isIfIndexValid(ifIndex) {
+	if !srvr.isGlobalObjCreated() {
+		err = errors.New("Create SflowIntf failed. SflowGlobal object not created yet")
+	} else if !isIfIndexValid(ifIndex) {
 		err = errors.New("Create SflowIntf failed. Invalid IntfRef value provided")
 	} else if (obj.AdminState != objects.ADMIN_STATE_UP) && (obj.AdminState != objects.ADMIN_STATE_DOWN) {
 		err = errors.New("Create SflowIntf failed. Invalid AdminState value provided")

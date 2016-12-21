@@ -144,6 +144,7 @@ func (srvr *sflowServer) sflowCoreTx() {
 	for {
 		select {
 		case dgram := <-srvr.sflowDgramRdy:
+			var sendCnt int
 			logger.Debug("SflowCoreTx: Received sflow dgram ready. Sending to collectors")
 			refCounter[dgram.idx] = make(map[string]bool)
 			for collectorId, ch := range srvr.sflowDgramToCollector {
@@ -151,6 +152,11 @@ func (srvr *sflowServer) sflowCoreTx() {
 				//Insert id into map to aid with refCnt
 				refCounter[dgram.idx][collectorId] = true
 				logger.Debug("SflowCoreTx: Sent sflow dgram to collector : ", collectorId)
+				sendCnt++
+			}
+			if sendCnt == 0 {
+				//No collectors registered yet, free dgram from DB
+				delete(srvr.sflowDgramDB[dgram.idx.ifIndex], dgram.idx.key)
 			}
 
 		case rcpt := <-srvr.sflowDgramSentReceiptCh:
