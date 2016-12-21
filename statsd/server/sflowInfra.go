@@ -12,7 +12,6 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
 // _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
@@ -28,6 +27,7 @@ const (
 	INTF_POLLER_TO_SVR_CHAN_SIZE     = 100
 	DGRAM_RDY_NOTIFICATION_CHAN_SIZE = 100
 	DGRAM_SENT_RECEIPT_CHAN_SIZE     = 100
+	COLLECTOR_TERMINATED_CHAN_SIZE   = 100
 )
 
 func (srvr *sflowServer) initSflowServer() {
@@ -38,7 +38,9 @@ func (srvr *sflowServer) initSflowServer() {
 	srvr.sflowIntfRecordCh = make(chan sflowRecordInfo, INTF_POLLER_TO_SVR_CHAN_SIZE)
 	srvr.sflowDgramRdy = make(chan *sflowDgramInfo, DGRAM_RDY_NOTIFICATION_CHAN_SIZE)
 	srvr.sflowDgramToCollector = make(map[string]chan *sflowDgramInfo)
-	srvr.sflowDgramSentReceipt = make(chan sflowDgramIdx, DGRAM_SENT_RECEIPT_CHAN_SIZE)
+	srvr.sflowDgramSentReceiptCh = make(chan *dgramSentRcpt, DGRAM_SENT_RECEIPT_CHAN_SIZE)
+	srvr.collectorTerminatedCh = make(chan string, COLLECTOR_TERMINATED_CHAN_SIZE)
+	srvr.gblCfgCh = make(chan *gblCfgUpdateInfo)
 }
 
 func (srvr *sflowServer) constructSflowInfra() error {

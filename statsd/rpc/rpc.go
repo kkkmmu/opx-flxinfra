@@ -12,8 +12,7 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
-// _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __ 
+// _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
 // |   __|  |  |     |   __|   >   <       \   \      \            /   |  |     |  |        |     |   __   |
@@ -24,36 +23,36 @@
 package rpc
 
 import (
-    "statsd"
-    "git.apache.org/thrift.git/lib/go/thrift"
-    "utils/logging"
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"statsd"
+	"utils/logging"
 )
 
 type rpcServiceHandler struct {
-    logger logging.LoggerIntf
+	logger logging.LoggerIntf
 }
 
 func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-    return &rpcServiceHandler{
-        logger: logger,
-    }
+	return &rpcServiceHandler{
+		logger: logger,
+	}
 }
 
 type RPCServer struct {
-    *thrift.TSimpleServer
+	*thrift.TSimpleServer
 }
 
 func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
-        transport, err := thrift.NewTServerSocket(rpcAddr)
-        if err != nil {
-                panic(err)
-        }
-        handler := newRPCServiceHandler(logger)
-        processor := statsd.NewSTATSDServicesProcessor(handler)
-        transportFactory := thrift.NewTBufferedTransportFactory(8192)
-        protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-        server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
-        return &RPCServer{
-                TSimpleServer: server,
-        }
+	transport, err := thrift.NewTServerSocket(rpcAddr)
+	if err != nil {
+		panic(err)
+	}
+	handler := newRPCServiceHandler(logger)
+	processor := statsd.NewSTATSDServicesProcessor(handler)
+	transportFactory := thrift.NewTBufferedTransportFactory(8192)
+	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
+	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
+	return &RPCServer{
+		TSimpleServer: server,
+	}
 }

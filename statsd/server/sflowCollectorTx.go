@@ -28,7 +28,7 @@ import (
 	"net"
 )
 
-func (c *sflowCollector) collectorTx(receiptChan chan sflowDgramIdx) {
+func (c *sflowCollector) collectorTx(receiptChan chan *dgramSentRcpt, termCh chan string) {
 	collectorAddrStr := fmt.Sprintf("%s:%d", c.ipAddr, c.udpPort)
 	collectorAddr, err := net.ResolveUDPAddr("udp", collectorAddrStr)
 	if err != nil {
@@ -57,13 +57,18 @@ func (c *sflowCollector) collectorTx(receiptChan chan sflowDgramIdx) {
 				c.numSflowSamplesExported = c.numSflowSamplesExported +
 					sflowDgramInfo.dgram.GetNumSflowSamples()
 			}
-			receiptChan <- sflowDgramIdx{
-				ifIndex: sflowDgramInfo.idx.ifIndex,
-				key:     sflowDgramInfo.idx.key,
+			receiptChan <- &dgramSentRcpt{
+				idx: sflowDgramIdx{
+					ifIndex: sflowDgramInfo.idx.ifIndex,
+					key:     sflowDgramInfo.idx.key,
+				},
+				collectorId: c.ipAddr,
 			}
 		case <-c.shutdownCh:
 			c.operstate = objects.ADMIN_STATE_DOWN
 			conn.Close()
+			//Post bye msg on term channel
+			termCh <- c.ipAddr
 			return
 		}
 	}

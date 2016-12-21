@@ -12,7 +12,6 @@
 //       See the License for the specific language governing permissions and
 //       limitations under the License.
 //
-//   This is a auto-generated file, please do not edit!
 // _______   __       __________   ___      _______.____    __    ____  __  .___________.  ______  __    __
 // |   ____||  |     |   ____\  \ /  /     /       |\   \  /  \  /   / |  | |           | /      ||  |  |  |
 // |  |__   |  |     |  |__   \  V  /     |   (----  \   \/    \/   /  |  |  ---|  |----    ,---- |  |__|  |
@@ -73,7 +72,7 @@ func (srvr *sflowServer) createSflowCollector(obj *objects.SflowCollector) {
 
 	//If AdminState is 'UP', spawn collector go routine
 	if obj.AdminState == objects.ADMIN_STATE_UP {
-		go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceipt)
+		go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
 		//Pend on init complete channel
 		ok := <-sflowCollectorObj.initCompleteCh
 		if ok {
@@ -138,7 +137,7 @@ func (srvr *sflowServer) updateSflowCollector(oldObj, newObj *objects.SflowColle
 			}
 		}
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
-			go obj.collectorTx(srvr.sflowDgramSentReceipt)
+			go obj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
 			//Pend on init complete channel
 			ok := <-obj.initCompleteCh
 			if ok {
@@ -152,7 +151,7 @@ func (srvr *sflowServer) updateSflowCollector(oldObj, newObj *objects.SflowColle
 	}
 	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE {
 		if (newObj.AdminState == objects.ADMIN_STATE_UP) && !txRunning {
-			go obj.collectorTx(srvr.sflowDgramSentReceipt)
+			go obj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
 			ok := <-obj.initCompleteCh
 			if ok {
 				//Register collector's channel with server to receive sflow dgrams
