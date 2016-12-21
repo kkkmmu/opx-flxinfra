@@ -65,6 +65,11 @@ func (srvr *sflowServer) createSflowGlobal(obj *objects.SflowGlobal) {
 		counterPollInterval: obj.CounterPollInterval,
 		maxDatagramSize:     obj.MaxDatagramSize,
 	}
+	//Post msg to core server to notify gbl cfg
+	srvr.gblCfgCh <- &gblCfgUpdateInfo{
+		op:  objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR,
+		val: interface{}(obj.AgentIpAddr),
+	}
 }
 
 func (srvr *sflowServer) ValidateUpdateSflowGlobal(oldObj, newObj *objects.SflowGlobal, attrset []bool) (bool, error) {

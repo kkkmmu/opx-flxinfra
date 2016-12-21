@@ -88,12 +88,11 @@ func (srvr *sflowServer) constructFlowSampleDgram(encoder *sflow.Encoder,
 func (srvr *sflowServer) sflowCoreRx() {
 	//Internal DgramDB seqnum
 	var intSeqNum int32
-
 	//Sequence numbers for various record types
 	var rcrdSeqNum sflowRecordSeqNum
+	//sflow encoder
+	var encoder *sflow.Encoder
 
-	agentIpAddr := net.ParseIP(srvr.sflowGblDB.agentIpAddr)
-	encoder := sflow.NewEncoder(agentIpAddr, SFLOW_SUB_AGENT_ID, 0)
 	for {
 		select {
 		case sflowRcrd := <-srvr.sflowIntfRecordCh:
@@ -126,7 +125,7 @@ func (srvr *sflowServer) sflowCoreRx() {
 			case objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR:
 				//Free earlier encoder instance
 				encoder = nil
-				agentIpAddr = net.ParseIP(srvr.sflowGblDB.agentIpAddr)
+				agentIpAddr := net.ParseIP(srvr.sflowGblDB.agentIpAddr)
 				encoder = sflow.NewEncoder(agentIpAddr, SFLOW_SUB_AGENT_ID, 0)
 			}
 		}
