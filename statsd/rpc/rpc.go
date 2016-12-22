@@ -25,29 +25,35 @@ package rpc
 import (
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"statsd"
+	"utils/dbutils"
 	"utils/logging"
 )
 
 type rpcServiceHandler struct {
+	dbHdl  dbutils.DBIntf
 	logger logging.LoggerIntf
 }
 
-func newRPCServiceHandler(logger logging.LoggerIntf) *rpcServiceHandler {
-	return &rpcServiceHandler{
+func newRPCServiceHandler(logger logging.LoggerIntf, dbHdl dbutils.DBIntf) *rpcServiceHandler {
+	rpcHdl := &rpcServiceHandler{
+		dbHdl:  dbHdl,
 		logger: logger,
 	}
+	//Replay configuration from db
+	rpcHdl.replayCfgFromDB()
+	return rpcHdl
 }
 
 type RPCServer struct {
 	*thrift.TSimpleServer
 }
 
-func NewRPCServer(rpcAddr string, logger logging.LoggerIntf) *RPCServer {
+func NewRPCServer(rpcAddr string, logger logging.LoggerIntf, dbHdl dbutils.DBIntf) *RPCServer {
 	transport, err := thrift.NewTServerSocket(rpcAddr)
 	if err != nil {
 		panic(err)
 	}
-	handler := newRPCServiceHandler(logger)
+	handler := newRPCServiceHandler(logger, dbHdl)
 	processor := statsd.NewSTATSDServicesProcessor(handler)
 	transportFactory := thrift.NewTBufferedTransportFactory(8192)
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()

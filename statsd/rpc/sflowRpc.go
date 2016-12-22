@@ -24,6 +24,7 @@ package rpc
 
 import (
 	"infra/statsd/api"
+	"models/objects"
 	"statsd"
 )
 
@@ -158,4 +159,50 @@ func (rpcHdl *rpcServiceHandler) GetBulkSflowIntfState(fromIdx, count statsd.Int
 	}
 	rpcHdl.logger.Debug("GetBulkSflowIntfState returning : ", bulkInfo, err)
 	return &bulkInfo, err
+}
+
+func (rpcHdl *rpcServiceHandler) replayCfgFromDB() {
+	rpcHdl.logger.Debug("Replaying configuration from DB started")
+
+	//Replay SflowGlobal info
+	sflowGblList, err := rpcHdl.dbHdl.GetAllObjFromDb(objects.SflowGlobal{})
+	if err != nil {
+		rpcHdl.logger.Err("Error retrieving SflowGlobal configuration from DB")
+		//Return here as intf/collector config will fail
+		return
+	}
+	for _, val := range sflowGblList {
+		dbObj := val.(objects.SflowGlobal)
+		obj := new(statsd.SflowGlobal)
+		objects.ConvertstatsdSflowGlobalObjToThrift(&dbObj, obj)
+		rpcHdl.CreateSflowGlobal(obj)
+	}
+
+	//Replay SflowCollector info
+	sflowCollectorList, err := rpcHdl.dbHdl.GetAllObjFromDb(objects.SflowCollector{})
+	if err != nil {
+		rpcHdl.logger.Err("Error retrieving SflowCollector configuration from DB")
+	} else {
+		for _, val := range sflowCollectorList {
+			dbObj := val.(objects.SflowCollector)
+			obj := new(statsd.SflowCollector)
+			objects.ConvertstatsdSflowCollectorObjToThrift(&dbObj, obj)
+			rpcHdl.CreateSflowCollector(obj)
+		}
+	}
+
+	//Replay SflowIntf info
+	sflowIntfList, err := rpcHdl.dbHdl.GetAllObjFromDb(objects.SflowIntf{})
+	if err != nil {
+		rpcHdl.logger.Err("Error retrieving SflowIntf configuration from DB")
+	} else {
+		for _, val := range sflowIntfList {
+			dbObj := val.(objects.SflowIntf)
+			obj := new(statsd.SflowIntf)
+			objects.ConvertstatsdSflowIntfObjToThrift(&dbObj, obj)
+			rpcHdl.CreateSflowIntf(obj)
+		}
+	}
+
+	rpcHdl.logger.Debug("Replaying configuration from DB completed")
 }

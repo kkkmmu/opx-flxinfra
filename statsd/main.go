@@ -59,6 +59,9 @@ func main() {
 	dmn.daemonServer = server.NewSTATSDServer(serverInitParams)
 	go dmn.daemonServer.Serve()
 
+	//Wait for server started msg before initializing API layer
+	_ = <-dmn.daemonServer.InitCompleteCh
+
 	//Initialize api layer
 	api.InitApiLayer(dmn.daemonServer, dmn.Logger)
 
@@ -72,12 +75,9 @@ func main() {
 	if rpcServerAddr == "" {
 		panic("Daemon statsd is not part of the system profile")
 	}
-	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger)
+	dmn.rpcServer = rpc.NewRPCServer(rpcServerAddr, dmn.FSBaseDmn.Logger, dmn.FSBaseDmn.DbHdl)
 
 	dmn.StartKeepAlive()
-
-	// Wait for server started msg before opening up RPC port to accept calls
-	_ = <-dmn.daemonServer.InitCompleteCh
 
 	//Start RPC server
 	dmn.FSBaseDmn.Logger.Info("Daemon Server started for statsd")
