@@ -152,14 +152,14 @@ type sflowIntf struct {
 	adminState              string
 	operstate               string
 	samplingRate            int32
-	operState               string
 	numSflowSamplesExported int32
 	shutdownCh              chan bool
 	initCompleteCh          chan bool
 }
 
 type netDevData struct {
-	intfRef string
+	intfRef    string
+	netDevName string
 }
 
 type sflowRecordInfo struct {
