@@ -48,7 +48,10 @@ func (srvr *sflowServer) constructSflowInfra() error {
 	netdevInfo, err := hwHdl.GetSflowNetdevInfo()
 	if err == nil {
 		for _, val := range netdevInfo {
-			srvr.netDevInfo[val.IfIndex] = netDevData{val.IntfRef}
+			srvr.netDevInfo[val.IfIndex] = netDevData{
+				intfRef:    val.IntfRef,
+				netDevName: val.NetDevName,
+			}
 		}
 	}
 	logger.Debug("===============SFLOW NETDEVINFO START============")

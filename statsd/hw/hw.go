@@ -124,8 +124,9 @@ func (h *HwHdl) GetSflowNetdevInfo() ([]objects.SflowNetdevInfo, error) {
 	} else {
 		for _, val := range info.SFlowIntfInfoList {
 			objList = append(objList, objects.SflowNetdevInfo{
-				IfIndex: val.PortIfIdx,
-				IntfRef: val.IntfRef,
+				IfIndex:    val.PortIfIdx,
+				IntfRef:    val.IntfRef,
+				NetDevName: val.NetDevName,
 			})
 		}
 	}

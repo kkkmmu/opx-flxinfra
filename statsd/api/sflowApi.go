@@ -27,17 +27,21 @@ import (
 	"errors"
 	"infra/statsd/objects"
 	"infra/statsd/server"
+	"utils/logging"
 )
 
 var svr *server.DmnServer
+var logger logging.LoggerIntf
 
 //Initialize server handle
-func InitApiLayer(server *server.DmnServer) {
+func InitApiLayer(server *server.DmnServer, log logging.LoggerIntf) {
 	svr = server
+	logger = log
 }
 
 func CreateSflowGlobal(obj *objects.SflowGlobal) (bool, error) {
 	ok, err := svr.ValidateCreateSflowGlobal(obj)
+	logger.Debug("ValidateCreateSflowGlobal returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.CREATE_SFLOW_GLOBAL,
@@ -51,6 +55,7 @@ func CreateSflowGlobal(obj *objects.SflowGlobal) (bool, error) {
 
 func UpdateSflowGlobal(oldObj, newObj *objects.SflowGlobal, attrset []bool) (bool, error) {
 	ok, err := svr.ValidateUpdateSflowGlobal(oldObj, newObj, attrset)
+	logger.Debug("ValidateUpdateSflowGlobal returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.UPDATE_SFLOW_GLOBAL,
@@ -66,6 +71,7 @@ func UpdateSflowGlobal(oldObj, newObj *objects.SflowGlobal, attrset []bool) (boo
 
 func DeleteSflowGlobal(obj *objects.SflowGlobal) (bool, error) {
 	ok, err := svr.ValidateDeleteSflowGlobal(obj)
+	logger.Debug("ValidateDeleteSflowGlobal returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.DELETE_SFLOW_GLOBAL,
@@ -79,6 +85,7 @@ func DeleteSflowGlobal(obj *objects.SflowGlobal) (bool, error) {
 
 func CreateSflowCollector(obj *objects.SflowCollector) (bool, error) {
 	ok, err := svr.ValidateCreateSflowCollector(obj)
+	logger.Debug("ValidateCreateSflowCollector returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.CREATE_SFLOW_COLLECTOR,
@@ -92,6 +99,7 @@ func CreateSflowCollector(obj *objects.SflowCollector) (bool, error) {
 
 func UpdateSflowCollector(oldObj, newObj *objects.SflowCollector, attrset []bool) (bool, error) {
 	ok, err := svr.ValidateUpdateSflowCollector(oldObj, newObj, attrset)
+	logger.Debug("ValidateUpdateSflowCollector returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.UPDATE_SFLOW_COLLECTOR,
@@ -107,6 +115,7 @@ func UpdateSflowCollector(oldObj, newObj *objects.SflowCollector, attrset []bool
 
 func DeleteSflowCollector(obj *objects.SflowCollector) (bool, error) {
 	ok, err := svr.ValidateDeleteSflowCollector(obj)
+	logger.Debug("ValidateDeleteSflowCollector returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.DELETE_SFLOW_COLLECTOR,
@@ -151,6 +160,7 @@ func GetBulkSflowCollectorState(fromIdx, count int) (*objects.SflowCollectorStat
 
 func CreateSflowIntf(obj *objects.SflowIntf) (bool, error) {
 	ok, err := svr.ValidateCreateSflowIntf(obj)
+	logger.Debug("ValidateCreateSflowIntf returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.CREATE_SFLOW_INTF,
@@ -164,6 +174,7 @@ func CreateSflowIntf(obj *objects.SflowIntf) (bool, error) {
 
 func UpdateSflowIntf(oldObj, newObj *objects.SflowIntf, attrset []bool) (bool, error) {
 	ok, err := svr.ValidateUpdateSflowIntf(oldObj, newObj, attrset)
+	logger.Debug("ValidateUpdateSflowIntf returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.UPDATE_SFLOW_INTF,
@@ -179,6 +190,7 @@ func UpdateSflowIntf(oldObj, newObj *objects.SflowIntf, attrset []bool) (bool, e
 
 func DeleteSflowIntf(obj *objects.SflowIntf) (bool, error) {
 	ok, err := svr.ValidateDeleteSflowIntf(obj)
+	logger.Debug("ValidateDeleteSflowIntf returned :", ok, err)
 	if ok {
 		svr.ReqChan <- &server.ServerRequest{
 			Op: server.DELETE_SFLOW_INTF,

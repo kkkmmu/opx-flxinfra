@@ -53,7 +53,7 @@ func (srvr *sflowServer) constructFlowSampleDgram(encoder *sflow.Encoder,
 		Protocol:    ETHERNET_ISO88023,
 		FrameLength: uint32(len(sflowRcrd.sflowData)),
 		Stripped:    0,
-		HeaderSize:  uint32(srvr.sflowGblDB.maxSampledSize),
+		HeaderSize:  uint32(len(sflowRcrd.sflowData)),
 		Header:      sflowRcrd.sflowData[:lenToSend],
 	}
 	flowSample := &sflow.FlowSample{
@@ -144,6 +144,7 @@ func (srvr *sflowServer) sflowCoreTx() {
 	for {
 		select {
 		case dgram := <-srvr.sflowDgramRdy:
+			var sendCnt int
 			logger.Debug("SflowCoreTx: Received sflow dgram ready. Sending to collectors")
 			refCounter[dgram.idx] = make(map[string]bool)
 			for collectorId, ch := range srvr.sflowDgramToCollector {
@@ -151,6 +152,11 @@ func (srvr *sflowServer) sflowCoreTx() {
 				//Insert id into map to aid with refCnt
 				refCounter[dgram.idx][collectorId] = true
 				logger.Debug("SflowCoreTx: Sent sflow dgram to collector : ", collectorId)
+				sendCnt++
+			}
+			if sendCnt == 0 {
+				//No collectors registered yet, free dgram from DB
+				delete(srvr.sflowDgramDB[dgram.idx.ifIndex], dgram.idx.key)
 			}
 
 		case rcpt := <-srvr.sflowDgramSentReceiptCh:

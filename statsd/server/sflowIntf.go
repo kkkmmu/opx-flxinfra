@@ -30,6 +30,7 @@ import (
 func newSflowIntf() *sflowIntf {
 	obj := new(sflowIntf)
 	obj.shutdownCh = make(chan bool)
+	obj.initCompleteCh = make(chan bool)
 	return obj
 }
 
@@ -56,7 +57,9 @@ func (srvr *sflowServer) ValidateCreateSflowIntf(obj *objects.SflowIntf) (bool, 
 	var err error
 
 	ifIndex := srvr.getIfIndexFromIntfRef(obj.IntfRef)
-	if !isIfIndexValid(ifIndex) {
+	if !srvr.isGlobalObjCreated() {
+		err = errors.New("Create SflowIntf failed. SflowGlobal object not created yet")
+	} else if !isIfIndexValid(ifIndex) {
 		err = errors.New("Create SflowIntf failed. Invalid IntfRef value provided")
 	} else if (obj.AdminState != objects.ADMIN_STATE_UP) && (obj.AdminState != objects.ADMIN_STATE_DOWN) {
 		err = errors.New("Create SflowIntf failed. Invalid AdminState value provided")
@@ -84,8 +87,9 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 	//Handle post processing due to adding a new sflow interface
 	if obj.AdminState == objects.ADMIN_STATE_UP {
 		//Start poller for interface
-		intfRef := srvr.netDevInfo[ifIndex].intfRef
+		intfRef := srvr.netDevInfo[ifIndex].netDevName
 		go sflowIntfObj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
+		logger.Debug("Spawned interface poller go routine, pending on init complete")
 		//Pend on init complete channel
 		ok := <-sflowIntfObj.initCompleteCh
 		if ok {
@@ -153,7 +157,7 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
 			//Start poller for interface
-			intfRef := srvr.netDevInfo[ifIndex].intfRef
+			intfRef := srvr.netDevInfo[ifIndex].netDevName
 			go obj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
 			//Pend on init complete channel
 			ok := <-obj.initCompleteCh
@@ -278,7 +282,7 @@ func (srvr *sflowServer) getBulkSflowIntfState(fromIdx, count int) (*objects.Sfl
 			objInfo.List = append(objInfo.List,
 				&objects.SflowIntfState{
 					IntfRef:                 intfRef,
-					OperState:               obj.operState,
+					OperState:               obj.operstate,
 					NumSflowSamplesExported: obj.numSflowSamplesExported,
 				})
 			if objInfo.Count == count {

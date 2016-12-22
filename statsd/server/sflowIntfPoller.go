@@ -46,6 +46,7 @@ func (intf *sflowIntf) intfPoller(intfRef string, sflowIntfRecordCh chan sflowRe
 	}
 	intf.operstate = objects.ADMIN_STATE_UP
 	intf.initCompleteCh <- true
+	logger.Debug("IntfPoller: Init complete for interface, starting poller : ", intfRef, intf.operstate)
 	intf.startPolling(pcapHdl, sflowIntfRecordCh)
 }
 
@@ -63,6 +64,7 @@ func (intf *sflowIntf) startPolling(pcapHdl *pcap.Handle, sflowIntfRecordCh chan
 				}
 			}
 		case <-intf.shutdownCh:
+			logger.Debug("IntfPoller: Received shutdown for interface : ", intf.ifIndex)
 			intf.operstate = objects.ADMIN_STATE_DOWN
 			pcapHdl.Close()
 			return

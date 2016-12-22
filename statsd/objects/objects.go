@@ -107,6 +107,7 @@ type SflowIntfStateGetInfo struct {
 }
 
 type SflowNetdevInfo struct {
-	IfIndex int32
-	IntfRef string
+	IfIndex    int32
+	IntfRef    string
+	NetDevName string
 }
