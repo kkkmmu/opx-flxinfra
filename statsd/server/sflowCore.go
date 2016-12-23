@@ -53,7 +53,7 @@ func (srvr *sflowServer) constructFlowSampleDgram(encoder *sflow.Encoder,
 		Protocol:    ETHERNET_ISO88023,
 		FrameLength: uint32(len(sflowRcrd.sflowData)),
 		Stripped:    0,
-		HeaderSize:  uint32(len(sflowRcrd.sflowData)),
+		HeaderSize:  uint32(len(sflowRcrd.sflowData[:lenToSend])),
 		Header:      sflowRcrd.sflowData[:lenToSend],
 	}
 	flowSample := &sflow.FlowSample{
