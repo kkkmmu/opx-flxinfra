@@ -64,7 +64,8 @@ func (srvr *DmnServer) Serve() {
 	logger.Info("Server initialization started")
 	err := srvr.initServer()
 	if err != nil {
-		panic(err)
+		logger.Err(err)
+		initFailed = true
 	}
 	daemonStatusListener := keepalive.InitDaemonStatusListener()
 	if daemonStatusListener != nil {

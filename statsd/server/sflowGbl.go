@@ -49,6 +49,8 @@ func (srvr *sflowServer) ValidateCreateSflowGlobal(obj *objects.SflowGlobal) (bo
 	var err error
 	if srvr.isGlobalObjCreated() {
 		err = errors.New("Create SflowGlobal failed. Sflow global object already exists")
+	} else if initFailed {
+		err = errors.New("Create SflowGlobal failed. Server initalization failed, no SFLOW configuration will be accepted")
 	} else {
 		ok = true
 	}

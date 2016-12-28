@@ -39,6 +39,9 @@ type ServerRequest struct {
 //Logger global to server package
 var logger logging.LoggerIntf
 
+//Signal init failure
+var initFailed bool
+
 //Handle for relaying HW config
 var hwHdl hw.HwHdlIntf
 
