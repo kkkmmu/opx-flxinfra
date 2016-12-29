@@ -43,6 +43,8 @@ type HwHdlIntf interface {
 	SflowEnable(ifIndex int32) error
 	SflowDisable(ifIndex int32) error
 	SflowSetSamplingRate(ifIndex, rate int32) error
+	SflowGetIntfCounters(intfRef string) *objects.SflowIntfCounterInfo
+	SflowGetIntfCfgInfo(intfRef string) *objects.SflowIntfCfgInfo
 }
 
 type HwHdl struct {
@@ -160,4 +162,59 @@ func (h *HwHdl) SflowSetSamplingRate(ifIndex, rate int32) error {
 	h.Unlock()
 	h.logger.Debug("HW call returned : SflowSetSamplingRate.", err)
 	return err
+}
+
+func (h *HwHdl) SflowGetIntfCounters(intfRef string) *objects.SflowIntfCounterInfo {
+	var convObj *objects.SflowIntfCounterInfo
+	h.logger.Debug("HW call : SflowGetPortCounters - ", intfRef)
+	h.Lock()
+	obj, err := h.GetPortState(intfRef)
+	var opState bool
+	if err == nil {
+		if obj.OperState == objects.ADMIN_STATE_UP {
+			opState = true
+		} else {
+			opState = false
+		}
+		convObj = &objects.SflowIntfCounterInfo{
+			OperState:     opState,
+			IfInOctets:    uint64(obj.IfInOctets),
+			IfInUcastPkts: uint64(obj.IfInUcastPkts),
+			//FIXME : Need to add support for IfInMcastPkts and IfInBcastPkts
+			IfInDiscards:      uint64(obj.IfInDiscards),
+			IfInErrors:        uint64(obj.IfInErrors),
+			IfInUnknownProtos: uint64(obj.IfInUnknownProtos),
+			IfOutOctets:       uint64(obj.IfOutOctets),
+			IfOutUcastPkts:    uint64(obj.IfOutUcastPkts),
+			//FIXME : Need to add support for IfOutMcastPkts and IfOutBcastPkts
+			IfOutDiscards: uint64(obj.IfOutDiscards),
+			IfOutErrors:   uint64(obj.IfOutErrors),
+		}
+	} else {
+		h.logger.Err("HW call : SflowGetPortCounters error when retrieving counters for interface - ", intfRef, err)
+	}
+	h.Unlock()
+	return convObj
+}
+
+func (h *HwHdl) SflowGetIntfCfgInfo(intfRef string) *objects.SflowIntfCfgInfo {
+	var convObj *objects.SflowIntfCfgInfo
+	h.logger.Debug("HW call : SflowGetIntfCfgInfo - ", intfRef)
+	h.Lock()
+	obj, err := h.GetPort(intfRef)
+	if err == nil {
+		var fullDuplex bool
+		//FIXME:  Need to expose define from asicd
+		if obj.Duplex == "Full_Duplex" {
+			fullDuplex = true
+		}
+		convObj = &objects.SflowIntfCfgInfo{
+			Speed:      obj.Speed,
+			FullDuplex: fullDuplex,
+		}
+	} else {
+		h.logger.Err("HW call : SflowGetIntfCfgInfo error when retrieving counters for interface - ", intfRef, err)
+	}
+	h.Unlock()
+	return convObj
 }

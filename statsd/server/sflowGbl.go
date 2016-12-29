@@ -144,11 +144,19 @@ func (srvr *sflowServer) updateSflowGlobal(oldObj, newObj *objects.SflowGlobal, 
 		}
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_COUNTER_POLL_INTERVAL) == objects.SFLOW_GLOBAL_UPDATE_ATTR_COUNTER_POLL_INTERVAL {
-		//Adjust counter thread polling interval
+		//Adjust counter thread polling interval. Post update to all interface polling routines
+		for _, intfObj := range srvr.sflowIntfDB {
+			//Post update to intf poller if operational
+			if intfObj.operstate == objects.ADMIN_STATE_UP {
+				intfObj.restartCtrPollTicker <- newObj.CounterPollInterval
+			}
+		}
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_SAMPLE_SIZE) == objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_SAMPLE_SIZE {
+		//No-op, core interface RX routine will pickup update automagically
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_DATAGRAM_SIZE) == objects.SFLOW_GLOBAL_UPDATE_ATTR_MAX_DATAGRAM_SIZE {
+		//FIXME: Currently not performing any aggregation, i.e. only one sample record per datagram
 	}
 }
 
