@@ -23,62 +23,15 @@
 package server
 
 import (
-	"bytes"
 	"github.com/Cistern/sflow"
 	"infra/statsd/objects"
 	"net"
 )
 
 const (
-	SFLOW_SUB_AGENT_ID        = 0
-	ETHERNET_ISO88023  uint32 = 1 //Sflow Dgram Protocol ID from Sflowv5 spec
+	SFLOW_SUB_AGENT_ID uint32 = 0
+	ETHERNET_ISO88023         = 1 //Sflow Dgram Protocol ID from Sflowv5 spec
 )
-
-func (srvr *sflowServer) constructFlowSampleDgram(encoder *sflow.Encoder,
-	rcrdSeqNum *sflowRecordSeqNum, sflowRcrd sflowRecordInfo) sflowDgram {
-	var lenToSend int
-
-	/*
-	 - Any required packet parsing logic can be added here if/when needed
-	 - Currently generating a flow record from byte stream as is
-	 - Protocol is alway ethernet
-	*/
-	maxLen := int(srvr.sflowGblDB.maxSampledSize)
-	if len(sflowRcrd.sflowData) < maxLen {
-		lenToSend = len(sflowRcrd.sflowData)
-	} else {
-		lenToSend = maxLen + 1
-	}
-	rcrd := sflow.RawPacketFlow{
-		Protocol:    ETHERNET_ISO88023,
-		FrameLength: uint32(len(sflowRcrd.sflowData)),
-		Stripped:    0,
-		HeaderSize:  uint32(len(sflowRcrd.sflowData[:lenToSend])),
-		Header:      sflowRcrd.sflowData[:lenToSend],
-	}
-	flowSample := &sflow.FlowSample{
-		SequenceNum:      rcrdSeqNum.flowSampleSeqNum,
-		SourceIdType:     0,
-		SourceIdIndexVal: uint32(sflowRcrd.ifIndex),
-		SamplingRate:     uint32(srvr.sflowIntfDB[sflowRcrd.ifIndex].samplingRate),
-		Input:            uint32(sflowRcrd.ifIndex),
-		Records:          []sflow.Record{rcrd},
-	}
-	//Update flowsample seq num
-	rcrdSeqNum.flowSampleSeqNum += 1
-
-	//Encode flow sample to generate byte stream
-	var buf bytes.Buffer
-	var dgram *flowSampleDgram
-	err := encoder.Encode(&buf, []sflow.Sample{flowSample})
-	if err == nil {
-		dgram = &flowSampleDgram{
-			buf:        buf,
-			numSamples: int32(len(flowSample.Records)),
-		}
-	}
-	return dgram
-}
 
 /*
  - Drain channels populated by interface pollers
@@ -88,11 +41,8 @@ func (srvr *sflowServer) constructFlowSampleDgram(encoder *sflow.Encoder,
 func (srvr *sflowServer) sflowCoreRx() {
 	//Internal DgramDB seqnum
 	var intSeqNum int32
-	//Sequence numbers for various record types
-	var rcrdSeqNum sflowRecordSeqNum
 	//sflow encoder
 	var encoder *sflow.Encoder
-
 	for {
 		select {
 		case sflowRcrd := <-srvr.sflowIntfRecordCh:
@@ -100,7 +50,7 @@ func (srvr *sflowServer) sflowCoreRx() {
 			 - Construct SFLOW v5 datagram and save in DgramDB
 			 - FIXME: Currently, One sample per datagram
 			*/
-			dgram := srvr.constructFlowSampleDgram(encoder, &rcrdSeqNum, sflowRcrd)
+			dgram := srvr.constructFlowSampleDgram(encoder, sflowRcrd)
 			if dgram != nil {
 				//Save record to DGRAM DB
 				if srvr.sflowDgramDB[sflowRcrd.ifIndex] == nil {
@@ -111,6 +61,31 @@ func (srvr *sflowServer) sflowCoreRx() {
 					srvr.sflowDgramRdy <- &sflowDgramInfo{
 						idx: sflowDgramIdx{
 							ifIndex: sflowRcrd.ifIndex,
+							key:     intSeqNum,
+						},
+						dgram: dgram,
+					}
+					//Bump up seq number
+					intSeqNum += 1
+				}
+			}
+
+		case ctrRcrd := <-srvr.sflowIntfCtrRecordCh:
+			/*
+			 - Construct SFLOW v5 datagram and save in DgramDB
+			 - FIXME: Currently, One sample per datagram
+			*/
+			dgram := srvr.constructCounterSampleDgram(encoder, ctrRcrd)
+			if dgram != nil {
+				//Save record to DGRAM DB
+				if srvr.sflowDgramDB[ctrRcrd.ifIndex] == nil {
+					srvr.sflowDgramDB[ctrRcrd.ifIndex] = make(map[int32]sflowDgram)
+				} else {
+					srvr.sflowDgramDB[ctrRcrd.ifIndex][intSeqNum] = dgram
+					//Dispatch dgram info to listener
+					srvr.sflowDgramRdy <- &sflowDgramInfo{
+						idx: sflowDgramIdx{
+							ifIndex: ctrRcrd.ifIndex,
 							key:     intSeqNum,
 						},
 						dgram: dgram,

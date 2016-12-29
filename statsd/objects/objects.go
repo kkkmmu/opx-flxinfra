@@ -111,3 +111,25 @@ type SflowNetdevInfo struct {
 	IntfRef    string
 	NetDevName string
 }
+
+type SflowIntfCounterInfo struct {
+	OperState         bool
+	IfInOctets        uint64
+	IfInUcastPkts     uint64
+	IfInMcastPkts     uint64
+	IfInBcastPkts     uint64
+	IfInDiscards      uint64
+	IfInErrors        uint64
+	IfInUnknownProtos uint64
+	IfOutOctets       uint64
+	IfOutUcastPkts    uint64
+	IfOutMcastPkts    uint64
+	IfOutBcastPkts    uint64
+	IfOutDiscards     uint64
+	IfOutErrors       uint64
+}
+
+type SflowIntfCfgInfo struct {
+	Speed      int32
+	FullDuplex bool
+}

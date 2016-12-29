@@ -155,6 +155,7 @@ type sflowIntf struct {
 	numSflowSamplesExported int32
 	shutdownCh              chan bool
 	initCompleteCh          chan bool
+	restartCtrPollTicker    chan int32
 }
 
 type netDevData struct {
@@ -162,9 +163,49 @@ type netDevData struct {
 	netDevName string
 }
 
-type sflowRecordInfo struct {
+//Data format used by interface poller to send to core
+type flowSampleInfo struct {
 	ifIndex   int32
 	sflowData []byte
+}
+
+//Data format used by counter poller to send to core
+//Counter record types
+const (
+	GENERIC_IF_CTRS = 1
+)
+
+//Generic interface counter related defs
+const (
+	GEN_IF_CTR_SPEED           uint32 = 0
+	GEN_IF_CTR_DUPLEX                 = 1
+	GEN_IF_CTR_OPERSTATUS             = 2
+	GEN_IF_CTR_IN_OCTETS              = 3
+	GEN_IF_CTR_IN_UCAST_PKTS          = 4
+	GEN_IF_CTR_IN_MCAST_PKTS          = 5
+	GEN_IF_CTR_IN_BCAST_PKTS          = 6
+	GEN_IF_CTR_IN_DISCARDS            = 7
+	GEN_IF_CTR_IN_ERRORS              = 8
+	GEN_IF_CTR_IN_UNKNWN_PROTO        = 9
+	GEN_IF_CTR_OUT_OCTETS             = 10
+	GEN_IF_CTR_OUT_UCAST_PKTS         = 11
+	GEN_IF_CTR_OUT_MCAST_PKTS         = 12
+	GEN_IF_CTR_OUT_BCAST_PKTS         = 13
+	GEN_IF_CTR_OUT_DISCARDS           = 14
+	GEN_IF_CTR_OUT_ERRORS             = 15
+	GEN_IF_CTR_PROM_MODE              = 16
+)
+
+type counterInfo struct {
+	ifIndex     int32
+	ctrRcrdType uint8
+	ctrVals     map[uint32]uint64
+}
+
+//Sflow agent sample specific sequence numbers
+type sflowSampleSeqNum struct {
+	flowSampleSeqNum    uint32
+	counterSampleSeqNum uint32
 }
 
 type sflowServer struct {
@@ -175,10 +216,13 @@ type sflowServer struct {
 	sflowCollectorDBKeyCache []string
 	sflowIntfDB              map[int32]*sflowIntf
 	sflowIntfDBKeyCache      []int32
+	sflowSeqNum              sflowSampleSeqNum
 	//Data store for Sflow encoded datagrams, keyed by interface and running key count
 	sflowDgramDB map[int32]map[int32]sflowDgram
 	//Channel for interface poller to send sflow records to Dgram processor
-	sflowIntfRecordCh chan sflowRecordInfo
+	sflowIntfRecordCh chan *flowSampleInfo
+	//Channel for interface poller to send sflow counter records to Dgram processor
+	sflowIntfCtrRecordCh chan *counterInfo
 	//Channel to send Dgram ready for dispatch
 	sflowDgramRdy chan *sflowDgramInfo
 	//Channel list to send sflowRecord to collector

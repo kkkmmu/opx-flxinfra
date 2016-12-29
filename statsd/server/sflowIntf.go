@@ -31,6 +31,7 @@ func newSflowIntf() *sflowIntf {
 	obj := new(sflowIntf)
 	obj.shutdownCh = make(chan bool)
 	obj.initCompleteCh = make(chan bool)
+	obj.restartCtrPollTicker = make(chan int32)
 	return obj
 }
 
@@ -87,8 +88,13 @@ func (srvr *sflowServer) createSflowIntf(obj *objects.SflowIntf) {
 	//Handle post processing due to adding a new sflow interface
 	if obj.AdminState == objects.ADMIN_STATE_UP {
 		//Start poller for interface
-		intfRef := srvr.netDevInfo[ifIndex].netDevName
-		go sflowIntfObj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
+		go sflowIntfObj.intfPoller(&intfPollerInitParams{
+			netDevName:           srvr.netDevInfo[ifIndex].netDevName,
+			intfRef:              srvr.netDevInfo[ifIndex].intfRef,
+			sflowIntfRecordCh:    srvr.sflowIntfRecordCh,
+			sflowIntfCtrRecordCh: srvr.sflowIntfCtrRecordCh,
+			pollInterval:         srvr.sflowGblDB.counterPollInterval,
+		})
 		logger.Debug("Spawned interface poller go routine, pending on init complete")
 		//Pend on init complete channel
 		ok := <-sflowIntfObj.initCompleteCh
@@ -157,8 +163,13 @@ func (srvr *sflowServer) updateSflowIntf(oldObj, newObj *objects.SflowIntf, attr
 	if (mask & objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_INTF_UPDATE_ATTR_ADMIN_STATE {
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
 			//Start poller for interface
-			intfRef := srvr.netDevInfo[ifIndex].netDevName
-			go obj.intfPoller(intfRef, srvr.sflowIntfRecordCh)
+			go obj.intfPoller(&intfPollerInitParams{
+				netDevName:           srvr.netDevInfo[ifIndex].netDevName,
+				intfRef:              srvr.netDevInfo[ifIndex].intfRef,
+				sflowIntfRecordCh:    srvr.sflowIntfRecordCh,
+				sflowIntfCtrRecordCh: srvr.sflowIntfCtrRecordCh,
+				pollInterval:         srvr.sflowGblDB.counterPollInterval,
+			})
 			//Pend on init complete channel
 			ok := <-obj.initCompleteCh
 			if ok {
