@@ -28,6 +28,7 @@ import (
 	"infra/sysd/server"
 	"infra/sysd/sysdCommonDefs"
 	"models/objects"
+	"net"
 	"strings"
 	"sysd"
 	"utils/logging"
@@ -289,6 +290,195 @@ func (h *SYSDHandler) GetBulkSystemParamState(fromIdx sysd.Int, count sysd.Int) 
 	respList[0] = sysParamsResp
 	systemGetInfoResp.SystemParamStateList = respList
 	return systemGetInfoResp, nil
+}
+
+func validateTacacsConfig(conf *sysd.TacacsConfig) (bool, error) {
+	if conf.AuthService != "login" &&
+		conf.AuthService != "enable" &&
+		conf.AuthService != "ppp" &&
+		conf.AuthService != "arap" &&
+		conf.AuthService != "pt" &&
+		conf.AuthService != "rcmd" &&
+		conf.AuthService != "x25" &&
+		conf.AuthService != "nasi" &&
+		conf.AuthService != "fwproxy" {
+
+		return false, errors.New("Invalid value for AuthService")
+	}
+	if conf.Port <= 0 {
+		return false, errors.New("Invalid value for Port")
+	}
+	if conf.PrivilegeLevel < 1 || conf.PrivilegeLevel > 15 {
+		return false, errors.New("Invalid value for PrivilegeLevel")
+	}
+	if conf.Debug != 0 && conf.Debug != 1 {
+		return false, errors.New("Invalid value for Debug")
+	}
+	return true, nil
+}
+
+func (h *SYSDHandler) CreateTacacsConfig(tacacsConfig *sysd.TacacsConfig) (bool, error) {
+	trial := net.ParseIP(tacacsConfig.ServerIp)
+	if trial.To4() == nil && trial.To16() == nil {
+		return false, errors.New("Invalid value for ServerIp")
+	}
+	validationOk, err := validateTacacsConfig(tacacsConfig)
+	if !validationOk {
+		return false, err
+	}
+	conf := &server.TacacsConfig{
+		ServerIp: tacacsConfig.ServerIp,
+		SourceIntf: tacacsConfig.SourceIntf,
+		AuthService: tacacsConfig.AuthService,
+		Secret: tacacsConfig.Secret,
+		Port: tacacsConfig.Port,
+		PrivilegeLevel: tacacsConfig.PrivilegeLevel,
+		Debug: tacacsConfig.Debug,
+	}
+	return h.server.CreateTacacsConfig(conf)
+}
+
+func (h *SYSDHandler) UpdateTacacsConfig(origConf *sysd.TacacsConfig, newConf *sysd.TacacsConfig,
+	attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
+
+	validationOk, err := validateTacacsConfig(newConf)
+	if !validationOk {
+		return false, err
+	}
+	conf := &server.TacacsConfig{
+		ServerIp: newConf.ServerIp,
+		SourceIntf: newConf.SourceIntf,
+		AuthService: newConf.AuthService,
+		Secret: newConf.Secret,
+		Port: newConf.Port,
+		PrivilegeLevel: newConf.PrivilegeLevel,
+		Debug: newConf.Debug,
+	}
+	return h.server.UpdateTacacsConfig(conf)
+}
+
+func (h *SYSDHandler) DeleteTacacsConfig(tacacsConfig *sysd.TacacsConfig) (bool, error) {
+	return h.server.DeleteTacacsConfig(tacacsConfig.ServerIp)
+}
+
+func (h *SYSDHandler) GetTacacsState(name string) (*sysd.TacacsState, error) {
+	serverObj, err := h.server.GetTacacsState(name)
+	if err != nil {
+		return nil, err
+	}
+	retObj := &sysd.TacacsState{
+		ServerIp: serverObj.ServerIp,
+		SourceIntf: serverObj.SourceIntf,
+		AuthService: serverObj.AuthService,
+		Secret: serverObj.Secret,
+		Port: serverObj.Port,
+		PrivilegeLevel: serverObj.PrivilegeLevel,
+		Debug: serverObj.Debug,
+		ConnFailReason: serverObj.ConnFailReason,
+	}
+	return retObj, nil
+}
+
+func (h *SYSDHandler) GetBulkTacacsState(fromIdx sysd.Int, count sysd.Int) (*sysd.TacacsStateGetInfo, error) {
+	result := &sysd.TacacsStateGetInfo{}
+	nextIdx, actualCount, more, tacacsStateSlice :=
+			h.server.GetTacacsStateSlice(int(fromIdx), int(count))
+
+	result.StartIdx = sysd.Int(fromIdx)
+	result.EndIdx = sysd.Int(nextIdx)
+	result.Count = sysd.Int(actualCount)
+	result.More = more
+	result.TacacsStateList = []*sysd.TacacsState{}
+	for _, tacacsState := range tacacsStateSlice {
+		tmp := &sysd.TacacsState{
+			ServerIp: tacacsState.ServerIp,
+			SourceIntf: tacacsState.SourceIntf,
+			AuthService: tacacsState.AuthService,
+			Secret: tacacsState.Secret,
+			Port: tacacsState.Port,
+			PrivilegeLevel: tacacsState.PrivilegeLevel,
+			Debug: tacacsState.Debug,
+			ConnFailReason: tacacsState.ConnFailReason,
+		}
+		result.TacacsStateList = append(result.TacacsStateList, tmp)
+	}
+	return result, nil
+}
+
+func validateTacacsGlobalConfig(conf *sysd.TacacsGlobalConfig) (bool, error) {
+	if conf.Enable != "true" && conf.Enable != "false" {
+		return false, errors.New("Invalid value for Enable")
+	}
+	if conf.Timeout < 0 {
+		return false, errors.New("Invalid value for Timeout")
+	}
+	return true, nil
+}
+
+func (h *SYSDHandler) CreateTacacsGlobalConfig(tacacsGlobalConfig *sysd.TacacsGlobalConfig) (bool, error) {
+	validationOk, err := validateTacacsGlobalConfig(tacacsGlobalConfig)
+	if !validationOk {
+		return false, err
+	}	
+	conf := &server.TacacsGlobalConfig{
+		ProfileName: tacacsGlobalConfig.ProfileName,
+		Enable: tacacsGlobalConfig.Enable,
+		Timeout: tacacsGlobalConfig.Timeout,
+	}
+	return h.server.CreateTacacsGlobalConfig(conf)
+}
+
+func (h *SYSDHandler) UpdateTacacsGlobalConfig(origConf *sysd.TacacsGlobalConfig, newConf *sysd.TacacsGlobalConfig,
+	attrset []bool, op []*sysd.PatchOpInfo) (bool, error) {
+
+	validationOk, err := validateTacacsGlobalConfig(newConf)
+	if !validationOk {
+		return false, err
+	}
+	conf := &server.TacacsGlobalConfig{
+		ProfileName: newConf.ProfileName,
+		Enable: newConf.Enable,
+		Timeout: newConf.Timeout,
+	}
+	return h.server.UpdateTacacsGlobalConfig(conf)
+}
+
+func (h *SYSDHandler) DeleteTacacsGlobalConfig(tacacsGlobalConfig *sysd.TacacsGlobalConfig) (bool, error) {
+	return false, nil
+}
+
+func (h *SYSDHandler) GetTacacsGlobalState(name string) (*sysd.TacacsGlobalState, error) {
+	serverObj, err := h.server.GetTacacsGlobalState(name)
+	if err != nil {
+		return nil, err
+	}
+	retObj := &sysd.TacacsGlobalState{
+		ProfileName: serverObj.ProfileName,
+		OperStatus: serverObj.OperStatus,
+		NumActiveSessions: serverObj.NumActiveSessions,
+	}
+	return retObj, nil
+}
+
+func (h *SYSDHandler) GetBulkTacacsGlobalState(fromIdx sysd.Int, count sysd.Int) (*sysd.TacacsGlobalStateGetInfo, error) {
+	result := &sysd.TacacsGlobalStateGetInfo{}
+	nextIdx, actualCount, more, tacacsGlobalStateSlice :=
+			h.server.GetTacacsGlobalStateSlice(int(fromIdx), int(count))
+
+	result.StartIdx = sysd.Int(fromIdx)
+	result.EndIdx = sysd.Int(nextIdx)
+	result.Count = sysd.Int(actualCount)
+	result.More = more
+	result.TacacsGlobalStateList = []*sysd.TacacsGlobalState{}
+	for _, tacacsGlobalState := range tacacsGlobalStateSlice {
+		tmp := &sysd.TacacsGlobalState{
+			ProfileName: tacacsGlobalState.ProfileName,
+			OperStatus: tacacsGlobalState.OperStatus,
+			NumActiveSessions: tacacsGlobalState.NumActiveSessions,
+		}
+		result.TacacsGlobalStateList = append(result.TacacsGlobalStateList, tmp)
+	}
+	return result, nil
 }
 
 /*********************** SYSD INTERNAL API **************************/
