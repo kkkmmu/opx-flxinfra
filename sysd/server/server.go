@@ -82,6 +82,7 @@ type SYSDServer struct {
 	SysInfo                  *objects.SystemParam
 	SysUpdCh                 chan *SystemParamUpdate
 	DaemonStateDBCh          chan string
+	tacacsMgr                *TacacsManager
 }
 
 func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir string) *SYSDServer {
@@ -96,6 +97,7 @@ func NewSYSDServer(logger *logging.Writer, dbHdl *dbutils.DBUtil, paramsDir stri
 	sysdServer.notificationCh = make(chan []byte)
 	sysdServer.SystemParamConfig = make(chan objects.SystemParam)
 	sysdServer.SysUpdCh = make(chan *SystemParamUpdate)
+	sysdServer.tacacsMgr = NewTacacsManager()
 	return sysdServer
 }
 
