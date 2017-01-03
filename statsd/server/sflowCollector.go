@@ -73,18 +73,18 @@ func (srvr *sflowServer) createSflowCollector(obj *objects.SflowCollector) {
 	srvr.sflowCollectorDB[obj.IpAddr] = sflowCollectorObj
 	srvr.dbMutex.Unlock()
 
-	//If AdminState is 'UP', spawn collector go routine
-	if obj.AdminState == objects.ADMIN_STATE_UP {
-		logger.Debug("createSflowCollector: Spawning collector TX go routine")
-		go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
-		//Pend on init complete channel
-		logger.Debug("createSflowCollector: Waiting on collector TX go routine init complete chan")
-		ok := <-sflowCollectorObj.initCompleteCh
-		if ok {
-			//Register collector's channel with server to receive sflow dgrams
-			srvr.dbMutex.Lock()
-			srvr.sflowDgramToCollector[obj.IpAddr] = sflowCollectorObj.dgramRcvCh
-			srvr.dbMutex.Unlock()
+	//If local and global AdminState are 'UP', spawn collector go routine
+	if srvr.sflowGblDB.adminState == objects.ADMIN_STATE_UP {
+		if obj.AdminState == objects.ADMIN_STATE_UP {
+			logger.Debug("createSflowCollector: Spawning collector TX go routine")
+			go sflowCollectorObj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
+			//Pend on init complete channel
+			logger.Debug("createSflowCollector: Waiting on collector TX go routine init complete chan")
+			ok := <-sflowCollectorObj.initCompleteCh
+			if ok {
+				//Register collector's channel with server to receive sflow dgrams
+				srvr.regUnregCollectorCh <- &collectorChanInfo{OP_REGISTER, obj.IpAddr, sflowCollectorObj.dgramRcvCh}
+			}
 		}
 	}
 
@@ -120,58 +120,59 @@ func genSflowCollectorUpdateMask(attrset []bool) uint8 {
 	return mask
 }
 
-func (srvr *sflowServer) updateSflowCollector(oldObj, newObj *objects.SflowCollector, attrset []bool) {
-	var txRunning bool
+func (srvr *sflowServer) updateSflowCollectorAdminState(obj *sflowCollector, adminState string) {
+	if adminState == objects.ADMIN_STATE_UP {
+		go obj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
+		ok := <-obj.initCompleteCh
+		if ok {
+			//Register collector's channel with server to receive sflow dgrams
+			srvr.regUnregCollectorCh <- &collectorChanInfo{OP_REGISTER, obj.ipAddr, obj.dgramRcvCh}
+		}
+	} else if adminState == objects.ADMIN_STATE_DOWN {
+		//Send shutdown to collector routine, if operstate is UP
+		if obj.operstate == objects.ADMIN_STATE_UP {
+			//Unregister collector's channel with server to stop receiving sflow dgrams
+			srvr.regUnregCollectorCh <- &collectorChanInfo{OP_UNREGISTER, obj.ipAddr, nil}
+			//Wait for reg/unreg completion
+			_ = <-srvr.collectorChRegUnregAck
+			//Shutdown collector tx routine
+			obj.shutdownCollectorTx()
+		}
+	}
+}
 
+func (srvr *sflowServer) updateSflowCollector(oldObj, newObj *objects.SflowCollector, attrset []bool) {
 	srvr.dbMutex.Lock()
 	obj := srvr.sflowCollectorDB[newObj.IpAddr]
 	obj.udpPort = newObj.UdpPort
 	obj.adminState = newObj.AdminState
 	srvr.dbMutex.Unlock()
 
+	//Handle admin state update only if global admin state is UP
+	if srvr.sflowGblDB.adminState == objects.ADMIN_STATE_DOWN {
+		return
+	}
+
 	mask := genSflowCollectorUpdateMask(attrset)
-	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT {
-		if oldObj.AdminState == objects.ADMIN_STATE_UP {
-			//Send shutdown to collector routine, if operstate is UP
-			if obj.operstate == objects.ADMIN_STATE_UP {
-				//Unregister collector's channel with server to stop receiving sflow dgrams
-				srvr.dbMutex.Lock()
-				delete(srvr.sflowDgramToCollector, obj.ipAddr)
-				srvr.dbMutex.Unlock()
-				obj.shutdownCh <- true
-			}
+	if ((mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_UDP_PORT) ||
+		((mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) {
+		//Send shutdown to collector routine, if operstate is UP
+		if obj.operstate == objects.ADMIN_STATE_UP {
+			//Unregister collector's channel with server to stop receiving sflow dgrams
+			srvr.regUnregCollectorCh <- &collectorChanInfo{OP_UNREGISTER, obj.ipAddr, nil}
+			//Wait for reg/unreg completion
+			_ = <-srvr.collectorChRegUnregAck
+			//Shutdown collector tx routine
+			obj.shutdownCollectorTx()
 		}
+		//Restart collector go routine only if new admin state is UP
 		if newObj.AdminState == objects.ADMIN_STATE_UP {
 			go obj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
 			//Pend on init complete channel
 			ok := <-obj.initCompleteCh
 			if ok {
 				//Register collector's channel with server to receive sflow dgrams
-				srvr.dbMutex.Lock()
-				srvr.sflowDgramToCollector[obj.ipAddr] = obj.dgramRcvCh
-				srvr.dbMutex.Unlock()
-				txRunning = true
-			}
-		}
-	}
-	if (mask & objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_COLLECTOR_UPDATE_ATTR_ADMIN_STATE {
-		if (newObj.AdminState == objects.ADMIN_STATE_UP) && !txRunning {
-			go obj.collectorTx(srvr.sflowDgramSentReceiptCh, srvr.collectorTerminatedCh)
-			ok := <-obj.initCompleteCh
-			if ok {
-				//Register collector's channel with server to receive sflow dgrams
-				srvr.dbMutex.Lock()
-				srvr.sflowDgramToCollector[obj.ipAddr] = obj.dgramRcvCh
-				srvr.dbMutex.Unlock()
-			}
-		} else if newObj.AdminState == objects.ADMIN_STATE_DOWN {
-			//Send shutdown to collector routine, if operstate is UP
-			if obj.operstate == objects.ADMIN_STATE_UP {
-				//Unregister collector's channel with server to stop receiving sflow dgrams
-				srvr.dbMutex.Lock()
-				delete(srvr.sflowDgramToCollector, obj.ipAddr)
-				srvr.dbMutex.Unlock()
-				obj.shutdownCh <- true
+				srvr.regUnregCollectorCh <- &collectorChanInfo{OP_REGISTER, obj.ipAddr, obj.dgramRcvCh}
 			}
 		}
 	}
@@ -202,10 +203,11 @@ func (srvr *sflowServer) deleteSflowCollector(obj *objects.SflowCollector) {
 		//Send shutdown to collector routine, if operstate is UP
 		if sflowCollectorObj.operstate == objects.ADMIN_STATE_UP {
 			//Unregister collector's channel with server to stop receiving sflow dgrams
-			srvr.dbMutex.Lock()
-			delete(srvr.sflowDgramToCollector, sflowCollectorObj.ipAddr)
-			srvr.dbMutex.Unlock()
-			sflowCollectorObj.shutdownCh <- true
+			srvr.regUnregCollectorCh <- &collectorChanInfo{OP_UNREGISTER, sflowCollectorObj.ipAddr, nil}
+			//Wait for reg/unreg completion
+			_ = <-srvr.collectorChRegUnregAck
+			//Shutdown collector tx routine
+			sflowCollectorObj.shutdownCollectorTx()
 		}
 	}
 

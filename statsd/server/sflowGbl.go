@@ -130,11 +130,30 @@ func (srvr *sflowServer) updateSflowGlobal(oldObj, newObj *objects.SflowGlobal, 
 
 	mask := genSflowGlobalUpdateMask(attrset)
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE) == objects.SFLOW_GLOBAL_UPDATE_ATTR_ADMIN_STATE {
+		//Hold the global lock to gate all other configurations from being accepted
+		srvr.dbMutex.Lock()
 		if newObj.AdminState == objects.ADMIN_STATE_DOWN {
 			//Effect admin down processing on all sflow collector/sflow interface go routines
+			for ifIndex, intf := range srvr.sflowIntfDB {
+				srvr.updateSflowIntfAdminState(intf, ifIndex, objects.ADMIN_STATE_DOWN)
+			}
+			for _, collector := range srvr.sflowCollectorDB {
+				srvr.updateSflowCollectorAdminState(collector, objects.ADMIN_STATE_DOWN)
+			}
 		} else {
 			//Effect admin up processing on all sflow collector/sflow interface go routines
+			for ifIndex, intf := range srvr.sflowIntfDB {
+				if intf.adminState == objects.ADMIN_STATE_UP {
+					srvr.updateSflowIntfAdminState(intf, ifIndex, objects.ADMIN_STATE_UP)
+				}
+			}
+			for _, collector := range srvr.sflowCollectorDB {
+				if collector.adminState == objects.ADMIN_STATE_UP {
+					srvr.updateSflowCollectorAdminState(collector, objects.ADMIN_STATE_UP)
+				}
+			}
 		}
+		srvr.dbMutex.Unlock()
 	}
 	if (mask & objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR) == objects.SFLOW_GLOBAL_UPDATE_ATTR_AGENT_IPADDR {
 		srvr.sflowGblDB.agentIpAddr = newObj.AgentIpAddr

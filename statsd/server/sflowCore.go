@@ -115,14 +115,29 @@ func (srvr *sflowServer) sflowCoreRx() {
 func (srvr *sflowServer) sflowCoreTx() {
 	//Refcounter used to track when to free dgrams from DB
 	var refCounter map[sflowDgramIdx]map[string]bool = make(map[sflowDgramIdx]map[string]bool)
+	var sflowDgramToCollector map[string]chan *sflowDgramInfo = make(map[string]chan *sflowDgramInfo)
 
 	for {
 		select {
+		case collectorChInfo := <-srvr.regUnregCollectorCh:
+			//Handle registration/deregistration of collector channels
+			if collectorChInfo.operation == OP_REGISTER {
+				logger.Debug("Registering collector channel info for new collector : ", collectorChInfo.collectorIP)
+				sflowDgramToCollector[collectorChInfo.collectorIP] = collectorChInfo.collectorCh
+			} else {
+				if _, ok := sflowDgramToCollector[collectorChInfo.collectorIP]; ok {
+					delete(sflowDgramToCollector, collectorChInfo.collectorIP)
+				}
+				logger.Debug("De registered collector channel info for collector : ", collectorChInfo.collectorIP)
+				//Send ack
+				srvr.collectorChRegUnregAck <- true
+			}
+
 		case dgram := <-srvr.sflowDgramRdy:
 			var sendCnt int
 			logger.Debug("SflowCoreTx: Received sflow dgram ready. Sending to collectors")
 			refCounter[dgram.idx] = make(map[string]bool)
-			for collectorId, ch := range srvr.sflowDgramToCollector {
+			for collectorId, ch := range sflowDgramToCollector {
 				ch <- dgram
 				//Insert id into map to aid with refCnt
 				refCounter[dgram.idx][collectorId] = true
