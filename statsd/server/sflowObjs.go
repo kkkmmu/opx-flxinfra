@@ -208,6 +208,17 @@ type sflowSampleSeqNum struct {
 	counterSampleSeqNum uint32
 }
 
+const (
+	OP_REGISTER   = 0x1
+	OP_UNREGISTER = 0x2
+)
+
+type collectorChanInfo struct {
+	operation   uint8
+	collectorIP string
+	collectorCh chan *sflowDgramInfo
+}
+
 type sflowServer struct {
 	dbMutex                  sync.RWMutex
 	netDevInfo               map[int32]netDevData
@@ -225,8 +236,10 @@ type sflowServer struct {
 	sflowIntfCtrRecordCh chan *counterInfo
 	//Channel to send Dgram ready for dispatch
 	sflowDgramRdy chan *sflowDgramInfo
-	//Channel list to send sflowRecord to collector
-	sflowDgramToCollector map[string]chan *sflowDgramInfo
+	//Channel to send collector chan info to core
+	regUnregCollectorCh chan *collectorChanInfo
+	//Channel used by core to ack reg/unreg collector chan
+	collectorChRegUnregAck chan bool
 	//Response channel from collector routines
 	sflowDgramSentReceiptCh chan *dgramSentRcpt
 	//Channel to send bye msgs from collector

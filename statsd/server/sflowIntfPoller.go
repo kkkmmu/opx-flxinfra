@@ -171,3 +171,7 @@ func (intf *sflowIntf) startCounterPoller(intfRef string, sflowIntfCtrRecordCh c
 		}
 	}
 }
+
+func (intf *sflowIntf) shutdownIntfPoller() {
+	intf.shutdownCh <- true
+}
