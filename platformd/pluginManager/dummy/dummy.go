@@ -99,6 +99,11 @@ func (driver *dummyDriver) GetSfpCnt() int {
 	return 0
 }
 
+func (driver *dummyDriver) GetSfpPortMap() ([]pluginCommon.SfpState, int) {
+	driver.logger.Info("GetSfpPortMap")
+	return nil, 0
+}
+
 func (driver *dummyDriver) GetPlatformState() (pluginCommon.PlatformState, error) {
 	var retObj pluginCommon.PlatformState
 

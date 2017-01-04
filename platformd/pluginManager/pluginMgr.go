@@ -29,6 +29,7 @@ import (
 	"infra/platformd/pluginManager/dummy"
 	"infra/platformd/pluginManager/onlp"
 	"infra/platformd/pluginManager/openBMC"
+	"infra/platformd/pluginManager/openBMCOpen19"
 	"infra/platformd/pluginManager/openBMCVoyager"
 	"infra/platformd/pluginManager/pluginCommon"
 	"strings"
@@ -46,6 +47,7 @@ type PluginIntf interface {
 	UpdateSfpConfig(cfg *objects.SfpConfig) (bool, error)
 	GetAllSfpState(state []pluginCommon.SfpState, count int) error
 	GetSfpCnt() int
+	GetSfpPortMap() ([]pluginCommon.SfpState, int)
 
 	GetThermalState(thermalId int32) (pluginCommon.ThermalState, error)
 	GetAllThermalState(state []pluginCommon.ThermalState, count int) error
@@ -117,6 +119,13 @@ func NewPluginMgr(initParams *pluginCommon.PluginInitParams) (*PluginManager, er
 	case pluginCommon.OpenBMCVoyager_PLUGIN:
 		fmt.Println("===== OPENBMCVOYAGER_PLUGIN =====")
 		plugin, err = openBMCVoyager.NewOpenBMCVoyagerPlugin(initParams)
+		if err != nil {
+			return nil, err
+		}
+		pluginMgr.plugin = plugin
+	case pluginCommon.OpenBMCOpen19_PLUGIN:
+		fmt.Println("===== OpenBMCOpen19_PLUGIN =====")
+		plugin, err = openBMCOpen19.NewOpenBMCOpen19Plugin(initParams)
 		if err != nil {
 			return nil, err
 		}

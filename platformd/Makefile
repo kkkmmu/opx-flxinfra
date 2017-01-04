@@ -4,6 +4,7 @@ MKDIR = mkdir -p
 DESTDIR=$(SR_CODE_BASE)/snaproute/src/out/bin
 SR_PLATFORMD_CODE_BASE=$(SR_CODE_BASE)/snaproute/src/infra/platformd
 PARAMSDIR = $(DESTDIR)/params
+PLATFORMDIR = $(PARAMSDIR)/platformd
 GENERATED_IPC=$(SR_CODE_BASE)/generated/src
 IPC_GEN_CMD=thrift
 SRCS=main.go
@@ -30,7 +31,7 @@ ipc:
 	$(IPC_GEN_CMD) -r --gen go -out $(GENERATED_IPC) $(IPC_SRCS)
 
 exe: $(SRCS)
-	bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
+	@bash makeSymLinks.sh $(PLATFORM_BUILD_TARGET)
 	go build -o $(DESTDIR)/$(COMP_NAME) -ldflags="$(GOLDFLAGS)" $(SRCS)
 
 guard:
@@ -39,18 +40,13 @@ ifndef SR_CODE_BASE
 endif
 
 install:
-	$(MKDIR) $(PARAMSDIR)
-ifeq ($(PLATFORM_BUILD_TARGET), openBMC)
-	install params/openBMC_platformd.conf $(PARAMSDIR)/platformd.conf
-else ifeq ($(PLATFORM_BUILD_TARGET), onlp)
-	install params/onlp_platformd.conf $(PARAMSDIR)/platformd.conf
-else ifeq ($(PLATFORM_BUILD_TARGET), dummy)
-	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
-else ifeq ($(PLATFORM_BUILD_TARGET), openBMCVoyager)
-	install params/openBMCVoyager_platformd.conf $(PARAMSDIR)/platformd.conf
-else
-	install params/dummy_platformd.conf $(PARAMSDIR)/platformd.conf
-endif
+	$(MKDIR) $(PLATFORMDIR)
+	install params/openBMC_platformd.conf $(PLATFORMDIR)/openBMC_platformd.conf
+	install params/onlp_platformd.conf $(PLATFORMDIR)/onlp_platformd.conf
+	install params/dummy_platformd.conf $(PLATFORMDIR)/dummy_platformd.conf
+	install params/openBMCVoyager_platformd.conf $(PLATFORMDIR)/openBMCVoyager_platformd.conf
+	install params/openBMCOpen19_platform.conf $(PLATFORMDIR)/openBMCOpen19_platform.conf
+	install params/dummy_platformd.conf $(PLATFORMDIR)/dummy_platformd.conf
 
 clean:guard
 	$(RM) $(DESTDIR)/$(COMP_NAME)

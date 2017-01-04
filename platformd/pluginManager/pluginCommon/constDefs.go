@@ -34,6 +34,14 @@ const (
 	OpenBMC_PLUGIN        = "openbmc"
 	OpenBMCVoyager_PLUGIN = "openbmcvoyager"
 	Dummy_PLUGIN          = "dummy"
+	OpenBMCOpen19_PLUGIN  = "openbmcopen19"
+)
+
+// SfpMgr CONST
+const (
+	SFP_MGR_SOCK_ADDR = "ipc:///tmp/platform_sfpmgr.ipc"
+	NOTIFY_SFP_ADD    = 1
+	NOTIFY_SFP_REMOVE = 1
 )
 
 type PluginInitParams struct {
@@ -105,4 +113,9 @@ type LedState struct {
 	LedIdentify string
 	LedState    string
 	LedColor    string
+}
+
+type NotifyMsg struct {
+	MsgType int
+	Msg     []byte
 }
