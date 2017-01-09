@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"models/objects"
 	"os"
 	"os/exec"
 	"strings"
@@ -72,7 +73,7 @@ func check(e error) {
 
 type TacacsConfig struct {
 	ServerIp       string
-	SourceIntf       string
+	SourceIntf     string
 	AuthService    string
 	Secret         string
 	Port           int16
@@ -82,7 +83,7 @@ type TacacsConfig struct {
 
 type TacacsState struct {
 	ServerIp       string
-	SourceIntf       string
+	SourceIntf     string
 	AuthService    string
 	Secret         string
 	Port           int16
@@ -106,7 +107,7 @@ type TacacsGlobalState struct {
 type TacacsManager struct {
 	TacacsStateSlice     []*TacacsState
 	TacacsStateMap       map[string]*TacacsState
-	TacacsGlobalStateObj    *TacacsGlobalState
+	TacacsGlobalStateObj *TacacsGlobalState
 }
 
 func NewTacacsManager() *TacacsManager {
@@ -115,6 +116,65 @@ func NewTacacsManager() *TacacsManager {
 	mgr.TacacsStateMap = make(map[string]*TacacsState)
 	mgr.TacacsGlobalStateObj = &TacacsGlobalState{}
 	return mgr
+}
+
+func convertTacacsObjToLocalType(
+	modelObj *objects.TacacsConfig) *TacacsConfig {
+
+	return &TacacsConfig{
+		ServerIp:       modelObj.ServerIp,
+		SourceIntf:     modelObj.SourceIntf,
+		AuthService:    modelObj.AuthService,
+		Secret:         modelObj.Secret,
+		Port:           modelObj.Port,
+		PrivilegeLevel: modelObj.PrivilegeLevel,
+		Debug:          modelObj.Debug,
+	}
+}
+
+func convertTacacsGlobalObjToLocalType(
+	modelObj *objects.TacacsGlobalConfig) *TacacsGlobalConfig {
+
+	return &TacacsGlobalConfig{
+		ProfileName: modelObj.ProfileName,
+		Enable:      modelObj.Enable,
+		Timeout:     modelObj.Timeout,
+	}
+}
+
+func (server *SYSDServer) ReadTacacsConfigFromDB() error {
+	server.logger.Info("Reading Tacacs Global Config From Db")
+	if server.dbHdl != nil {
+		var dbObj objects.TacacsGlobalConfig
+		objList, err := server.dbHdl.GetAllObjFromDb(dbObj)
+		if err != nil {
+			server.logger.Err("DB query failed for TacacsGlobalConfig")
+			return err
+		}
+		for idx := 0; idx < len(objList); idx++ {
+			dbObject := objList[idx].(objects.TacacsGlobalConfig)
+			localObj := convertTacacsGlobalObjToLocalType(&dbObject)
+			server.CreateTacacsGlobalConfig(localObj)
+		}
+	}
+	server.logger.Info("Reading Tacacs Global Config done")
+
+	server.logger.Info("Reading Tacacs Config From Db")
+	if server.dbHdl != nil {
+		var dbObj objects.TacacsConfig
+		objList, err := server.dbHdl.GetAllObjFromDb(dbObj)
+		if err != nil {
+			server.logger.Err("DB query failed for TacacsConfig")
+			return err
+		}
+		for idx := 0; idx < len(objList); idx++ {
+			dbObject := objList[idx].(objects.TacacsConfig)
+			localObj := convertTacacsObjToLocalType(&dbObject)
+			server.CreateTacacsConfig(localObj)
+		}
+	}
+	server.logger.Info("Reading Tacacs Config done")
+	return nil
 }
 
 func (server *SYSDServer) checkPackage(pkgName string) bool {
@@ -465,16 +525,16 @@ func (server *SYSDServer) GetTacacsStateSlice(
 	var actualCount int
 	length := len(server.tacacsMgr.TacacsStateSlice)
 	if fromIdx < 0 || fromIdx >= length || count <= 0 {
-			return 0, 0, false, []*TacacsState{}
+		return 0, 0, false, []*TacacsState{}
 	}
 	if fromIdx+count >= length {
-			actualCount = length - fromIdx
-			nextIdx = 0
-			more = false
+		actualCount = length - fromIdx
+		nextIdx = 0
+		more = false
 	} else {
-			actualCount = count
-			nextIdx = fromIdx + count
-			more = true
+		actualCount = count
+		nextIdx = fromIdx + count
+		more = true
 	}
 
 	result := make([]*TacacsState, actualCount)
