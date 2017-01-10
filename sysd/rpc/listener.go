@@ -327,13 +327,13 @@ func (h *SYSDHandler) CreateTacacsConfig(tacacsConfig *sysd.TacacsConfig) (bool,
 		return false, err
 	}
 	conf := &server.TacacsConfig{
-		ServerIp: tacacsConfig.ServerIp,
-		SourceIntf: tacacsConfig.SourceIntf,
-		AuthService: tacacsConfig.AuthService,
-		Secret: tacacsConfig.Secret,
-		Port: tacacsConfig.Port,
+		ServerIp:       tacacsConfig.ServerIp,
+		SourceIntf:     tacacsConfig.SourceIntf,
+		AuthService:    tacacsConfig.AuthService,
+		Secret:         tacacsConfig.Secret,
+		Port:           tacacsConfig.Port,
 		PrivilegeLevel: tacacsConfig.PrivilegeLevel,
-		Debug: tacacsConfig.Debug,
+		Debug:          tacacsConfig.Debug,
 	}
 	return h.server.CreateTacacsConfig(conf)
 }
@@ -346,13 +346,13 @@ func (h *SYSDHandler) UpdateTacacsConfig(origConf *sysd.TacacsConfig, newConf *s
 		return false, err
 	}
 	conf := &server.TacacsConfig{
-		ServerIp: newConf.ServerIp,
-		SourceIntf: newConf.SourceIntf,
-		AuthService: newConf.AuthService,
-		Secret: newConf.Secret,
-		Port: newConf.Port,
+		ServerIp:       newConf.ServerIp,
+		SourceIntf:     newConf.SourceIntf,
+		AuthService:    newConf.AuthService,
+		Secret:         newConf.Secret,
+		Port:           newConf.Port,
 		PrivilegeLevel: newConf.PrivilegeLevel,
-		Debug: newConf.Debug,
+		Debug:          newConf.Debug,
 	}
 	return h.server.UpdateTacacsConfig(conf)
 }
@@ -367,13 +367,13 @@ func (h *SYSDHandler) GetTacacsState(name string) (*sysd.TacacsState, error) {
 		return nil, err
 	}
 	retObj := &sysd.TacacsState{
-		ServerIp: serverObj.ServerIp,
-		SourceIntf: serverObj.SourceIntf,
-		AuthService: serverObj.AuthService,
-		Secret: serverObj.Secret,
-		Port: serverObj.Port,
+		ServerIp:       serverObj.ServerIp,
+		SourceIntf:     serverObj.SourceIntf,
+		AuthService:    serverObj.AuthService,
+		Secret:         serverObj.Secret,
+		Port:           serverObj.Port,
 		PrivilegeLevel: serverObj.PrivilegeLevel,
-		Debug: serverObj.Debug,
+		Debug:          serverObj.Debug,
 		ConnFailReason: serverObj.ConnFailReason,
 	}
 	return retObj, nil
@@ -382,7 +382,7 @@ func (h *SYSDHandler) GetTacacsState(name string) (*sysd.TacacsState, error) {
 func (h *SYSDHandler) GetBulkTacacsState(fromIdx sysd.Int, count sysd.Int) (*sysd.TacacsStateGetInfo, error) {
 	result := &sysd.TacacsStateGetInfo{}
 	nextIdx, actualCount, more, tacacsStateSlice :=
-			h.server.GetTacacsStateSlice(int(fromIdx), int(count))
+		h.server.GetTacacsStateSlice(int(fromIdx), int(count))
 
 	result.StartIdx = sysd.Int(fromIdx)
 	result.EndIdx = sysd.Int(nextIdx)
@@ -391,13 +391,13 @@ func (h *SYSDHandler) GetBulkTacacsState(fromIdx sysd.Int, count sysd.Int) (*sys
 	result.TacacsStateList = []*sysd.TacacsState{}
 	for _, tacacsState := range tacacsStateSlice {
 		tmp := &sysd.TacacsState{
-			ServerIp: tacacsState.ServerIp,
-			SourceIntf: tacacsState.SourceIntf,
-			AuthService: tacacsState.AuthService,
-			Secret: tacacsState.Secret,
-			Port: tacacsState.Port,
+			ServerIp:       tacacsState.ServerIp,
+			SourceIntf:     tacacsState.SourceIntf,
+			AuthService:    tacacsState.AuthService,
+			Secret:         tacacsState.Secret,
+			Port:           tacacsState.Port,
 			PrivilegeLevel: tacacsState.PrivilegeLevel,
-			Debug: tacacsState.Debug,
+			Debug:          tacacsState.Debug,
 			ConnFailReason: tacacsState.ConnFailReason,
 		}
 		result.TacacsStateList = append(result.TacacsStateList, tmp)
@@ -419,11 +419,11 @@ func (h *SYSDHandler) CreateTacacsGlobalConfig(tacacsGlobalConfig *sysd.TacacsGl
 	validationOk, err := validateTacacsGlobalConfig(tacacsGlobalConfig)
 	if !validationOk {
 		return false, err
-	}	
+	}
 	conf := &server.TacacsGlobalConfig{
 		ProfileName: tacacsGlobalConfig.ProfileName,
-		Enable: tacacsGlobalConfig.Enable,
-		Timeout: tacacsGlobalConfig.Timeout,
+		Enable:      tacacsGlobalConfig.Enable,
+		Timeout:     tacacsGlobalConfig.Timeout,
 	}
 	return h.server.CreateTacacsGlobalConfig(conf)
 }
@@ -437,8 +437,8 @@ func (h *SYSDHandler) UpdateTacacsGlobalConfig(origConf *sysd.TacacsGlobalConfig
 	}
 	conf := &server.TacacsGlobalConfig{
 		ProfileName: newConf.ProfileName,
-		Enable: newConf.Enable,
-		Timeout: newConf.Timeout,
+		Enable:      newConf.Enable,
+		Timeout:     newConf.Timeout,
 	}
 	return h.server.UpdateTacacsGlobalConfig(conf)
 }
@@ -453,8 +453,8 @@ func (h *SYSDHandler) GetTacacsGlobalState(name string) (*sysd.TacacsGlobalState
 		return nil, err
 	}
 	retObj := &sysd.TacacsGlobalState{
-		ProfileName: serverObj.ProfileName,
-		OperStatus: serverObj.OperStatus,
+		ProfileName:       serverObj.ProfileName,
+		OperStatus:        serverObj.OperStatus,
 		NumActiveSessions: serverObj.NumActiveSessions,
 	}
 	return retObj, nil
@@ -463,7 +463,7 @@ func (h *SYSDHandler) GetTacacsGlobalState(name string) (*sysd.TacacsGlobalState
 func (h *SYSDHandler) GetBulkTacacsGlobalState(fromIdx sysd.Int, count sysd.Int) (*sysd.TacacsGlobalStateGetInfo, error) {
 	result := &sysd.TacacsGlobalStateGetInfo{}
 	nextIdx, actualCount, more, tacacsGlobalStateSlice :=
-			h.server.GetTacacsGlobalStateSlice(int(fromIdx), int(count))
+		h.server.GetTacacsGlobalStateSlice(int(fromIdx), int(count))
 
 	result.StartIdx = sysd.Int(fromIdx)
 	result.EndIdx = sysd.Int(nextIdx)
@@ -472,8 +472,8 @@ func (h *SYSDHandler) GetBulkTacacsGlobalState(fromIdx sysd.Int, count sysd.Int)
 	result.TacacsGlobalStateList = []*sysd.TacacsGlobalState{}
 	for _, tacacsGlobalState := range tacacsGlobalStateSlice {
 		tmp := &sysd.TacacsGlobalState{
-			ProfileName: tacacsGlobalState.ProfileName,
-			OperStatus: tacacsGlobalState.OperStatus,
+			ProfileName:       tacacsGlobalState.ProfileName,
+			OperStatus:        tacacsGlobalState.OperStatus,
 			NumActiveSessions: tacacsGlobalState.NumActiveSessions,
 		}
 		result.TacacsGlobalStateList = append(result.TacacsGlobalStateList, tmp)

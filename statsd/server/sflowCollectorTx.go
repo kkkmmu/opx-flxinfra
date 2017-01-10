@@ -75,3 +75,7 @@ func (c *sflowCollector) collectorTx(receiptChan chan *dgramSentRcpt, termCh cha
 		}
 	}
 }
+
+func (c *sflowCollector) shutdownCollectorTx() {
+	c.shutdownCh <- true
+}
